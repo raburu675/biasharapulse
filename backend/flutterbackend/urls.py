@@ -16,9 +16,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from app.views import dashboard_summary
+from app.views import dashboard_summary, pos_summary, stock_movements, create_sale
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Existing
     path('api/dashboard/<int:business_id>/summary/', dashboard_summary),
+    path('pos-summary/<int:business_id>/', pos_summary, name='pos_summary'),
+
+    # NEW — matches dashboard_service.dart's fetchStockMovements()
+    # GET  -> read the stock movement log
+    # POST -> create a Stock In / Waste-Damage adjustment
+    path('api/dashboard/<int:business_id>/stock-movements/', stock_movements, name='stock_movements'),
+
+    # NEW — matches product_service.dart's createSale()
+    path('create-sale/<int:business_id>/', create_sale, name='create_sale'),
 ]

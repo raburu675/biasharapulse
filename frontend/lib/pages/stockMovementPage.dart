@@ -3,10 +3,17 @@
 // Dedicated Stock In / Stock Out logging page. Separate from Point of Sale
 // (which logs revenue-generating sales) — this covers everything else that
 // changes stock: deliveries, restocks, returns, damage, theft, corrections.
+//
+// Reads/writes the same Product.stock_count and StockMovement table that
+// inventory.dart and pos.dart use, via the stock_movements() Django view —
+// so a Stock In logged here is immediately reflected everywhere else that
+// reloads (Active Inventory on the dashboard, stock counts on POS, etc).
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'inventory.dart'; // reuses the BiasharaPulse color system — do not redefine colors locally
+import '../services/dashboard_service.dart'; // fetchStockMovements / logStockMovement
+import '../services/pos_service.dart'; // fetchPerformance — same product data pos.dart uses
 
 enum MovementType { stockIn, stockOut }
 
@@ -18,42 +25,75 @@ class StockMovementPage extends StatefulWidget {
 }
 
 class _StockMovementPageState extends State<StockMovementPage> {
-  // TODO: replace with the real product catalog (fetched or shared with Inventory)
-  final List<Map<String, dynamic>> _products = [
-    {'sku': 'SKU-CAP-001', 'name': 'NY Yankees 59FIFTY Fitted', 'category': 'MLB', 'stock': 18},
-    {'sku': 'SKU-CAP-002', 'name': 'LA Dodgers 59FIFTY Fitted', 'category': 'MLB', 'stock': 12},
-    {'sku': 'SKU-CAP-003', 'name': 'Chicago Bulls 59FIFTY Fitted', 'category': 'NBA', 'stock': 0},
-    {'sku': 'SKU-CAP-004', 'name': 'LA Lakers Snapback', 'category': 'NBA', 'stock': 22},
-    {'sku': 'SKU-CAP-005', 'name': 'KC Chiefs Fitted', 'category': 'NFL', 'stock': 14},
-  ];
+  // TODO: replace with the real logged-in business ID once auth is wired up
+  final int _businessId = 1;
 
-  // TODO: replace with real movement history (fetched from backend)
-  final List<Map<String, dynamic>> _recentMovements = [
-    {
-      'type': MovementType.stockIn,
-      'item': 'NY Yankees 59FIFTY Fitted',
-      'reason': 'New Delivery',
-      'qty': 20,
-      'time': 'Today, 09:30 AM',
-      'user': 'Admin',
-    },
-    {
-      'type': MovementType.stockOut,
-      'item': 'Chicago Bulls 59FIFTY Fitted',
-      'reason': 'Damage/Waste',
-      'qty': 2,
-      'time': 'Yesterday, 04:15 PM',
-      'user': 'John',
-    },
-    {
-      'type': MovementType.stockIn,
-      'item': 'KC Chiefs Fitted',
-      'reason': 'Customer Return',
-      'qty': 1,
-      'time': 'Yesterday, 11:02 AM',
-      'user': 'Admin',
-    },
-  ];
+  // ── Live data state ──────────────────────────────────
+  bool _isLoading = true;
+  String? _error;
+  bool _isSubmitting = false;
+
+  // Products — fetched from the same pos_summary endpoint pos.dart uses,
+  // so stock numbers here always match what's shown there.
+  List<Map<String, dynamic>> _products = [];
+
+  // Recent movements — fetched from the real StockMovement log
+  List<Map<String, dynamic>> _recentMovements = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        ProductService.fetchPerformance(_businessId),
+        DashboardService.fetchStockMovements(_businessId),
+      ]);
+
+      final productData = results[0];
+      final movementData = results[1];
+
+      final products = (productData['products'] as List)
+          .map((p) => {
+                'id': p['id'],
+                'name': p['name'],
+                'category': p['category'],
+                'stock': p['stock_quantity'],
+              })
+          .toList()
+          .cast<Map<String, dynamic>>();
+
+      final movements = List<Map<String, dynamic>>.from(
+        (movementData['movements'] ?? []).map((m) => Map<String, dynamic>.from(m)),
+      );
+
+      setState(() {
+        _products = products;
+        _recentMovements = movements;
+        _isLoading = false;
+
+        // If the currently selected product no longer matches fresh data
+        // (e.g. its stock just changed), refresh the reference so the
+        // "in stock" number shown stays correct.
+        if (_selectedProduct != null) {
+          final match = _products.where((p) => p['id'] == _selectedProduct!['id']);
+          _selectedProduct = match.isNotEmpty ? match.first : null;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   MovementType _type = MovementType.stockIn;
   Map<String, dynamic>? _selectedProduct;
@@ -70,9 +110,17 @@ class _StockMovementPageState extends State<StockMovementPage> {
 
   Color get _typeColor => _type == MovementType.stockIn ? kGreenAccent : kCherryRed;
 
+  List<Map<String, dynamic>> get _searchedProducts {
+    final query = _searchController.text.toLowerCase();
+    if (query.isEmpty) return _products;
+    return _products.where((p) => p['name'].toString().toLowerCase().contains(query)).toList();
+  }
+
+  // Movement type from the backend is a display label ('Stock In',
+  // 'Waste/Damage', 'Low Stock Alert') — map the filter chips to it.
   List<Map<String, dynamic>> get _filteredMovements {
     if (_movementFilter == 'All') return _recentMovements;
-    final wanted = _movementFilter == 'Stock In' ? MovementType.stockIn : MovementType.stockOut;
+    final wanted = _movementFilter == 'Stock In' ? 'Stock In' : 'Waste/Damage';
     return _recentMovements.where((m) => m['type'] == wanted).toList();
   }
 
@@ -111,10 +159,85 @@ class _StockMovementPageState extends State<StockMovementPage> {
   bool get _canLog =>
       _selectedProduct != null &&
       _selectedReason != null &&
+      !_isSubmitting &&
       (_type == MovementType.stockIn || _quantity <= ((_selectedProduct?['stock'] as int?) ?? 0));
+
+  // Submits the movement to Django, then reloads everything so the product
+  // list, stock numbers, and movement log all reflect the change together —
+  // same "reload after write" pattern used in pos.dart's Sell dialog.
+  Future<void> _logMovement() async {
+    if (!_canLog) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await DashboardService.logStockMovement(
+        businessId: _businessId,
+        productId: _selectedProduct!['id'],
+        movementType: _type == MovementType.stockIn ? 'stock_in' : 'waste_damage',
+        quantityChange: _quantity,
+        note: _noteController.text,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _type == MovementType.stockIn
+                ? 'Logged +$_quantity ${_selectedProduct!['name']}'
+                : 'Logged -$_quantity ${_selectedProduct!['name']}',
+          ),
+          backgroundColor: _typeColor,
+        ),
+      );
+
+      // Reset the form
+      setState(() {
+        _quantity = 1;
+        _selectedReason = null;
+        _noteController.clear();
+        _isSubmitting = false;
+      });
+
+      // Reload products + movement log so everything stays in sync
+      await _loadAll();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: kCherryRed,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: kBlackRich,
+        body: Center(child: CircularProgressIndicator(color: kElectricCyan)),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: kBlackRich,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Could not load stock movement data: $_error',
+              style: GoogleFonts.inter(color: kCherryRed, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: kBlackRich,
       body: SafeArea(
@@ -139,10 +262,8 @@ class _StockMovementPageState extends State<StockMovementPage> {
                     ),
                   ),
                   _iconButton(
-                    icon: Icons.history,
-                    onTap: () {
-                      // TODO: navigate to a full movement history/audit log
-                    },
+                    icon: Icons.refresh,
+                    onTap: _loadAll,
                   ),
                 ],
               ),
@@ -188,96 +309,82 @@ class _StockMovementPageState extends State<StockMovementPage> {
                     // ── Product ─────────────────────────────────
                     _label('Product'),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            style: GoogleFonts.inter(fontSize: 12, color: kOffWhiteText),
-                            decoration: InputDecoration(
-                              hintText: 'Search SKU, product, or shelf...',
-                              hintStyle: GoogleFonts.inter(color: kMutedText, fontSize: 12),
-                              prefixIcon: const Icon(Icons.search, size: 18, color: kMutedText),
-                              filled: true,
-                              fillColor: kCardSurface,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: kBorderSubtle),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: kBorderSubtle),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: kOffWhiteText, width: 1.2),
-                              ),
-                            ),
-                            // TODO: wire up live product search against _products
-                          ),
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (_) => setState(() {}),
+                      style: GoogleFonts.inter(fontSize: 12, color: kOffWhiteText),
+                      decoration: InputDecoration(
+                        hintText: 'Search product...',
+                        hintStyle: GoogleFonts.inter(color: kMutedText, fontSize: 12),
+                        prefixIcon: const Icon(Icons.search, size: 18, color: kMutedText),
+                        filled: true,
+                        fillColor: kCardSurface,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBorderSubtle),
                         ),
-                        const SizedBox(width: 10),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: kCardSurface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: kBorderSubtle),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.qr_code_scanner, color: kOffWhiteText, size: 20),
-                            onPressed: () {
-                              // TODO: wire up barcode/QR scanner logic — should call _selectedProduct = result
-                            },
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                            constraints: const BoxConstraints(),
-                          ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kBorderSubtle),
                         ),
-                      ],
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: kOffWhiteText, width: 1.2),
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 12),
 
-                    // Quick product picks — TODO: replace with live search results
-                    SizedBox(
-                      height: 34,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _products.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final product = _products[index];
-                          final selected = _selectedProduct?['sku'] == product['sku'];
-                          return GestureDetector(
-                            onTap: () => setState(() {
-                              _selectedProduct = product;
-                              _quantity = 1;
-                            }),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: selected ? _typeColor.withOpacity(0.15) : kCardSurface,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: selected ? _typeColor : kBorderSubtle,
-                                  width: selected ? 1.3 : 1,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  product['name'],
-                                  style: GoogleFonts.inter(
-                                    color: selected ? kOffWhiteText : kMutedText,
-                                    fontSize: 10.5,
-                                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                                  ),
-                                ),
-                              ),
+                    // Product picker — real products from pos_summary
+                    _searchedProducts.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'No products found',
+                              style: GoogleFonts.inter(color: kMutedText, fontSize: 11),
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                          )
+                        : SizedBox(
+                            height: 34,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _searchedProducts.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                final product = _searchedProducts[index];
+                                final selected = _selectedProduct?['id'] == product['id'];
+                                return GestureDetector(
+                                  onTap: () => setState(() {
+                                    _selectedProduct = product;
+                                    _quantity = 1;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: selected ? _typeColor.withOpacity(0.15) : kCardSurface,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: selected ? _typeColor : kBorderSubtle,
+                                        width: selected ? 1.3 : 1,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        product['name'],
+                                        style: GoogleFonts.inter(
+                                          color: selected ? kOffWhiteText : kMutedText,
+                                          fontSize: 10.5,
+                                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
 
                     const SizedBox(height: 14),
 
@@ -378,42 +485,37 @@ class _StockMovementPageState extends State<StockMovementPage> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           elevation: 0,
                         ),
-                        onPressed: _canLog
-                            ? () {
-                                // TODO: persist the movement, adjust stockQuantity
-                                // on the selected product, and prepend an entry
-                                // to _recentMovements / the backend log.
-                              }
-                            : null,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _type == MovementType.stockIn
-                                  ? Icons.call_received_rounded
-                                  : Icons.call_made_rounded,
-                              size: 18,
-                              color: kOffWhiteText,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _type == MovementType.stockIn ? 'Log Stock In' : 'Log Stock Out',
-                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800),
-                            ),
-                          ],
-                        ),
+                        onPressed: _canLog ? _logMovement : null,
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: kOffWhiteText, strokeWidth: 2),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _type == MovementType.stockIn
+                                        ? Icons.call_received_rounded
+                                        : Icons.call_made_rounded,
+                                    size: 18,
+                                    color: kOffWhiteText,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _type == MovementType.stockIn ? 'Log Stock In' : 'Log Stock Out',
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
 
                     const SizedBox(height: 32),
 
-                    // ── Recent Movements ─────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _label('Recent Movements'),
-                      ],
-                    ),
+                    // ── Recent Movements — real data ─────────────────
+                    _label('Recent Movements'),
                     const SizedBox(height: 12),
                     Row(
                       children: ['All', 'Stock In', 'Stock Out'].map((filter) {
@@ -574,7 +676,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${product['sku']} • ${product['category']} • ${product['stock']} in stock',
+                  '${product['category']} • ${product['stock']} in stock',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(color: kMutedText, fontSize: 9.5),
@@ -629,11 +731,15 @@ class _StockMovementPageState extends State<StockMovementPage> {
     );
   }
 
+  // Movement cards now read the backend's actual response shape:
+  // 'type' (display label), 'item', 'qty' (already formatted string),
+  // 'time', 'user' — matching stock_movements() in views.py exactly.
   Widget _movementCard(Map<String, dynamic> movement) {
-    final MovementType type = movement['type'] as MovementType;
-    final Color color = type == MovementType.stockIn ? kGreenAccent : kCherryRed;
-    final String qtyLabel =
-        '${type == MovementType.stockIn ? '+' : '-'}${movement['qty']} units';
+    final String type = movement['type'].toString();
+    final bool isStockIn = type == 'Stock In';
+    final Color color = type == 'Low Stock Alert'
+        ? kNeonAmber
+        : (isStockIn ? kGreenAccent : kCherryRed);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -653,9 +759,9 @@ class _StockMovementPageState extends State<StockMovementPage> {
               borderRadius: BorderRadius.circular(9),
             ),
             child: Icon(
-              type == MovementType.stockIn
-                  ? Icons.call_received_rounded
-                  : Icons.call_made_rounded,
+              type == 'Low Stock Alert'
+                  ? Icons.warning_amber_rounded
+                  : (isStockIn ? Icons.call_received_rounded : Icons.call_made_rounded),
               color: color,
               size: 16,
             ),
@@ -667,7 +773,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  movement['item'],
+                  movement['item'].toString(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -678,7 +784,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${movement['reason']} • By ${movement['user']} • ${movement['time']}',
+                  '$type • By ${movement['user']}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(color: kMutedText, fontSize: 9.5),
@@ -694,7 +800,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              qtyLabel,
+              movement['qty'].toString(),
               style: GoogleFonts.inter(
                 color: color,
                 fontSize: 10.5,

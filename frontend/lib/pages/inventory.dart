@@ -6,7 +6,7 @@ import 'pos.dart';
 import 'stockMovementPage.dart';
 import 'suppliersPage.dart';
 import 'orders.dart';
-import '../services/dashboard_service.dart'; // NEW: fetches live data from Django
+import '../services/dashboard_service.dart'; // fetches live data from Django
 
 // Brand colors — BiasharaPulse Pure Dark Design System
 const kBlackBase = Color(0xFF141414);
@@ -25,7 +25,6 @@ const kCherryRed = Color(0xFFDC2626);
 const kSoftIvory = Color(0xFFEDE8DE);
 
 // Brand Accent Colors
-
 const kAmberGold = Color(0xFFD4A373);
 const kGreenAccent = Color(0xFF16A34A);
 const kAmberWarning = Color(0xFFD97706);
@@ -36,6 +35,10 @@ const kPurpleAccent = Color(0xFF9333EA);
 const kForestGreen = Color(0xFF15803D);
 const kDeepGreen = Color(0xFF14532D);
 
+const List<String> _monthAbbrev = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
 
 class Inventory extends StatefulWidget {
   const Inventory({super.key});
@@ -45,27 +48,10 @@ class Inventory extends StatefulWidget {
 }
 
 class _InventoryState extends State<Inventory> {
-  // 12-Month Performance Data (Past Year in KES thousands)
-  // NOTE: still static placeholders — monthly trend history isn't wired to
-  // the backend yet since your test data only spans one month so far.
-  final List<double> _monthlySales = [
-    320, 410, 385, 460, 510, 565, 490, 530, 580, 620, 680, 750
-  ];
-  final List<double> _monthlyExpenses = [
-    210, 250, 235, 265, 285, 300, 270, 290, 310, 330, 350, 390
-  ];
-  final List<double> _monthlyProfitMargin = [
-    28.5, 30.2, 29.1, 32.4, 34.0, 32.8, 31.5, 33.0, 34.2, 35.0, 36.1, 35.5
-  ];
-  final List<String> _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
-
   int _touchedPieIndex = -1;
   int _activeMovementTab = 0; // 0: All Logs, 1: Stock Adjustments, 2: Reorder Alerts
 
-  // ── LIVE DATA STATE (NEW) ──────────────────────────────
+  // ── LIVE DATA STATE ──────────────────────────────
   bool _isLoading = true;
   String? _error;
 
@@ -77,6 +63,18 @@ class _InventoryState extends State<Inventory> {
   List<Map<String, dynamic>> _paymentSplit = [];
   List<Map<String, dynamic>> _categoryVolume = [];
 
+  // Monthly chart data — populated from the API
+  List<String> _months = [];
+  List<double> _monthlySales = [];
+  List<double> _monthlyExpenses = [];
+  List<double> _monthlyProfitMargin = [];
+
+  // Recent sales feed — real data from `recent_activity`
+  List<Map<String, dynamic>> _recentSales = [];
+
+  // Stock movement log — real data from the new StockMovement endpoint
+  List<Map<String, dynamic>> _stockMovements = [];
+
   // TODO: replace with the real logged-in business ID once auth is wired up
   final int _businessId = 1;
 
@@ -84,11 +82,45 @@ class _InventoryState extends State<Inventory> {
   void initState() {
     super.initState();
     _loadDashboard();
+    _loadStockMovements();
   }
 
+  // Turns an ISO date/datetime string like "2026-08-01T00:00:00Z" into "Aug"
+  String _monthLabel(String isoDate) {
+    final parsed = DateTime.parse(isoDate);
+    return _monthAbbrev[parsed.month - 1];
+  }
+
+  //this function does asynchronous work (waits on a network call) and doesn't return any value when it's done
   Future<void> _loadDashboard() async {
     try {
       final data = await DashboardService.fetchSummary(_businessId);
+
+      final List monthlySalesRaw = data['monthly_sales'] ?? [];
+      final List monthlyExpensesRaw = data['monthly_expenses'] ?? [];
+      final List monthlyMarginRaw = data['monthly_profit_margin'] ?? [];
+
+      final months = monthlySalesRaw
+          .map((row) => _monthLabel(row['month'].toString()))
+          .toList()
+          .cast<String>();
+      final salesValues = monthlySalesRaw
+          .map((row) => double.parse(row['total'].toString()))
+          .toList()
+          .cast<double>();
+      final expenseValues = monthlyExpensesRaw
+          .map((row) => double.parse(row['total'].toString()))
+          .toList()
+          .cast<double>();
+      final marginValues = monthlyMarginRaw
+          .map((row) => double.parse(row['margin'].toString()))
+          .toList()
+          .cast<double>();
+
+      final recentSales = List<Map<String, dynamic>>.from(
+        (data['recent_activity'] ?? []).map((r) => Map<String, dynamic>.from(r)),
+      );
+
       setState(() {
         _netRevenueToday = double.parse(data['net_revenue'].toString());
         _expensesToday = double.parse(data['expenses'].toString());
@@ -97,6 +129,14 @@ class _InventoryState extends State<Inventory> {
         _activeInventory = data['active_inventory'];
         _paymentSplit = List<Map<String, dynamic>>.from(data['payment_channel_split']);
         _categoryVolume = List<Map<String, dynamic>>.from(data['category_volume']);
+
+        _months = months;
+        _monthlySales = salesValues;
+        _monthlyExpenses = expenseValues;
+        _monthlyProfitMargin = marginValues;
+
+        _recentSales = recentSales;
+
         _isLoading = false;
       });
     } catch (e) {
@@ -106,40 +146,31 @@ class _InventoryState extends State<Inventory> {
       });
     }
   }
-  // ────────────────────────────────────────────────────────
 
-  final List<Map<String, dynamic>> _stockLogs = [
-    {
-      'type': 'Stock In',
-      'item': 'New York Yankees 59FIFTY Fitted',
-      'qty': '+20 units',
-      'time': 'Today, 09:30 AM',
-      'user': 'Admin',
-      'category': 'MLB',
-      'currentStock': 38,
-      'reorderPoint': 10,
-    },
-    {
-      'type': 'Waste/Damage',
-      'item': 'Chicago Bulls 59FIFTY Fitted',
-      'qty': '-2 units (0 left)',
-      'time': 'Yesterday, 04:15 PM',
-      'user': 'John',
-      'category': 'NBA',
-      'currentStock': 0,
-      'reorderPoint': 8,
-    },
-    {
-      'type': 'Low Stock Alert',
-      'item': 'LA Dodgers Sideline Edition',
-      'qty': '3 units left',
-      'time': 'Yesterday, 01:20 PM',
-      'user': 'System',
-      'category': 'MLB',
-      'currentStock': 3,
-      'reorderPoint': 10,
-    },
-  ];
+  // NEW: fetches the stock movement log from the StockMovement endpoint.
+  // Fetches all recent movements once, then filter chips slice client-side
+  // in _filteredStockLogs() — avoids a network call every time a chip is tapped.
+  //
+  // Requires adding a fetchStockMovements(businessId) method to
+  // DashboardService (or a new StockMovementService), pointed at:
+  //   GET /api/businesses/<business_id>/stock-movements/
+  // returning the same shape as dashboard_summary — see the Django
+  // stock_movement_log view for the exact response format.
+  Future<void> _loadStockMovements() async {
+    try {
+      final data = await DashboardService.fetchStockMovements(_businessId);
+      final movements = List<Map<String, dynamic>>.from(
+        (data['movements'] ?? []).map((m) => Map<String, dynamic>.from(m)),
+      );
+      setState(() {
+        _stockMovements = movements;
+      });
+    } catch (e) {
+      // Non-fatal — the rest of the dashboard still works without this.
+      // Leaves _stockMovements empty so the section just shows "No activity yet".
+    }
+  }
+  // ────────────────────────────────────────────────────────
 
   // Green = comfortably above the reorder point, Yellow = at/below it
   // (still have stock, but time to reorder), Red = literally zero left.
@@ -182,9 +213,31 @@ class _InventoryState extends State<Inventory> {
     return colors[index % colors.length];
   }
 
+  // Rough "time ago" label for the recent sales / stock movement feeds
+  String _timeAgo(String isoDate) {
+    final dt = DateTime.parse(isoDate).toLocal();
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  // Filters _stockMovements by the active chip. type/currentStock/reorderPoint
+  // come straight off the API now — no more hardcoded log entries.
+  List<Map<String, dynamic>> _filteredStockLogs() {
+    if (_activeMovementTab == 0) return _stockMovements; // All Logs
+    if (_activeMovementTab == 1) {
+      // Stock Adjustments = Stock In + Waste/Damage
+      return _stockMovements.where((log) => log['type'] != 'Low Stock Alert').toList();
+    }
+    // Reorder Alerts
+    return _stockMovements.where((log) => log['type'] == 'Low Stock Alert').toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ── Loading state (NEW) ──
+    // ── Loading state ──
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: kBlackRich,
@@ -192,7 +245,7 @@ class _InventoryState extends State<Inventory> {
       );
     }
 
-    // ── Error state (NEW) ──
+    // ── Error state ──
     if (_error != null) {
       return Scaffold(
         backgroundColor: kBlackRich,
@@ -208,6 +261,13 @@ class _InventoryState extends State<Inventory> {
         ),
       );
     }
+
+    // Dynamic Y-axis ceiling for the bar chart so it scales with real data
+    final double barMaxY = _monthlySales.isEmpty
+        ? 100
+        : (_monthlySales.reduce((a, b) => a > b ? a : b) * 1.2).ceilToDouble();
+
+    final filteredLogs = _filteredStockLogs();
 
     return Scaffold(
       backgroundColor: kBlackRich,
@@ -489,22 +549,32 @@ class _InventoryState extends State<Inventory> {
                           icon: Icons.point_of_sale,
                           label: 'POS',
                           accentColor: kElectricCyan,
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            // Wait for the POS page to be popped, then
+                            // reload — otherwise Active Inventory/Revenue
+                            // here stay stale after a sale is made there,
+                            // since this screen's initState() only runs once
+                            // and doesn't re-fire just from navigating back.
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const Pos()),
                             );
+                            _loadDashboard();
                           },
                         ),
                         _actionShortcut(
                           icon: Icons.sync_alt_rounded,
                           label: 'Stock Movement',
                           accentColor: kElectricPurple,
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            // Same fix as the POS button — reload after
+                            // returning, since a stock movement logged there
+                            // changes Active Inventory shown here.
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => const StockMovementPage()),
                             );
+                            _loadDashboard();
                           },
                         ),
                         _actionShortcut(
@@ -540,202 +610,211 @@ class _InventoryState extends State<Inventory> {
 
                     Column(
                       children: [
-                        // Chart 1: Sales (White) vs Expense (Electric Purple/Cyan Gradient)
-                        // NOTE: still static placeholder data — see comment near
-                        // _monthlySales above.
+                        // Chart 1: Sales (White) vs Expense (Electric Purple) — LIVE
                         _chartContainer(
                           title: 'Sales & Expense Breakdown',
-                          subtitle: 'Past 12 months (k KES)',
+                          subtitle: 'By month (KES)',
                           height: 204,
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: BarChart(
-                                  BarChartData(
-                                    alignment: BarChartAlignment.spaceAround,
-                                    maxY: 800,
-                                    gridData: const FlGridData(show: false),
-                                    borderData: FlBorderData(show: false),
-                                    titlesData: FlTitlesData(
-                                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      bottomTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: true,
-                                          getTitlesWidget: (value, meta) {
-                                            final index = value.toInt();
-                                            if (index >= 0 && index < _months.length) {
-                                              return Padding(
-                                                padding: const EdgeInsets.only(top: 4.0),
-                                                child: Text(
-                                                  _months[index],
-                                                  style: GoogleFonts.inter(
-                                                    color: kMutedText,
-                                                    fontSize: 6.5,
-                                                  ),
+                          child: _monthlySales.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No sales recorded yet',
+                                    style: GoogleFonts.inter(color: kMutedText, fontSize: 9),
+                                  ),
+                                )
+                              : Column(
+                                  children: [
+                                    Expanded(
+                                      child: BarChart(
+                                        BarChartData(
+                                          alignment: BarChartAlignment.spaceAround,
+                                          maxY: barMaxY,
+                                          gridData: const FlGridData(show: false),
+                                          borderData: FlBorderData(show: false),
+                                          titlesData: FlTitlesData(
+                                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            bottomTitles: AxisTitles(
+                                              sideTitles: SideTitles(
+                                                showTitles: true,
+                                                getTitlesWidget: (value, meta) {
+                                                  final index = value.toInt();
+                                                  if (index >= 0 && index < _months.length) {
+                                                    return Padding(
+                                                      padding: const EdgeInsets.only(top: 4.0),
+                                                      child: Text(
+                                                        _months[index],
+                                                        style: GoogleFonts.inter(
+                                                          color: kMutedText,
+                                                          fontSize: 6.5,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+                                                  return const SizedBox.shrink();
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          barGroups: List.generate(_months.length, (i) {
+                                            final double expenseVal = _monthlyExpenses.length > i ? _monthlyExpenses[i] : 0;
+                                            final double salesVal = _monthlySales[i];
+
+                                            return BarChartGroupData(
+                                              x: i,
+                                              barRods: [
+                                                BarChartRodData(
+                                                  toY: salesVal,
+                                                  width: 8,
+                                                  borderRadius: BorderRadius.circular(3),
+                                                  rodStackItems: [
+                                                    BarChartRodStackItem(
+                                                      0,
+                                                      expenseVal > salesVal ? salesVal : expenseVal,
+                                                      kElectricPurple,
+                                                    ),
+                                                    BarChartRodStackItem(
+                                                      expenseVal > salesVal ? salesVal : expenseVal,
+                                                      salesVal,
+                                                      kOffWhiteText,
+                                                    ),
+                                                  ],
                                                 ),
-                                              );
-                                            }
-                                            return const SizedBox.shrink();
-                                          },
+                                              ],
+                                            );
+                                          }),
                                         ),
                                       ),
                                     ),
-                                    barGroups: List.generate(_months.length, (i) {
-                                      final double expenseVal = _monthlyExpenses[i];
-                                      final double salesVal = _monthlySales[i];
-                                      
-                                      return BarChartGroupData(
-                                        x: i,
-                                        barRods: [
-                                          BarChartRodData(
-                                            toY: salesVal,
-                                            width: 8,
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 7,
+                                          height: 7,
+                                          decoration: BoxDecoration(
+                                            color: kElectricPurple,
                                             borderRadius: BorderRadius.circular(3),
-                                            rodStackItems: [
-                                              // Lower segment: Expenses (Cyan/Purple Blend)
-                                              BarChartRodStackItem(
-                                                0,
-                                                expenseVal,
-                                                kElectricPurple,
-                                              ),
-                                              // Upper segment: Sales (Pure White)
-                                              BarChartRodStackItem(
-                                                expenseVal,
-                                                salesVal,
-                                                kOffWhiteText,
-                                              ),
-                                            ],
                                           ),
-                                        ],
-                                      );
-                                    }),
-                                  ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text('Expenses', style: GoogleFonts.inter(color: kMutedText, fontSize: 7)),
+                                        const SizedBox(width: 16),
+                                        Container(
+                                          width: 7,
+                                          height: 7,
+                                          decoration: BoxDecoration(
+                                            color: kOffWhiteText,
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text('Sales', style: GoogleFonts.inter(color: kMutedText, fontSize: 7)),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: BoxDecoration(
-                                      color: kElectricPurple,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text('Expenses', style: GoogleFonts.inter(color: kMutedText, fontSize: 7)),
-                                  const SizedBox(width: 16),
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: BoxDecoration(
-                                      color: kOffWhiteText,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text('Sales', style: GoogleFonts.inter(color: kMutedText, fontSize: 7)),
-                                ],
-                              ),
-                            ],
-                          ),
                         ),
 
                         const SizedBox(height: 12),
 
-                        // Chart 2: Profit Margin Line Wave Chart
-                        // NOTE: still static placeholder data (same reason as Chart 1)
+                        // Chart 2: Profit Margin Line Chart — LIVE
                         _chartContainer(
                           title: 'Profit Margin',
                           subtitle: 'Monthly yield trend',
                           height: 187,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${_monthlyProfitMargin.last.toStringAsFixed(1)}%',
-                                    style: GoogleFonts.inter(
-                                      color: kElectricCyan,
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                          child: _monthlyProfitMargin.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No margin data yet',
+                                    style: GoogleFonts.inter(color: kMutedText, fontSize: 9),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 2),
-                                    child: Text(
-                                      '+${(_monthlyProfitMargin.last - _monthlyProfitMargin.first).toStringAsFixed(1)}% past year',
-                                      style: GoogleFonts.inter(
-                                        color: kMutedText,
-                                        fontSize: 8,
-                                      ),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${_monthlyProfitMargin.last.toStringAsFixed(1)}%',
+                                          style: GoogleFonts.inter(
+                                            color: kElectricCyan,
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 2),
+                                          child: Text(
+                                            '${(_monthlyProfitMargin.last - _monthlyProfitMargin.first) >= 0 ? '+' : ''}${(_monthlyProfitMargin.last - _monthlyProfitMargin.first).toStringAsFixed(1)}% vs first month',
+                                            style: GoogleFonts.inter(
+                                              color: kMutedText,
+                                              fontSize: 8,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: LineChart(
-                                  LineChartData(
-                                    gridData: const FlGridData(show: false),
-                                    borderData: FlBorderData(show: false),
-                                    titlesData: FlTitlesData(
-                                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                      bottomTitles: AxisTitles(
-                                        sideTitles: SideTitles(
-                                          showTitles: true,
-                                          getTitlesWidget: (value, meta) {
-                                            final index = value.toInt();
-                                            if (index >= 0 && index < _months.length) {
-                                              return Text(
-                                                _months[index],
-                                                style: GoogleFonts.inter(
-                                                  color: kMutedText,
-                                                  fontSize: 6.5,
-                                                ),
-                                              );
-                                            }
-                                            return const SizedBox.shrink();
-                                          },
+                                    const SizedBox(height: 8),
+                                    Expanded(
+                                      child: LineChart(
+                                        LineChartData(
+                                          gridData: const FlGridData(show: false),
+                                          borderData: FlBorderData(show: false),
+                                          titlesData: FlTitlesData(
+                                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                            bottomTitles: AxisTitles(
+                                              sideTitles: SideTitles(
+                                                showTitles: true,
+                                                getTitlesWidget: (value, meta) {
+                                                  final index = value.toInt();
+                                                  if (index >= 0 && index < _months.length) {
+                                                    return Text(
+                                                      _months[index],
+                                                      style: GoogleFonts.inter(
+                                                        color: kMutedText,
+                                                        fontSize: 6.5,
+                                                      ),
+                                                    );
+                                                  }
+                                                  return const SizedBox.shrink();
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                          lineBarsData: [
+                                            LineChartBarData(
+                                              spots: List.generate(
+                                                _monthlyProfitMargin.length,
+                                                (i) => FlSpot(i.toDouble(), _monthlyProfitMargin[i]),
+                                              ),
+                                              isCurved: true,
+                                              color: kElectricCyan,
+                                              barWidth: 2.5,
+                                              isStrokeCapRound: true,
+                                              dotData: const FlDotData(show: true),
+                                              belowBarData: BarAreaData(
+                                                show: true,
+                                                color: kElectricCyan.withOpacity(0.15),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                    lineBarsData: [
-                                      LineChartBarData(
-                                        spots: List.generate(
-                                          _monthlyProfitMargin.length,
-                                          (i) => FlSpot(i.toDouble(), _monthlyProfitMargin[i]),
-                                        ),
-                                        isCurved: true,
-                                        color: kElectricCyan,
-                                        barWidth: 2.5,
-                                        isStrokeCapRound: true,
-                                        dotData: const FlDotData(show: true),
-                                        belowBarData: BarAreaData(
-                                          show: true,
-                                          color: kElectricCyan.withOpacity(0.15),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
                         ),
 
                         const SizedBox(height: 12),
 
-                        // Chart 3: Payment Split Pie Chart (NOW LIVE)
+                        // Chart 3: Payment Split Pie Chart (LIVE)
                         _chartContainer(
                           title: 'Payment Channel Split',
                           subtitle: 'M-Pesa vs Cash vs Card',
@@ -806,7 +885,7 @@ class _InventoryState extends State<Inventory> {
 
                         const SizedBox(height: 12),
 
-                        // Chart 4: Stock Share by Category (NOW LIVE)
+                        // Chart 4: Stock Share by Category (LIVE)
                         _chartContainer(
                           title: 'Category Volume',
                           subtitle: 'Inventory share',
@@ -837,13 +916,110 @@ class _InventoryState extends State<Inventory> {
 
                     const SizedBox(height: 28),
 
-                    // ── Stock Movement Audit Log Section ────────────────
-                    // NOTE: still using placeholder _stockLogs — this becomes
-                    // real once the Stock Movement page/model is built.
+                    // ── Recent Sales Feed (real data from recent_activity) ──
+                    _sectionHeader('Recent Sales'),
+                    const SizedBox(height: 10),
+                    _recentSales.isEmpty
+                        ? Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: kCardSurface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: kBorderSubtle),
+                            ),
+                            child: Text(
+                              'No sales recorded yet',
+                              style: GoogleFonts.inter(color: kMutedText, fontSize: 9),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _recentSales.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final sale = _recentSales[index];
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: kCardSurface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: kBorderSubtle),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 29,
+                                      height: 29,
+                                      decoration: BoxDecoration(
+                                        color: kGreenAccent.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(9),
+                                      ),
+                                      child: const Icon(
+                                        Icons.point_of_sale_rounded,
+                                        color: kGreenAccent,
+                                        size: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            sale['product'].toString(),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.inter(
+                                              color: kOffWhiteText,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${_channelLabel(sale['payment_channel'].toString())} • ${_timeAgo(sale['created_at'].toString())}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.inter(
+                                              color: kMutedText,
+                                              fontSize: 8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: kGreenAccent.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'KES ${double.parse(sale['amount'].toString()).toStringAsFixed(0)}',
+                                        style: GoogleFonts.inter(
+                                          color: kGreenAccent,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+
+                    const SizedBox(height: 28),
+
+                    // ── Stock Movement Audit Log Section — NOW LIVE ─────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _sectionHeader('Recent Activity'),
+                        _sectionHeader('Stock Movement Log'),
                         GestureDetector(
                           onTap: () {
                             Navigator.push(
@@ -864,7 +1040,7 @@ class _InventoryState extends State<Inventory> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Interactive Filter Chips
+                    // Interactive Filter Chips — now filter real _stockMovements data
                     Row(
                       children: [
                         _filterChip('All Logs', 0),
@@ -877,100 +1053,113 @@ class _InventoryState extends State<Inventory> {
 
                     const SizedBox(height: 12),
 
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _stockLogs.take(3).length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final log = _stockLogs[index];
-                        final healthColor = _stockHealthColor(
-                          log['currentStock'] as int,
-                          log['reorderPoint'] as int,
-                        );
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: kCardSurface,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: kBorderSubtle),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 29,
-                                height: 29,
+                    filteredLogs.isEmpty
+                        ? Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: kCardSurface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: kBorderSubtle),
+                            ),
+                            child: Text(
+                              'No activity in this category yet',
+                              style: GoogleFonts.inter(color: kMutedText, fontSize: 9),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filteredLogs.take(3).length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final log = filteredLogs[index];
+                              final healthColor = _stockHealthColor(
+                                log['currentStock'] as int,
+                                log['reorderPoint'] as int,
+                              );
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: healthColor.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(9),
+                                  color: kCardSurface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: kBorderSubtle),
                                 ),
-                                child: Icon(
-                                  log['type'] == 'Stock In'
-                                      ? Icons.add_circle_outline
-                                      : log['type'] == 'Waste/Damage'
-                                          ? Icons.remove_circle_outline
-                                          : Icons.warning_amber_rounded,
-                                  color: healthColor,
-                                  size: 15,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      log['item'],
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        color: kOffWhiteText,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
+                                    Container(
+                                      width: 29,
+                                      height: 29,
+                                      decoration: BoxDecoration(
+                                        color: healthColor.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(9),
+                                      ),
+                                      child: Icon(
+                                        log['type'] == 'Stock In'
+                                            ? Icons.add_circle_outline
+                                            : log['type'] == 'Waste/Damage'
+                                                ? Icons.remove_circle_outline
+                                                : Icons.warning_amber_rounded,
+                                        color: healthColor,
+                                        size: 15,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${log['type']} • By ${log['user']} • ${log['time']}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        color: kMutedText,
-                                        fontSize: 8,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            log['item'].toString(),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.inter(
+                                              color: kOffWhiteText,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${log['type']} • By ${log['user']} • ${_timeAgo(log['time'].toString())}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.inter(
+                                              color: kMutedText,
+                                              fontSize: 8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: healthColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        log['qty'].toString(),
+                                        style: GoogleFonts.inter(
+                                          color: healthColor,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: healthColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  log['qty'],
-                                  style: GoogleFonts.inter(
-                                    color: healthColor,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),
