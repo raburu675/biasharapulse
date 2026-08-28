@@ -157,3 +157,114 @@ class StockMovement(models.Model):
 
     def __str__(self):
         return f"{self.movement_type} - {self.product} ({self.quantity_change})"
+
+
+class Order(models.Model):
+    # Tracks orders through fulfillment (payment -> processing -> shipping
+    # -> delivery). Distinct from a POS SaleRecord — this is for orders that
+    # need to physically get to a customer, mainly from the website/Instagram.
+    #
+    # IMPORTANT DESIGN DECISION: an order only affects Product.stock_count,
+    # SaleRecord, and Expense once it's marked DELIVERED — not at creation,
+    # not while pending/processing/shipped. This is deliberate: if stock/
+    # revenue were touched at creation, cancelling an order later would need
+    # to "undo" that (give stock back, remove revenue) — the same reversal
+    # problem we hit with Product.save()'s auto-Expense logic. Counting only
+    # on delivery avoids that entirely: a cancelled order never touched
+    # anything else, so there's nothing to reverse.
+    STATUS_CHOICES = [
+        ('pending', 'Pending Payment'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+    SOURCE_CHOICES = [
+        ('website', 'Website'),
+        ('instagram', 'Instagram'),
+    ]
+
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='orders')
+    order_number = models.CharField(max_length=20, unique=True, blank=True)
+    customer_name = models.CharField(max_length=255)
+    customer_phone = models.CharField(max_length=30)
+    shipping_address = models.CharField(max_length=255)
+    payment_method = models.CharField(max_length=20, choices=SaleRecord.PAYMENT_CHOICES, default='mpesa')
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES)
+    courier = models.CharField(max_length=100, blank=True)
+    tracking_number = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Internal guard — prevents creating duplicate SaleRecords if a
+    # delivered order gets saved again (e.g. editing customer_phone later).
+    delivery_processed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.order_number} - {self.customer_name}"
+
+    def save(self, *args, **kwargs):
+        # Auto-generate an order number the first time this is created
+        if not self.order_number:
+            last = Order.objects.filter(business=self.business).order_by('-id').first()
+            next_num = (last.id + 1) if last else 1
+            self.order_number = f'ORD-{3000 + next_num}'
+
+        is_new = self._state.adding
+        previous_status = None
+        if not is_new:
+            previous_status = Order.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+
+        super().save(*args, **kwargs)
+
+        # Only fires the FIRST time status becomes 'delivered' — this is
+        # where an order becomes real revenue and touches stock, via the
+        # same SaleRecord.save() logic every other sale goes through.
+        just_delivered = (
+            self.status == 'delivered'
+            and previous_status != 'delivered'
+            and not self.delivery_processed
+        )
+        if just_delivered:
+            for item in self.items.all():
+                if item.product is not None:
+                    SaleRecord.objects.create(
+                        business=self.business,
+                        product=item.product,
+                        quantity=item.quantity,
+                        payment_channel=self.payment_method,
+                    )
+            self.delivery_processed = True
+            super().save(update_fields=['delivery_processed'])
+
+    @property
+    def total_amount(self):
+        # Computed live from line items — never stored, so it can never
+        # drift out of sync with what the items actually add up to.
+        return sum((item.line_total for item in self.items.all()), 0)
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    # SET_NULL: keep the line item's name/price even if the product is later deleted
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, related_name='order_items')
+    name = models.CharField(max_length=255)  # denormalized so it survives product deletion
+    quantity = models.PositiveIntegerField(default=1)
+    price_at_order = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    def save(self, *args, **kwargs):
+        # Lock in the product's price at the moment this line item is
+        # created, so total_amount stays historically accurate even if the
+        # product's price changes later. Same principle as SaleRecord.amount.
+        if self._state.adding and self.product is not None and not self.price_at_order:
+            self.price_at_order = self.product.price
+            if not self.name:
+                self.name = self.product.name
+        super().save(*args, **kwargs)
+
+    @property
+    def line_total(self):
+        return self.price_at_order * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.name}"

@@ -4,12 +4,37 @@
 // delivery. Distinct from Receipts (proof of an already-completed POS sale)
 // and Invoices (money owed) — this is specifically about orders that need
 // to physically get to a customer, mainly from the website/Instagram.
+//
+// LIVE DATA: an order only touches Product.stock_count / SaleRecord /
+// Expense once it's marked "Delivered" — see Order.save() in models.py.
+// Marking Delivered here will change numbers on inventory.dart and pos.dart
+// too, the next time those screens reload.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'inventory.dart'; // reuses the BiasharaPulse color system — do not redefine colors locally
+import '../services/orders_service.dart';
 
 enum OrderStatus { pending, processing, shipped, delivered, cancelled }
+
+OrderStatus _statusFromString(String s) {
+  switch (s) {
+    case 'pending':
+      return OrderStatus.pending;
+    case 'processing':
+      return OrderStatus.processing;
+    case 'shipped':
+      return OrderStatus.shipped;
+    case 'delivered':
+      return OrderStatus.delivered;
+    case 'cancelled':
+      return OrderStatus.cancelled;
+    default:
+      return OrderStatus.pending;
+  }
+}
+
+String _statusToString(OrderStatus s) => s.name; // enum name matches backend value exactly
 
 class OrderLineItem {
   final String name;
@@ -19,7 +44,7 @@ class OrderLineItem {
 }
 
 class CustomerOrder {
-  final String id;
+  final int id;
   final String orderNumber;
   final String customerName;
   final String customerPhone;
@@ -28,7 +53,7 @@ class CustomerOrder {
   final double totalAmount;
   final String paymentMethod;
   final String orderDate;
-  final String source; // 'Website' or 'Instagram'
+  final String source;
   final String courier;
   final String trackingNumber;
   OrderStatus status;
@@ -48,6 +73,26 @@ class CustomerOrder {
     this.trackingNumber = '',
     this.status = OrderStatus.pending,
   });
+
+  factory CustomerOrder.fromJson(Map<String, dynamic> json) {
+    return CustomerOrder(
+      id: json['id'],
+      orderNumber: json['order_number'],
+      customerName: json['customer_name'],
+      customerPhone: json['customer_phone'],
+      shippingAddress: json['shipping_address'],
+      items: (json['items'] as List)
+          .map((i) => OrderLineItem(name: i['name'], qty: i['qty']))
+          .toList(),
+      totalAmount: double.parse(json['total_amount'].toString()),
+      paymentMethod: json['payment_method'],
+      orderDate: json['created_at'].toString(),
+      source: json['source'],
+      courier: json['courier'] ?? '',
+      trackingNumber: json['tracking_number'] ?? '',
+      status: _statusFromString(json['status']),
+    );
+  }
 
   String get statusLabel {
     switch (status) {
@@ -90,81 +135,45 @@ class OrdersPage extends StatefulWidget {
 }
 
 class _OrdersPageState extends State<OrdersPage> {
-  // TODO: replace with real orders (fetched from the Django backend / Daraja callbacks)
-  final List<CustomerOrder> _orders = [
-    CustomerOrder(
-      id: '1',
-      orderNumber: 'ORD-3051',
-      customerName: 'Ann Wanjiku',
-      customerPhone: '+254 711 223 344',
-      shippingAddress: 'Kilimani, Nairobi',
-      items: [OrderLineItem(name: 'NY Yankees 59FIFTY Fitted', qty: 1), OrderLineItem(name: 'KC Chiefs Fitted', qty: 1)],
-      totalAmount: 9000,
-      paymentMethod: 'M-Pesa',
-      orderDate: 'Today',
-      source: 'Website',
-      courier: 'G4S Courier',
-      trackingNumber: 'G4S-88213',
-      status: OrderStatus.shipped,
-    ),
-    CustomerOrder(
-      id: '2',
-      orderNumber: 'ORD-3050',
-      customerName: 'Brian Otieno',
-      customerPhone: '+254 722 556 677',
-      shippingAddress: 'Nakuru Town',
-      items: [OrderLineItem(name: 'LA Dodgers 59FIFTY Fitted', qty: 1)],
-      totalAmount: 4500,
-      paymentMethod: 'M-Pesa',
-      orderDate: 'Yesterday',
-      source: 'Instagram',
-      status: OrderStatus.processing,
-    ),
-    CustomerOrder(
-      id: '3',
-      orderNumber: 'ORD-3049',
-      customerName: 'Faith Njeri',
-      customerPhone: '+254 733 998 877',
-      shippingAddress: 'Mombasa Road, Nairobi',
-      items: [
-        OrderLineItem(name: 'LA Lakers Snapback', qty: 1),
-        OrderLineItem(name: 'NY Yankees 59FIFTY Fitted', qty: 2),
-      ],
-      totalAmount: 13500,
-      paymentMethod: 'M-Pesa',
-      orderDate: '3 days ago',
-      source: 'Website',
-      courier: 'Wells Fargo Courier',
-      trackingNumber: 'WF-4432',
-      status: OrderStatus.delivered,
-    ),
-    CustomerOrder(
-      id: '4',
-      orderNumber: 'ORD-3048',
-      customerName: 'Kevin Mutua',
-      customerPhone: '+254 700 112 233',
-      shippingAddress: 'Kisumu',
-      items: [OrderLineItem(name: 'Chicago Bulls 59FIFTY Fitted', qty: 1)],
-      totalAmount: 4200,
-      paymentMethod: 'M-Pesa',
-      orderDate: '4 days ago',
-      source: 'Website',
-      status: OrderStatus.pending,
-    ),
-    CustomerOrder(
-      id: '5',
-      orderNumber: 'ORD-3047',
-      customerName: 'Grace Achieng',
-      customerPhone: '+254 744 556 621',
-      shippingAddress: 'Eldoret',
-      items: [OrderLineItem(name: 'KC Chiefs Fitted', qty: 1)],
-      totalAmount: 3800,
-      paymentMethod: 'M-Pesa',
-      orderDate: '5 days ago',
-      source: 'Instagram',
-      status: OrderStatus.cancelled,
-    ),
-  ];
+  final int _businessId = 1;
+
+  bool _isLoading = true;
+  String? _error;
+  List<CustomerOrder> _orders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await OrdersService.fetchOrders(_businessId);
+      final orders = (data['orders'] as List).map((o) => CustomerOrder.fromJson(o)).toList();
+      setState(() {
+        _orders = orders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _formatDate(String iso) {
+    final dt = DateTime.parse(iso).toLocal();
+    final diff = DateTime.now().difference(dt);
+    if (diff.inHours < 24) return 'Today';
+    if (diff.inHours < 48) return 'Yesterday';
+    return '${diff.inDays} days ago';
+  }
 
   String _searchQuery = '';
   String _statusFilter = 'All';
@@ -185,25 +194,65 @@ class _OrdersPageState extends State<OrdersPage> {
   int get _inTransit => _orders.where((o) => o.status == OrderStatus.shipped).length;
   int get _delivered => _orders.where((o) => o.status == OrderStatus.delivered).length;
 
-  void _advanceStatus(CustomerOrder order) {
+  Future<void> _advanceStatus(CustomerOrder order) async {
     if (order.status == OrderStatus.cancelled || order.status == OrderStatus.delivered) return;
-    setState(() {
-      order.status = OrderStatus.values[order.status.index + 1];
-    });
+    final nextStatus = OrderStatus.values[order.status.index + 1];
+    await _updateStatus(order, nextStatus);
   }
 
-  void _cancelOrder(CustomerOrder order) {
-    setState(() => order.status = OrderStatus.cancelled);
+  Future<void> _cancelOrder(CustomerOrder order) async {
+    await _updateStatus(order, OrderStatus.cancelled);
+  }
+
+  Future<void> _updateStatus(CustomerOrder order, OrderStatus newStatus) async {
+    try {
+      await OrdersService.updateOrderStatus(
+        businessId: _businessId,
+        orderId: order.id,
+        status: _statusToString(newStatus),
+      );
+      setState(() => order.status = newStatus);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: kCherryRed,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: kBlackRich,
+        body: Center(child: CircularProgressIndicator(color: kElectricCyan)),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: kBlackRich,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Could not load orders: $_error',
+              style: GoogleFonts.inter(color: kCherryRed, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: kBlackRich,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Top Navigation Bar ─────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
@@ -214,9 +263,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     'Orders',
                     style: GoogleFonts.inter(color: kOffWhiteText, fontSize: 16, fontWeight: FontWeight.w800),
                   ),
-                  _iconButton(icon: Icons.sort, onTap: () {
-                    // TODO: sort by date, amount, or status
-                  }),
+                  _iconButton(icon: Icons.refresh, onTap: _loadOrders),
                 ],
               ),
             ),
@@ -227,7 +274,6 @@ class _OrdersPageState extends State<OrdersPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── 2x2 Summary Grid ─────────────────
                     Column(
                       children: [
                         Row(
@@ -261,7 +307,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
                     const SizedBox(height: 16),
 
-                    // ── Search ─────────────────────────
                     TextField(
                       onChanged: (val) => setState(() => _searchQuery = val),
                       style: GoogleFonts.inter(color: kOffWhiteText, fontSize: 12),
@@ -280,7 +325,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
                     const SizedBox(height: 12),
 
-                    // ── Status Filter Chips ─────────────────────
                     SizedBox(
                       height: 34,
                       child: ListView.separated(
@@ -315,7 +359,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
                     const SizedBox(height: 14),
 
-                    // ── Order List ─────────────────────
                     _filteredOrders.isEmpty
                         ? _emptyState()
                         : Column(
@@ -335,8 +378,6 @@ class _OrdersPageState extends State<OrdersPage> {
       ),
     );
   }
-
-  // ── Helpers ─────────────────────────────────────────────────────────────
 
   Widget _iconButton({required IconData icon, required VoidCallback onTap}) {
     return Container(
@@ -427,7 +468,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '${order.customerName} • ${order.items.length} item${order.items.length > 1 ? 's' : ''} • ${order.orderDate}',
+                        '${order.customerName} • ${order.items.length} item${order.items.length > 1 ? 's' : ''} • ${_formatDate(order.orderDate)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(color: kMutedText, fontSize: 9.5),
@@ -497,7 +538,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(order.orderDate, style: GoogleFonts.inter(color: kMutedText, fontSize: 11)),
+                    Text(_formatDate(order.orderDate), style: GoogleFonts.inter(color: kMutedText, fontSize: 11)),
                     const SizedBox(height: 18),
 
                     if (order.status == OrderStatus.cancelled)
@@ -579,8 +620,8 @@ class _OrdersPageState extends State<OrdersPage> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   elevation: 0,
                                 ),
-                                onPressed: () {
-                                  _advanceStatus(order);
+                                onPressed: () async {
+                                  await _advanceStatus(order);
                                   setModalState(() {});
                                 },
                                 child: Text(
@@ -596,8 +637,8 @@ class _OrdersPageState extends State<OrdersPage> {
                           ),
                           const SizedBox(width: 10),
                           GestureDetector(
-                            onTap: () {
-                              _cancelOrder(order);
+                            onTap: () async {
+                              await _cancelOrder(order);
                               setModalState(() {});
                             },
                             child: Container(
@@ -645,7 +686,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Widget _orderTimeline(CustomerOrder order) {
     const steps = ['Pending', 'Processing', 'Shipped', 'Delivered'];
-    final currentIndex = order.status.index; // pending=0 ... delivered=3
+    final currentIndex = order.status.index;
 
     return Row(
       children: List.generate(steps.length * 2 - 1, (i) {

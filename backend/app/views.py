@@ -4,7 +4,7 @@ from django.db.models import Sum, Count
 from django.db.models.functions import TruncMonth
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Business, Product, SaleRecord, Expense, StockMovement
+from .models import Business, Product, SaleRecord, Expense, StockMovement, Order, OrderItem
 
 
 @api_view(['GET'])
@@ -420,3 +420,72 @@ def create_sale(request, business_id):
         'remaining_stock': product.stock_count,
         'created_at': sale.created_at,
     }, status=201)
+
+
+@api_view(['GET'])
+def order_list(request, business_id):
+    """
+    Returns all orders for a business, newest first, with their line items
+    and computed total. Powers orders.dart's order list.
+    """
+    try:
+        business = Business.objects.get(id=business_id)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+
+    orders = Order.objects.filter(business=business).prefetch_related('items').order_by('-created_at')
+
+    order_data = []
+    for o in orders:
+        order_data.append({
+            'id': o.id,
+            'order_number': o.order_number,
+            'customer_name': o.customer_name,
+            'customer_phone': o.customer_phone,
+            'shipping_address': o.shipping_address,
+            'items': [
+                {'name': item.name, 'qty': item.quantity}
+                for item in o.items.all()
+            ],
+            'total_amount': o.total_amount,
+            'payment_method': o.get_payment_method_display(),
+            'created_at': o.created_at,
+            'source': o.get_source_display(),
+            'courier': o.courier,
+            'tracking_number': o.tracking_number,
+            'status': o.status,  # raw value ('pending', 'processing', etc) — Flutter maps this to OrderStatus enum
+        })
+
+    return Response({'orders': order_data})
+
+
+@api_view(['PATCH'])
+def update_order_status(request, business_id, order_id):
+    """
+    Updates an order's status. Advancing to 'delivered' triggers
+    Order.save() to create SaleRecords for each line item (see models.py)
+    — this is the ONLY status change that touches stock/revenue/expenses.
+    """
+    try:
+        business = Business.objects.get(id=business_id)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+
+    try:
+        order = Order.objects.get(id=order_id, business=business)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=404)
+
+    new_status = request.data.get('status')
+    valid_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
+    if new_status not in valid_statuses:
+        return Response({'error': f'status must be one of {valid_statuses}'}, status=400)
+
+    order.status = new_status
+    order.save()
+
+    return Response({
+        'id': order.id,
+        'order_number': order.order_number,
+        'status': order.status,
+    })

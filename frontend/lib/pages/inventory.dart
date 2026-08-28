@@ -577,17 +577,17 @@ class _InventoryState extends State<Inventory> {
                             _loadDashboard();
                           },
                         ),
-                        _actionShortcut(
-                          icon: Icons.local_shipping_outlined,
-                          label: 'Suppliers',
-                          accentColor: kNeonAmber,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const SuppliersPage()),
-                            );
-                          },
-                        ),
+                        // _actionShortcut(
+                        //   icon: Icons.local_shipping_outlined,
+                        //   label: 'Suppliers',
+                        //   accentColor: kNeonAmber,
+                        //   onTap: () {
+                        //     Navigator.push(
+                        //       context,
+                        //       MaterialPageRoute(builder: (context) => const SuppliersPage()),
+                        //     );
+                        //   },
+                        // ),
                         _actionShortcut(
                           icon: Icons.assignment_outlined,
                           label: 'Orders',

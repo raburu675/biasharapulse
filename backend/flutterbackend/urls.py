@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from app.views import dashboard_summary, pos_summary, stock_movements, create_sale
+from app.views import dashboard_summary, pos_summary, stock_movements, create_sale, order_list, update_order_status
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -32,4 +32,9 @@ urlpatterns = [
 
     # NEW — matches product_service.dart's createSale()
     path('create-sale/<int:business_id>/', create_sale, name='create_sale'),
+
+
+    # NEW — Orders
+    path('api/orders/<int:business_id>/', order_list, name='order_list'),
+    path('api/orders/<int:business_id>/<int:order_id>/status/', update_order_status, name='update_order_status'),
 ]
