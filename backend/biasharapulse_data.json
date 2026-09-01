@@ -1,0 +1,1346 @@
+[
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$oHXPxdp80VFwGcD8TiF9AN$IQg98bo4rn3LuP14kkW++wfi9oE5WAMqfySx/1NFGjE=",
+    "last_login": "2026-08-12T07:24:28.869Z",
+    "is_superuser": true,
+    "username": "Raburu",
+    "first_name": "",
+    "last_name": "",
+    "email": "donraburu675@gmail.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-07-30T08:31:30.339Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "3cbtwcxpfgnmzd3hl4r25cef05mq9ec1",
+  "fields": {
+    "session_data": ".eJxVjLkOwjAQRP_FNbLWx_qgpM83ROtjcQAlUo4K8e8kUgqYct6beYuetrX121LnfijiKpS4_HaJ8rOOBygPGu-TzNO4zkOShyJPushuKvV1O92_g0ZL29fexUiOyRdjLBoAZAXOupwCV68jooJgHRhO4I0Hxj2VdGTNqEIQny-wlDZl:1wu3K8:AH4uvG-Enw9GBO6XzJw7MrJXdE-Kp9flqI3fC95FzsA",
+    "expire_date": "2026-08-26T07:24:28.905Z"
+  }
+},
+{
+  "model": "app.business",
+  "pk": 1,
+  "fields": {
+    "owner": [
+      "Raburu"
+    ],
+    "name": "34fitted",
+    "created_at": "2026-07-30T08:43:41.549Z"
+  }
+},
+{
+  "model": "app.product",
+  "pk": 1,
+  "fields": {
+    "business": 1,
+    "name": "Navy Blue New York Yankees",
+    "category": "MLB",
+    "stock_count": 31,
+    "reorder_point": 5,
+    "price": "1500.00",
+    "cost_price": "479.00",
+    "created_at": "2026-07-30T08:52:42.188Z"
+  }
+},
+{
+  "model": "app.product",
+  "pk": 2,
+  "fields": {
+    "business": 1,
+    "name": "New York Yankees 59FIFTY",
+    "category": "NBA",
+    "stock_count": 30,
+    "reorder_point": 5,
+    "price": "1349.00",
+    "cost_price": "430.00",
+    "created_at": "2026-07-30T08:53:23.860Z"
+  }
+},
+{
+  "model": "app.product",
+  "pk": 3,
+  "fields": {
+    "business": 1,
+    "name": "New York Mets",
+    "category": "NBA",
+    "stock_count": 30,
+    "reorder_point": 5,
+    "price": "1800.00",
+    "cost_price": "500.00",
+    "created_at": "2026-08-02T10:19:04.762Z"
+  }
+},
+{
+  "model": "app.product",
+  "pk": 4,
+  "fields": {
+    "business": 1,
+    "name": "black and green pittsburgh pirates",
+    "category": "MLB",
+    "stock_count": 30,
+    "reorder_point": 5,
+    "price": "2000.00",
+    "cost_price": "450.00",
+    "created_at": "2026-08-02T10:21:28.066Z"
+  }
+},
+{
+  "model": "app.product",
+  "pk": 5,
+  "fields": {
+    "business": 1,
+    "name": "Boston Red Sox",
+    "category": "MLB",
+    "stock_count": 30,
+    "reorder_point": 5,
+    "price": "1800.00",
+    "cost_price": "450.00",
+    "created_at": "2026-08-02T10:26:26.990Z"
+  }
+},
+{
+  "model": "app.product",
+  "pk": 6,
+  "fields": {
+    "business": 1,
+    "name": "LA Dodgers",
+    "category": "MLB",
+    "stock_count": 30,
+    "reorder_point": 5,
+    "price": "1600.00",
+    "cost_price": "450.00",
+    "created_at": "2026-08-03T14:17:23.631Z"
+  }
+},
+{
+  "model": "app.expense",
+  "pk": 1,
+  "fields": {
+    "business": 1,
+    "category": "Supplies",
+    "amount": "5000.00",
+    "note": "1st purchase",
+    "created_at": "2026-07-30T08:56:28.122Z"
+  }
+},
+{
+  "model": "app.expense",
+  "pk": 5,
+  "fields": {
+    "business": 1,
+    "category": "Supplies",
+    "amount": "2000.00",
+    "note": "Rent",
+    "created_at": "2026-08-03T14:24:41.348Z"
+  }
+},
+{
+  "model": "app.expense",
+  "pk": 6,
+  "fields": {
+    "business": 1,
+    "category": "Initial Stock",
+    "amount": "82770.00",
+    "note": "Backfilled cost of 180 units already in stock at setup.",
+    "created_at": "2026-08-24T03:31:21.381Z"
+  }
+},
+{
+  "model": "app.expense",
+  "pk": 7,
+  "fields": {
+    "business": 1,
+    "category": "Inventory Purchase",
+    "amount": "958.00",
+    "note": "Auto-logged: stock_count increased by 2 units for Navy Blue New York Yankees (direct edit).",
+    "created_at": "2026-08-24T04:24:14.467Z"
+  }
+},
+{
+  "model": "app.stockmovement",
+  "pk": 1,
+  "fields": {
+    "business": 1,
+    "product": 1,
+    "movement_type": "stock_in",
+    "quantity_change": 2,
+    "resulting_stock": 32,
+    "user": null,
+    "note": "Delivered ",
+    "created_at": "2026-08-24T04:24:14.491Z"
+  }
+},
+{
+  "model": "app.stockmovement",
+  "pk": 2,
+  "fields": {
+    "business": 1,
+    "product": 1,
+    "movement_type": "waste_damage",
+    "quantity_change": -1,
+    "resulting_stock": 31,
+    "user": null,
+    "note": "",
+    "created_at": "2026-08-25T07:38:43.497Z"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 1,
+  "fields": {
+    "action_time": "2026-07-30T08:43:41.550Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "business"
+    ],
+    "object_id": "1",
+    "object_repr": "34fitted",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 2,
+  "fields": {
+    "action_time": "2026-07-30T08:52:42.190Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "1",
+    "object_repr": "Boston Red Sox",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 3,
+  "fields": {
+    "action_time": "2026-07-30T08:53:23.863Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 4,
+  "fields": {
+    "action_time": "2026-07-30T08:54:20.789Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Boston Red Sox - 1300",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 5,
+  "fields": {
+    "action_time": "2026-07-30T08:55:26.258Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY - 1350",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 6,
+  "fields": {
+    "action_time": "2026-07-30T08:55:46.717Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "3",
+    "object_repr": "Boston Red Sox - 1300",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 7,
+  "fields": {
+    "action_time": "2026-07-30T08:56:28.125Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "1",
+    "object_repr": "Supplies - 1500",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 8,
+  "fields": {
+    "action_time": "2026-08-02T10:19:04.770Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "3",
+    "object_repr": "New York Mets",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 9,
+  "fields": {
+    "action_time": "2026-08-02T10:21:28.067Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "4",
+    "object_repr": "black and green pittsburgh pirates",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 10,
+  "fields": {
+    "action_time": "2026-08-02T10:22:46.013Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "2",
+    "object_repr": "NBA - 450",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 11,
+  "fields": {
+    "action_time": "2026-08-02T10:22:59.608Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "3",
+    "object_repr": "NBA - 800",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 12,
+  "fields": {
+    "action_time": "2026-08-02T10:26:26.992Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "5",
+    "object_repr": "Boston Red Sox",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 13,
+  "fields": {
+    "action_time": "2026-08-02T10:26:45.816Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "4",
+    "object_repr": "MLB - 450",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 14,
+  "fields": {
+    "action_time": "2026-08-02T10:27:31.771Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "4",
+    "object_repr": "Boston Red Sox - 1500",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 15,
+  "fields": {
+    "action_time": "2026-08-02T10:27:44.262Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "5",
+    "object_repr": "New York Mets - 1800",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 16,
+  "fields": {
+    "action_time": "2026-08-02T10:27:57.265Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 2000",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 17,
+  "fields": {
+    "action_time": "2026-08-03T14:15:48.410Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "5",
+    "object_repr": "Boston Red Sox",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Cost price\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 18,
+  "fields": {
+    "action_time": "2026-08-03T14:16:02.019Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "4",
+    "object_repr": "black and green pittsburgh pirates",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Cost price\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 19,
+  "fields": {
+    "action_time": "2026-08-03T14:16:16.464Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "3",
+    "object_repr": "New York Mets",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Stock count\", \"Cost price\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 20,
+  "fields": {
+    "action_time": "2026-08-03T14:16:51.903Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "1",
+    "object_repr": "New York Yankees",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Name\", \"Price\", \"Cost price\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 21,
+  "fields": {
+    "action_time": "2026-08-03T14:17:23.634Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "6",
+    "object_repr": "LA Dodgers",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 22,
+  "fields": {
+    "action_time": "2026-08-03T14:18:28.581Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Cost price\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 23,
+  "fields": {
+    "action_time": "2026-08-03T14:19:04.390Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Name\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 24,
+  "fields": {
+    "action_time": "2026-08-03T14:23:52.033Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "4",
+    "object_repr": "MLB - 450.00",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 25,
+  "fields": {
+    "action_time": "2026-08-03T14:23:57.849Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "3",
+    "object_repr": "NBA - 800.00",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 26,
+  "fields": {
+    "action_time": "2026-08-03T14:24:03.048Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "2",
+    "object_repr": "NBA - 450.00",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 27,
+  "fields": {
+    "action_time": "2026-08-03T14:24:18.997Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "1",
+    "object_repr": "Supplies - 5000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Amount\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 28,
+  "fields": {
+    "action_time": "2026-08-03T14:24:41.349Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "expense"
+    ],
+    "object_id": "5",
+    "object_repr": "Supplies - 2000",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 29,
+  "fields": {
+    "action_time": "2026-08-17T11:45:05.623Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees - 1300.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 30,
+  "fields": {
+    "action_time": "2026-08-17T11:45:11.935Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "4",
+    "object_repr": "Boston Red Sox - 1500.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 31,
+  "fields": {
+    "action_time": "2026-08-17T11:45:19.099Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY - 1350.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 32,
+  "fields": {
+    "action_time": "2026-08-17T11:45:23.332Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "3",
+    "object_repr": "Navy Blue New York Yankees - 1300.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 33,
+  "fields": {
+    "action_time": "2026-08-17T11:45:30.739Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 2000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 34,
+  "fields": {
+    "action_time": "2026-08-18T05:58:41.414Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees - 1300.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 35,
+  "fields": {
+    "action_time": "2026-08-18T05:58:45.890Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY - 1350.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 36,
+  "fields": {
+    "action_time": "2026-08-18T05:58:51.983Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "3",
+    "object_repr": "Navy Blue New York Yankees - 1300.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 37,
+  "fields": {
+    "action_time": "2026-08-18T05:59:00.823Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 2000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 38,
+  "fields": {
+    "action_time": "2026-08-18T06:00:09.165Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 10000.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 39,
+  "fields": {
+    "action_time": "2026-08-18T06:00:12.839Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees - 6000.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 40,
+  "fields": {
+    "action_time": "2026-08-18T06:00:15.728Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY - 2698.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 41,
+  "fields": {
+    "action_time": "2026-08-18T06:03:41.871Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "4",
+    "object_repr": "Boston Red Sox - 14400.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 42,
+  "fields": {
+    "action_time": "2026-08-18T06:11:07.380Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees - 7500.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 43,
+  "fields": {
+    "action_time": "2026-08-18T06:12:02.378Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "3",
+    "object_repr": "Navy Blue New York Yankees - 1300.00",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 44,
+  "fields": {
+    "action_time": "2026-08-18T06:38:19.595Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "7",
+    "object_repr": "Boston Red Sox - 7200.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 45,
+  "fields": {
+    "action_time": "2026-08-18T09:44:53.511Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "7",
+    "object_repr": "Boston Red Sox - 1800.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 46,
+  "fields": {
+    "action_time": "2026-08-18T09:45:03.411Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 2000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 47,
+  "fields": {
+    "action_time": "2026-08-18T09:45:06.834Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "5",
+    "object_repr": "New York Mets - 1800.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 48,
+  "fields": {
+    "action_time": "2026-08-18T09:45:11.602Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY - 1349.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 49,
+  "fields": {
+    "action_time": "2026-08-18T09:45:16.505Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees - 1500.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 50,
+  "fields": {
+    "action_time": "2026-08-18T09:54:08.120Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "7",
+    "object_repr": "Boston Red Sox - 1800.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 51,
+  "fields": {
+    "action_time": "2026-08-18T09:55:13.388Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "7",
+    "object_repr": "Boston Red Sox - 1800.00",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 52,
+  "fields": {
+    "action_time": "2026-08-18T09:56:55.121Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "8",
+    "object_repr": "LA Dodgers - 3200.00",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 53,
+  "fields": {
+    "action_time": "2026-08-18T10:04:22.397Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "4",
+    "object_repr": "Boston Red Sox - 1800.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 54,
+  "fields": {
+    "action_time": "2026-08-18T10:06:40.258Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 4000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 55,
+  "fields": {
+    "action_time": "2026-08-18T10:07:00.501Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "8",
+    "object_repr": "LA Dodgers - 3200.00",
+    "action_flag": 2,
+    "change_message": "[]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 56,
+  "fields": {
+    "action_time": "2026-08-18T10:23:55.540Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "1",
+    "object_repr": "Navy Blue New York Yankees - 3000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 57,
+  "fields": {
+    "action_time": "2026-08-18T10:24:52.321Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "6",
+    "object_repr": "black and green pittsburgh pirates - 8000.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 58,
+  "fields": {
+    "action_time": "2026-08-18T10:28:39.223Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "4",
+    "object_repr": "Boston Red Sox - 3600.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 59,
+  "fields": {
+    "action_time": "2026-08-18T11:21:11.114Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "salerecord"
+    ],
+    "object_id": "8",
+    "object_repr": "LA Dodgers - 4800.00",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Quantity\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 60,
+  "fields": {
+    "action_time": "2026-08-19T06:39:40.842Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "6",
+    "object_repr": "LA Dodgers",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Stock count\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 61,
+  "fields": {
+    "action_time": "2026-08-19T06:39:50.132Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "5",
+    "object_repr": "Boston Red Sox",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Stock count\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 62,
+  "fields": {
+    "action_time": "2026-08-19T06:39:57.547Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "4",
+    "object_repr": "black and green pittsburgh pirates",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Stock count\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 63,
+  "fields": {
+    "action_time": "2026-08-19T06:40:05.618Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "3",
+    "object_repr": "New York Mets",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Stock count\"]}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 64,
+  "fields": {
+    "action_time": "2026-08-19T06:40:14.937Z",
+    "user": [
+      "Raburu"
+    ],
+    "content_type": [
+      "app",
+      "product"
+    ],
+    "object_id": "2",
+    "object_repr": "New York Yankees 59FIFTY",
+    "action_flag": 2,
+    "change_message": "[{\"changed\": {\"fields\": [\"Stock count\"]}}]"
+  }
+}
+]
