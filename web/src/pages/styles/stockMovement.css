@@ -1,0 +1,93 @@
+.movement-form {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #eeeeee;
+  flex-wrap: wrap;
+}
+
+.movement-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.movement-form label {
+  font-size: 13px;
+  color: #555555;
+  font-weight: 500;
+}
+
+.movement-form input,
+.movement-form select {
+  border: 1px solid #dddddd;
+  border-radius: 4px;
+  padding: 9px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  min-width: 140px;
+}
+
+.movement-form input:focus,
+.movement-form select:focus {
+  outline: none;
+  border-color: #C41E3A;
+}
+
+.movement-submit {
+  background: #C41E3A;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 38px;
+}
+
+.movement-submit:hover {
+  background: #a91930;
+}
+
+.movement-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.movement-table th {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #888888;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.movement-table td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.type-in {
+  color: #1a7a3c;
+  font-weight: 600;
+}
+
+.type-out {
+  color: #C41E3A;
+  font-weight: 600;
+}
+
+.edit-link {
+  background: none;
+  border: none;
+  color: #C41E3A;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}

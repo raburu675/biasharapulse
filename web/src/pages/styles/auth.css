@@ -1,0 +1,87 @@
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  font-family: 'Inter', sans-serif;
+}
+
+.auth-box {
+  width: 360px;
+}
+
+.auth-box .brand {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.auth-box h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 32px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.field label {
+  font-size: 13px;
+  color: #555555;
+  font-weight: 500;
+}
+
+.field input {
+  border: 1px solid #dddddd;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111111;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #C41E3A;
+}
+
+.auth-submit {
+  width: 100%;
+  background: #C41E3A;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.auth-submit:hover {
+  background: #a91930;
+}
+
+.auth-switch {
+  margin-top: 24px;
+  font-size: 13px;
+  color: #888888;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: #C41E3A;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-error {
+  font-size: 13px;
+  color: #C41E3A;
+  margin-bottom: 16px;
+}
