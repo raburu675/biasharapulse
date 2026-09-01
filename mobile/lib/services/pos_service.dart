@@ -11,7 +11,8 @@ class ProductService {
   // TODO: point this at wherever your other services (e.g. dashboard) get
   // their base URL from — swap for your Railway URL, or LAN IP/ngrok
   // when testing on a physical device.
-  static const String _baseUrl = 'http://127.0.0.1:8000';
+  // static const String _baseUrl = 'http://127.0.0.1:8000';
+  static const String _baseUrl = 'https://biasharapulse-production.up.railway.app';
 
   static Future<Map<String, dynamic>> fetchPerformance(int businessId) async {
     final uri = Uri.parse('$_baseUrl/pos-summary/$businessId/');

@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http; // for http.get
 
 class DashboardService {
   // Django server address
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  // static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = 'https://biasharapulse-production.up.railway.app';
 
   // Fetches dashboard data for one business
   static Future<Map<String, dynamic>> fetchSummary(int businessId) async {

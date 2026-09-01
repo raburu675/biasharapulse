@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class OrdersService {
-  static const String _baseUrl = 'http://127.0.0.1:8000';
+  // static const String _baseUrl = 'http://127.0.0.1:8000';
+  static const String _baseUrl = 'https://biasharapulse-production.up.railway.app';
 
   static Future<Map<String, dynamic>> fetchOrders(int businessId) async {
     final uri = Uri.parse('$_baseUrl/api/orders/$businessId/');
