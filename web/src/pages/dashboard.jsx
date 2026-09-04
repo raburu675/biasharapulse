@@ -12,6 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts'
+import Sidebar from './sidebar'
 import './styles/dashboard.css'
 
 // ── Initial Mock Data ─────────────────────────────────────
@@ -39,13 +40,6 @@ const categoryVolume = [
   { name: 'Toiletries', volume: 12, color: '#067A3B' },
 ]
 
-const quickLinks = [
-  { label: 'Dashboard', href: '/dashboard', icon: 'grid' },
-  { label: 'POS', href: '/pos', icon: 'pos' },
-  { label: 'Stock Movement', href: '/stock-movement', icon: 'sync' },
-  { label: 'Orders', href: '/orders', icon: 'orders' },
-]
-
 const recentSales = [
   { id: 'TXN-8821', item: 'White Bread 800g (x2)', channel: 'M-Pesa', amount: 'KES 240', time: '2m ago' },
   { id: 'TXN-8820', item: 'Fresh Milk 1L', channel: 'Cash', amount: 'KES 110', time: '14m ago' },
@@ -59,37 +53,14 @@ const stockMovements = [
   { id: 3, type: 'Waste / Damage', item: 'Yogurt Strawberry 250ml', user: 'Mercy N.', time: '2h ago', qty: '-2', isAlert: false },
 ]
 
-const icons = {
-  grid: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-    </svg>
-  ),
-  pos: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M2 11h20" /><path d="M7 15h.01" />
-    </svg>
-  ),
-  sync: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
-      <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
-    </svg>
-  ),
-  orders: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-    </svg>
-  ),
-}
-
 function Dashboard() {
-  const [active] = useState('Dashboard')
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeMovementTab, setActiveMovementTab] = useState(0)
-
   const [salesData] = useState(initialSalesData)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const toggleMenu = () => {
+    setIsMenuOpen((prev) => !prev)
+  }
 
   const totalSales = salesData.reduce((sum, d) => sum + d.sales, 0)
   const totalExpenses = salesData.reduce((sum, d) => sum + d.expenses, 0)
@@ -102,58 +73,56 @@ function Dashboard() {
     return true
   })
 
-  const SidebarContent = () => (
-    <>
-      <div className="brand">
-        <span className="brand-biashara">biashara</span>
-        <span className="brand-pulse">pulse</span>
-      </div>
-      <nav className="side-nav">
-        {quickLinks.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            className={active === link.label ? 'active' : ''}
-            onClick={() => setDrawerOpen(false)}
-          >
-            <span className="nav-icon">{icons[link.icon]}</span>
-            {link.label}
-          </a>
-        ))}
-      </nav>
-    </>
-  )
-
   return (
     <div className="app-shell">
-      {/* Desktop Sidebar */}
-      <aside className="sidebar">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile Drawer */}
-      {drawerOpen && (
-        <div className="drawer-overlay" onClick={() => setDrawerOpen(false)} />
-      )}
-      <aside className={`drawer ${drawerOpen ? 'drawer-open' : ''}`}>
-        <SidebarContent />
-      </aside>
+      <Sidebar current="dashboard" />
 
       <main className="main">
         {/* Header */}
         <header className="main-header">
-          <button className="drawer-toggle" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          <div>
-            <h1>Executive Dashboard</h1>
+          <div className="header-center">
+            <h1>BiasharaPulse</h1>
             <p className="header-sub">Live metrics & inventory health</p>
           </div>
-          <div className="live-badge">
-            <span className="live-dot" />
-            LIVE
+
+          {/* Far Right: Actions & Profile Dropdown */}
+          <div className="header-right">
+            <div className="live-badge">
+              <span className="live-dot" />
+              LIVE
+            </div>
+
+            <div className="dropdown-container">
+              <button
+                id="user-menu-btn"
+                className="profile-btn"
+                onClick={toggleMenu}
+                aria-label="Toggle Menu"
+                aria-expanded={isMenuOpen}
+              >
+                <svg
+                  className="user-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
+
+              <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
+                <a href="/signin" className="dropdown-item">
+                  Sign In
+                </a>
+                <a href="/signup" className="dropdown-item btn-signup">
+                  Sign Up
+                </a>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -202,19 +171,6 @@ function Dashboard() {
               <span>Active Inventory</span>
               <strong className="text-ivory">1,420 Pcs</strong>
             </div>
-          </div>
-        </section>
-
-        {/* Quick Workflows */}
-        <section className="quick-workflows">
-          <h2 className="section-title">Quick Workflows</h2>
-          <div className="workflow-row">
-            {quickLinks.filter(l => l.label !== 'Dashboard').map((link) => (
-              <a key={link.label} href={link.href} className="workflow-btn">
-                <span className="workflow-icon">{icons[link.icon]}</span>
-                {link.label}
-              </a>
-            ))}
           </div>
         </section>
 
@@ -316,7 +272,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* 1st Part After Payment Channels: Category Sales Volume */}
+          {/* Category Sales Volume */}
           <div className="chart-section volume-card">
             <div className="chart-card-header">
               <h2>Category Sales Volume</h2>
@@ -340,7 +296,7 @@ function Dashboard() {
 
         {/* Lower Feeds */}
         <section className="activity-grid">
-          {/* 2nd Part After Payment Channels: Recent Activity */}
+          {/* Recent Activity */}
           <div className="chart-section activity-card">
             <div className="chart-card-header">
               <h2>Recent Activity</h2>
@@ -364,7 +320,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* 3rd Part After Payment Channels: Stock Audit Logs */}
+          {/* Stock Audit Logs */}
           <div className="chart-section audit-card">
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>

@@ -1,660 +1,492 @@
-import { useState } from 'react'
-
-const products = [
-  { id: 1, name: 'New Era 59FIFTY', category: 'Fitted', stock: 34 },
-  { id: 2, name: 'New Era 9FORTY', category: 'Adjustable', stock: 18 },
-  { id: 3, name: 'New Era 9FIFTY', category: 'Snapback', stock: 7 },
-  { id: 4, name: 'New Era Low Profile', category: 'Fitted', stock: 22 },
-]
-
-const reasonsIn = ['Restock from Supplier', 'Customer Return', 'Stock Correction']
-const reasonsOut = ['Damage/Waste', 'Theft/Loss', 'Internal Use', 'Return to Supplier', 'Stock Correction']
+import { useState, useMemo } from 'react'
+import Sidebar from './sidebar'
+import './styles/stockMovement.css'
 
 const initialMovements = [
-  { id: 1, product: 'New Era 59FIFTY', type: 'in', quantity: 20, reason: 'Restock from Supplier', note: '', date: '2026-08-28' },
-  { id: 2, product: 'New Era 9FORTY', type: 'out', quantity: 5, reason: 'Return to Supplier', note: 'Sold', date: '2026-08-29' },
+  {
+    id: 'MOV-8801',
+    product_name: '59FIFTY Fitted Cap - Black / 7 3/8',
+    sku: 'NE-5950-BLK-738',
+    movement_type: 'IN',
+    reason: 'RESTOCK',
+    quantity: 50,
+    unit_cost: 1200,
+    total_value: 60000,
+    reference: 'PO-2026-089',
+    user: 'Don Ochieng',
+    created_at: '2026-09-04 09:15',
+    notes: 'Received batch shipment from supplier'
+  },
+  {
+    id: 'MOV-8802',
+    product_name: '9FORTY Adjustable Snapback - Navy',
+    sku: 'NE-940-NVY-OS',
+    movement_type: 'OUT',
+    reason: 'SALE',
+    quantity: -12,
+    unit_cost: 1000,
+    total_value: 12000,
+    reference: 'INV-1094',
+    user: 'System POS',
+    created_at: '2026-09-04 10:02',
+    notes: 'In-store retail purchase'
+  },
+  {
+    id: 'MOV-8803',
+    product_name: '34 Fitted Custom Patch Emblem',
+    sku: 'PATCH-34-GLD',
+    movement_type: 'OUT',
+    reason: 'DAMAGE',
+    quantity: -3,
+    unit_cost: 250,
+    total_value: 750,
+    reference: 'ADJ-004',
+    user: 'Don Ochieng',
+    created_at: '2026-09-03 16:45',
+    notes: 'Damaged adhesive lining during heat press'
+  },
+  {
+    id: 'MOV-8804',
+    product_name: '39THIRTY Stretch Fit - Charcoal',
+    sku: 'NE-3930-CHR-M',
+    movement_type: 'ADJUSTMENT',
+    reason: 'AUDIT',
+    quantity: 5,
+    unit_cost: 1100,
+    total_value: 5500,
+    reference: 'AUD-2026-Q3',
+    user: 'Don Ochieng',
+    created_at: '2026-09-01 11:30',
+    notes: 'Correction after end-of-month inventory count'
+  }
 ]
 
-const styles = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-.sm-root {
-  --black-rich: #0b0b0c;
-  --burgundy: #7a1230;
-  --burgundy-hover: #931a3c;
-  --white: #ffffff;
-  --off-white: #faf9f8;
-  --border: #e7e4e2;
-  --text-main: #17161a;
-  --text-muted: #7a7674;
-}
-.sm-root *, .sm-root *::before, .sm-root *::after { box-sizing: border-box; }
-
-.sm-shell {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: var(--white);
-  font-family: 'Inter', sans-serif;
-  color: var(--text-main);
-}
-
-.sm-nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 28px;
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
-}
-
-.sm-nav .brand { font-size: 15px; font-weight: 800; color: var(--black-rich); }
-
-.sm-nav .nav-left, .sm-nav .nav-right { display: flex; align-items: center; gap: 10px; }
-
-.sm-nav .icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-  background: var(--white);
-  color: var(--black-rich);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.sm-nav .icon-btn:hover { background: var(--off-white); border-color: var(--black-rich); }
-
-.sm-nav .nav-dropdown-wrapper { position: relative; }
-
-.sm-nav .nav-dropdown {
-  position: absolute;
-  top: 44px;
-  right: 0;
-  min-width: 150px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 8px 24px rgba(11, 11, 12, 0.08);
-}
-
-.sm-nav .nav-dropdown a {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-main);
-  text-decoration: none;
-  padding: 9px 10px;
-  border-radius: 6px;
-  transition: background 0.15s ease;
-}
-
-.sm-nav .nav-dropdown a:hover { background: rgba(122, 18, 48, 0.08); color: var(--burgundy); }
-
-.main { max-width: 720px; margin: 0 auto; padding: 36px 24px; }
-
-.main-header { margin-bottom: 24px; }
-
-.main-header h1 { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
-
-.subtitle { margin: 0; font-size: 13px; color: var(--text-muted); }
-
-.section-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin: 0 0 10px;
-}
-
-/* Type toggle */
-.type-toggle {
-  display: flex;
-  gap: 5px;
-  padding: 5px;
-  background: var(--off-white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  margin-bottom: 22px;
-}
-
-.type-toggle-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 11px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.type-toggle-btn.active-in {
-  background: rgba(11, 11, 12, 0.08);
-  border-color: var(--black-rich);
-  color: var(--black-rich);
-  font-weight: 800;
-}
-
-.type-toggle-btn.active-out {
-  background: rgba(122, 18, 48, 0.1);
-  border-color: var(--burgundy);
-  color: var(--burgundy);
-  font-weight: 800;
-}
-
-/* Search */
-.search-input {
-  width: 100%;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  outline: none;
-  margin-bottom: 12px;
-}
-
-.search-input:focus { border-color: var(--black-rich); }
-
-/* Chip row */
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.chip {
-  padding: 8px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--white);
-  font-family: 'Inter', sans-serif;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.chip.selected-in {
-  border-color: var(--black-rich);
-  background: rgba(11, 11, 12, 0.06);
-  color: var(--black-rich);
-  font-weight: 700;
-}
-
-.chip.selected-out {
-  border-color: var(--burgundy);
-  background: rgba(122, 18, 48, 0.08);
-  color: var(--burgundy);
-  font-weight: 700;
-}
-
-.empty-note { font-size: 12px; color: var(--text-muted); margin: 0 0 14px; }
-
-/* Selected product card */
-.product-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  background: var(--off-white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  margin-bottom: 22px;
-}
-
-.product-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.product-info-name { font-size: 12.5px; font-weight: 700; margin: 0; }
-.product-info-meta { font-size: 10.5px; color: var(--text-muted); margin: 3px 0 0; }
-
-/* Quantity stepper */
-.qty-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--off-white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 8px 10px;
-  margin-bottom: 6px;
-}
-
-.qty-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--white);
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  color: var(--text-main);
-}
-
-.qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.qty-value { font-size: 18px; font-weight: 800; }
-
-.qty-hint { font-size: 10.5px; color: var(--text-muted); margin: 0 0 22px; }
-
-/* Note */
-.note-input {
-  width: 100%;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  outline: none;
-  resize: vertical;
-  min-height: 70px;
-  margin-bottom: 22px;
-}
-
-.note-input:focus { border-color: var(--black-rich); }
-
-/* Submit button */
-.log-btn {
-  width: 100%;
-  padding: 14px;
-  border: none;
-  border-radius: 12px;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--white);
-  cursor: pointer;
-  margin-bottom: 32px;
-  transition: opacity 0.15s ease;
-}
-
-.log-btn.type-in-btn { background: var(--black-rich); }
-.log-btn.type-out-btn { background: var(--burgundy); }
-.log-btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
-
-/* Recent movements */
-.filter-row { display: flex; gap: 8px; margin-bottom: 14px; }
-
-.filter-chip {
-  padding: 7px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--white);
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.filter-chip.active { background: var(--burgundy); border-color: var(--burgundy); color: var(--white); }
-
-.movement-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  margin-bottom: 8px;
-}
-
-.movement-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.movement-icon.in { background: rgba(11, 11, 12, 0.08); }
-.movement-icon.out { background: rgba(122, 18, 48, 0.1); }
-
-.movement-name { font-size: 11.5px; font-weight: 700; margin: 0; }
-.movement-meta { font-size: 9.5px; color: var(--text-muted); margin: 2px 0 0; }
-
-.movement-qty {
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 10.5px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-.movement-qty.in { background: rgba(11, 11, 12, 0.1); color: var(--black-rich); }
-.movement-qty.out { background: rgba(122, 18, 48, 0.12); color: var(--burgundy); }
-
-.edit-link {
-  background: none;
-  border: none;
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--burgundy);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.edit-link:hover { text-decoration: underline; }
-
-.empty-row { text-align: center; padding: 24px; color: var(--text-muted); font-size: 12px; }
-
-@media (max-width: 720px) {
-  .sm-nav { padding: 12px 16px; }
-  .main { padding: 24px 16px; }
-}
-`
+const productOptions = [
+  { id: 101, name: '59FIFTY Fitted Cap - Black / 7 3/8', sku: 'NE-5950-BLK-738', cost: 1200 },
+  { id: 102, name: '9FORTY Adjustable Snapback - Navy', sku: 'NE-940-NVY-OS', cost: 1000 },
+  { id: 103, name: '34 Fitted Custom Patch Emblem', sku: 'PATCH-34-GLD', cost: 250 },
+  { id: 104, name: '39THIRTY Stretch Fit - Charcoal', sku: 'NE-3930-CHR-M', cost: 1100 }
+]
 
 function StockMovement() {
   const [movements, setMovements] = useState(initialMovements)
-  const [type, setType] = useState('in')
   const [search, setSearch] = useState('')
-  const [selectedProduct, setSelectedProduct] = useState(null)
-  const [quantity, setQuantity] = useState(1)
-  const [reason, setReason] = useState(null)
-  const [note, setNote] = useState('')
-  const [filter, setFilter] = useState('All')
-  const [accountOpen, setAccountOpen] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [filterType, setFilterType] = useState('ALL')
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const reasons = type === 'in' ? reasonsIn : reasonsOut
+  const [formData, setFormData] = useState({
+    product_id: '',
+    movement_type: 'IN',
+    reason: 'RESTOCK',
+    quantity: '',
+    unit_cost: '',
+    reference: '',
+    notes: ''
+  })
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const toggleMenu = () => setIsMenuOpen((prev) => !prev)
 
-  const selectType = (t) => {
-    setType(t)
-    setReason(null)
-    setQuantity(1)
-  }
-
-  const selectProduct = (p) => {
-    setSelectedProduct(p)
-    setQuantity(1)
-  }
-
-  const incrementQty = () => {
-    if (type === 'out') {
-      if (selectedProduct && quantity < selectedProduct.stock) setQuantity(quantity + 1)
+  const handleProductSelect = (e) => {
+    const pId = e.target.value
+    const selected = productOptions.find((p) => p.id === Number(pId))
+    if (selected) {
+      setFormData({
+        ...formData,
+        product_id: pId,
+        unit_cost: selected.cost
+      })
     } else {
-      setQuantity(quantity + 1)
+      setFormData({ ...formData, product_id: pId })
     }
   }
 
-  const decrementQty = () => {
-    if (quantity > 1) setQuantity(quantity - 1)
-  }
-
-  const canLog =
-    selectedProduct &&
-    reason &&
-    (type === 'in' || quantity <= selectedProduct.stock)
-
-  const handleLog = (e) => {
+  const handleCreateMovement = (e) => {
     e.preventDefault()
-    if (!canLog) return
-    setMovements([
-      {
-        id: Date.now(),
-        product: selectedProduct.name,
-        type,
-        quantity,
-        reason,
-        note,
-        date: new Date().toISOString().slice(0, 10),
-      },
-      ...movements,
-    ])
-    setQuantity(1)
-    setReason(null)
-    setNote('')
+    if (!formData.product_id || !formData.quantity) return
+
+    const selectedProd = productOptions.find((p) => p.id === Number(formData.product_id))
+    const rawQty = Number(formData.quantity)
+    const isOut = formData.movement_type === 'OUT' || formData.reason === 'DAMAGE'
+    const finalQty = isOut ? -Math.abs(rawQty) : Math.abs(rawQty)
+    const cost = Number(formData.unit_cost) || 0
+
+    const newEntry = {
+      id: `MOV-${Math.floor(1000 + Math.random() * 9000)}`,
+      product_name: selectedProd ? selectedProd.name : 'Custom Item',
+      sku: selectedProd ? selectedProd.sku : 'CUSTOM-SKU',
+      movement_type: formData.movement_type,
+      reason: formData.reason,
+      quantity: finalQty,
+      unit_cost: cost,
+      total_value: Math.abs(finalQty) * cost,
+      reference: formData.reference || 'MANUAL-ENTRY',
+      user: 'Don Ochieng',
+      created_at: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      notes: formData.notes || 'N/A'
+    }
+
+    setMovements([newEntry, ...movements])
+    setIsModalOpen(false)
+    setFormData({
+      product_id: '',
+      movement_type: 'IN',
+      reason: 'RESTOCK',
+      quantity: '',
+      unit_cost: '',
+      reference: '',
+      notes: ''
+    })
   }
 
-  const filteredMovements = movements.filter((m) => {
-    if (filter === 'All') return true
-    return filter === 'Stock In' ? m.type === 'in' : m.type === 'out'
-  })
+  const metrics = useMemo(() => {
+    let inflow = 0
+    let outflow = 0
+    movements.forEach((m) => {
+      if (m.quantity > 0) inflow += m.quantity
+      else outflow += Math.abs(m.quantity)
+    })
+    return {
+      totalLogs: movements.length,
+      inflowUnits: inflow,
+      outflowUnits: outflow,
+      netChange: inflow - outflow
+    }
+  }, [movements])
+
+  const filteredMovements = useMemo(() => {
+    return movements.filter((m) => {
+      const matchesSearch =
+        m.product_name.toLowerCase().includes(search.toLowerCase()) ||
+        m.sku.toLowerCase().includes(search.toLowerCase()) ||
+        m.reference.toLowerCase().includes(search.toLowerCase())
+      const matchesType = filterType === 'ALL' || m.movement_type === filterType
+      return matchesSearch && matchesType
+    })
+  }, [movements, search, filterType])
 
   return (
-    <div className="sm-root">
-      <style>{styles}</style>
-      <div className="sm-shell">
-        <nav className="sm-nav">
-          <div className="nav-left">
-            <a href="/dashboard" className="icon-btn" aria-label="Home">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            </a>
-          </div>
+    <div id="stock-movement-root" className="stm-root">
+      <div id="stock-movement-shell" className="stm-shell">
+        <Sidebar current="stock-movement" />
 
-          <div className="brand">BiasharaPulse</div>
-
-          <div className="nav-right">
-            <div className="nav-dropdown-wrapper">
-              <button
-                className="icon-btn"
-                aria-label="Account"
-                onClick={() => { setAccountOpen(!accountOpen); setMenuOpen(false) }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </button>
-              {accountOpen && (
-                <div className="nav-dropdown">
-                  <a href="/profile" onClick={() => setAccountOpen(false)}>Profile</a>
-                  <a href="/logout" onClick={() => setAccountOpen(false)}>Log out</a>
-                </div>
-              )}
+        <div id="stock-movement-content-wrapper" className="stm-content-wrapper">
+          <header id="stock-movement-navbar" className="sticky-navbar">
+            <div id="nav-brand-container" className="header-center">
+              <h1 id="nav-brand-title">BiasharaPulse</h1>
+              <p id="nav-brand-sub" className="header-sub">Live metrics & inventory health</p>
             </div>
 
-            <div className="nav-dropdown-wrapper">
-              <button
-                className="icon-btn"
-                aria-label="Menu"
-                onClick={() => { setMenuOpen(!menuOpen); setAccountOpen(false) }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              </button>
-              {menuOpen && (
-                <div className="nav-dropdown">
-                  <a href="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</a>
-                  <a href="/stock-movement" onClick={() => setMenuOpen(false)}>Stock Movement</a>
-                </div>
-              )}
-            </div>
-          </div>
-        </nav>
+            <div id="nav-actions-container" className="header-right">
+              <div id="live-status-indicator" className="live-badge">
+                <span id="live-status-dot" className="live-dot" />
+                LIVE
+              </div>
 
-        <main className="main">
-          <header className="main-header">
-            <h1>Stock Movement</h1>
-            <p className="subtitle">Log deliveries, returns, damage, and corrections</p>
+              <div id="profile-dropdown-wrapper" className="dropdown-container">
+                <button
+                  id="user-profile-menu-btn"
+                  className="profile-btn"
+                  onClick={toggleMenu}
+                  aria-label="Toggle Menu"
+                  aria-expanded={isMenuOpen}
+                >
+                  <svg
+                    className="user-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </button>
+
+                <div id="user-profile-dropdown-menu" className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
+                  <a id="link-sign-in" href="/signin" className="dropdown-item">Sign In</a>
+                  <a id="link-sign-up" href="/signup" className="dropdown-item btn-signup">Sign Up</a>
+                </div>
+              </div>
+            </div>
           </header>
 
-          <form onSubmit={handleLog}>
-            {/* Stock In / Stock Out toggle */}
-            <div className="type-toggle">
-              <button
-                type="button"
-                className={`type-toggle-btn ${type === 'in' ? 'active-in' : ''}`}
-                onClick={() => selectType('in')}
-              >
-                ↓ Stock In
-              </button>
-              <button
-                type="button"
-                className={`type-toggle-btn ${type === 'out' ? 'active-out' : ''}`}
-                onClick={() => selectType('out')}
-              >
-                ↑ Stock Out
-              </button>
+          <main id="stock-movement-main-area" className="stm-main">
+            <div id="stock-movement-header-row" className="stm-header">
+              <div>
+                <h1 id="stock-movement-title">Stock Movement Audit</h1>
+                <p id="stock-movement-description" className="stm-subtitle">
+                  Direct ledger entry for product intake, damages, returns, and physical stock adjustments
+                </p>
+              </div>
+              <div id="stock-movement-btn-group" className="stm-header-actions">
+                <button
+                  id="btn-open-log-modal"
+                  className="btn-action-primary"
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  + Log Movement
+                </button>
+              </div>
             </div>
 
-            {/* Product */}
-            <p className="section-label">Product</p>
-            <input
-              className="search-input"
-              placeholder="Search product..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {filteredProducts.length === 0 ? (
-              <p className="empty-note">No products found</p>
-            ) : (
-              <div className="chip-row">
-                {filteredProducts.map((p) => (
+            <div id="stock-movement-metrics-grid" className="stm-metrics-grid">
+              <div id="metric-card-logs" className="stm-metric-card">
+                <span id="metric-label-logs" className="stm-metric-label">Total Entries</span>
+                <span id="metric-value-logs" className="stm-metric-value">{metrics.totalLogs}</span>
+              </div>
+              <div id="metric-card-inflow" className="stm-metric-card">
+                <span id="metric-label-inflow" className="stm-metric-label">Units Received (In)</span>
+                <span id="metric-value-inflow" className="stm-metric-value inflow">+{metrics.inflowUnits}</span>
+              </div>
+              <div id="metric-card-outflow" className="stm-metric-card">
+                <span id="metric-label-outflow" className="stm-metric-label">Units Dispatched (Out)</span>
+                <span id="metric-value-outflow" className="stm-metric-value outflow">-{metrics.outflowUnits}</span>
+              </div>
+              <div id="metric-card-net" className="stm-metric-card">
+                <span id="metric-label-net" className="stm-metric-label">Net Inventory Change</span>
+                <span id="metric-value-net" className="stm-metric-value net">
+                  {metrics.netChange > 0 ? `+${metrics.netChange}` : metrics.netChange}
+                </span>
+              </div>
+            </div>
+
+            <div id="stock-movement-toolbar" className="stm-toolbar">
+              <input
+                id="search-movement-input"
+                className="stm-search"
+                placeholder="Search by SKU, product, or reference number..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <div id="movement-type-filter-group" className="chip-group">
+                {['ALL', 'IN', 'OUT', 'ADJUSTMENT'].map((type) => (
                   <button
-                    type="button"
-                    key={p.id}
-                    className={`chip ${
-                      selectedProduct?.id === p.id ? (type === 'in' ? 'selected-in' : 'selected-out') : ''
-                    }`}
-                    onClick={() => selectProduct(p)}
+                    key={type}
+                    id={`filter-chip-${type.toLowerCase()}`}
+                    className={`type-chip ${filterType === type ? 'active' : ''}`}
+                    onClick={() => setFilterType(type)}
                   >
-                    {p.name}
+                    {type}
                   </button>
                 ))}
               </div>
-            )}
-
-            {selectedProduct && (
-              <div className="product-card">
-                <div className="product-icon">📦</div>
-                <div>
-                  <p className="product-info-name">{selectedProduct.name}</p>
-                  <p className="product-info-meta">{selectedProduct.category} • {selectedProduct.stock} in stock</p>
-                </div>
-              </div>
-            )}
-
-            {/* Quantity */}
-            <p className="section-label">Quantity</p>
-            <div className="qty-row">
-              <button type="button" className="qty-btn" onClick={decrementQty} disabled={quantity <= 1}>−</button>
-              <span className="qty-value">{quantity}</span>
-              <button
-                type="button"
-                className="qty-btn"
-                onClick={incrementQty}
-                disabled={type === 'out' && selectedProduct && quantity >= selectedProduct.stock}
-              >
-                +
-              </button>
-            </div>
-            {type === 'out' && selectedProduct && (
-              <p className="qty-hint">{selectedProduct.stock} currently in stock</p>
-            )}
-            {!(type === 'out' && selectedProduct) && <div style={{ marginBottom: 22 }} />}
-
-            {/* Reason */}
-            <p className="section-label">{type === 'in' ? 'Reason for stock in' : 'Reason for stock out'}</p>
-            <div className="chip-row" style={{ marginBottom: 22 }}>
-              {reasons.map((r) => (
-                <button
-                  type="button"
-                  key={r}
-                  className={`chip ${reason === r ? (type === 'in' ? 'selected-in' : 'selected-out') : ''}`}
-                  onClick={() => setReason(r)}
-                >
-                  {r}
-                </button>
-              ))}
             </div>
 
-            {/* Note */}
-            <p className="section-label">Note (optional)</p>
-            <textarea
-              className="note-input"
-              placeholder={
-                type === 'in'
-                  ? 'e.g. Delivered by New Era distributor, invoice #1042'
-                  : 'e.g. Water damage from storage leak'
-              }
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
+            <div id="stock-movement-table-wrapper" className="table-container">
+              <table id="stock-movement-table" className="stm-table">
+                <thead>
+                  <tr>
+                    <th>Product & SKU</th>
+                    <th>Type</th>
+                    <th>Reason</th>
+                    <th>Qty</th>
+                    <th>Unit Cost</th>
+                    <th>Total Value</th>
+                    <th>Reference</th>
+                    <th>Logged By</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMovements.map((m) => (
+                    <tr key={m.id} id={`movement-row-${m.id}`}>
+                      <td>
+                        <div id={`product-info-${m.id}`} className="prod-cell">
+                          <span className="prod-name">{m.product_name}</span>
+                          <span className="prod-sku">{m.sku}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          id={`movement-type-badge-${m.id}`}
+                          className={`badge-type ${
+                            m.movement_type === 'IN'
+                              ? 'type-in'
+                              : m.movement_type === 'OUT'
+                              ? 'type-out'
+                              : 'type-adj'
+                          }`}
+                        >
+                          {m.movement_type}
+                        </span>
+                      </td>
+                      <td>
+                        <span id={`movement-reason-${m.id}`} className="val-bold">{m.reason}</span>
+                      </td>
+                      <td>
+                        <span
+                          id={`movement-qty-${m.id}`}
+                          className={`qty-pill ${m.quantity > 0 ? 'pos' : 'neg'}`}
+                        >
+                          {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
+                        </span>
+                      </td>
+                      <td>KES {m.unit_cost.toLocaleString()}</td>
+                      <td className="val-bold">KES {m.total_value.toLocaleString()}</td>
+                      <td>
+                        <span id={`movement-ref-${m.id}`} className="prod-sku">{m.reference}</span>
+                      </td>
+                      <td>{m.user}</td>
+                      <td>
+                        <span id={`movement-date-${m.id}`} className="prod-sku">{m.created_at}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            <button
-              type="submit"
-              className={`log-btn ${type === 'in' ? 'type-in-btn' : 'type-out-btn'}`}
-              disabled={!canLog}
-            >
-              {type === 'in' ? '↓ Log Stock In' : '↑ Log Stock Out'}
-            </button>
-          </form>
-
-          {/* Recent movements */}
-          <p className="section-label">Recent Movements</p>
-          <div className="filter-row">
-            {['All', 'Stock In', 'Stock Out'].map((f) => (
-              <button
-                type="button"
-                key={f}
-                className={`filter-chip ${filter === f ? 'active' : ''}`}
-                onClick={() => setFilter(f)}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          {filteredMovements.length === 0 ? (
-            <p className="empty-row">No movements yet</p>
-          ) : (
-            filteredMovements.map((m) => (
-              <div className="movement-row" key={m.id}>
-                <div className={`movement-icon ${m.type}`}>{m.type === 'in' ? '↓' : '↑'}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="movement-name">{m.product}</p>
-                  <p className="movement-meta">{m.reason} • {m.date}</p>
+              {filteredMovements.length === 0 && (
+                <div id="no-movement-records-found" className="stm-empty">
+                  No stock movements recorded matching your criteria.
                 </div>
-                <div className={`movement-qty ${m.type}`}>{m.type === 'in' ? '+' : '-'}{m.quantity}</div>
-              </div>
-            ))
-          )}
-        </main>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
+
+      {isModalOpen && (
+        <div id="modal-log-movement-overlay" className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div id="modal-log-movement-card" className="modal-card-lg" onClick={(e) => e.stopPropagation()}>
+            <h2 id="modal-log-movement-title" className="modal-title">Log Stock Movement</h2>
+            <p id="modal-log-movement-subtitle" className="modal-subtext">
+              Direct entry syncs to your Django product model inventory totals
+            </p>
+
+            <form id="form-stock-movement-entry" onSubmit={handleCreateMovement}>
+              <div id="form-movement-grid" className="form-grid">
+                <div id="group-select-product" className="form-group full">
+                  <label id="label-select-product" className="form-label" htmlFor="select-product-id">
+                    Select Target Product
+                  </label>
+                  <select
+                    id="select-product-id"
+                    className="modal-select"
+                    value={formData.product_id}
+                    onChange={handleProductSelect}
+                    required
+                  >
+                    <option value="">-- Choose Product --</option>
+                    {productOptions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.sku})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div id="group-movement-type" className="form-group">
+                  <label id="label-movement-type" className="form-label" htmlFor="select-movement-type">
+                    Movement Direction
+                  </label>
+                  <select
+                    id="select-movement-type"
+                    className="modal-select"
+                    value={formData.movement_type}
+                    onChange={(e) => setFormData({ ...formData, movement_type: e.target.value })}
+                  >
+                    <option value="IN">IN (Stock Intake / Restock)</option>
+                    <option value="OUT">OUT (Dispatch / Waste)</option>
+                    <option value="ADJUSTMENT">ADJUSTMENT (Audit Audit Count)</option>
+                  </select>
+                </div>
+
+                <div id="group-movement-reason" className="form-group">
+                  <label id="label-movement-reason" className="form-label" htmlFor="select-movement-reason">
+                    Movement Reason
+                  </label>
+                  <select
+                    id="select-movement-reason"
+                    className="modal-select"
+                    value={formData.reason}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  >
+                    <option value="RESTOCK">Supplier Restock</option>
+                    <option value="DAMAGE">Damaged / Expired</option>
+                    <option value="RETURN">Customer Return</option>
+                    <option value="AUDIT">Manual Reconciliation</option>
+                    <option value="SALE">Manual Offline Sale</option>
+                  </select>
+                </div>
+
+                <div id="group-movement-quantity" className="form-group">
+                  <label id="label-movement-quantity" className="form-label" htmlFor="input-movement-quantity">
+                    Quantity Impact
+                  </label>
+                  <input
+                    id="input-movement-quantity"
+                    type="number"
+                    className="modal-input"
+                    placeholder="e.g. 25"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div id="group-movement-cost" className="form-group">
+                  <label id="label-movement-cost" className="form-label" htmlFor="input-movement-cost">
+                    Unit Buying Cost (KES)
+                  </label>
+                  <input
+                    id="input-movement-cost"
+                    type="number"
+                    className="modal-input"
+                    placeholder="e.g. 1200"
+                    value={formData.unit_cost}
+                    onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
+                  />
+                </div>
+
+                <div id="group-movement-reference" className="form-group full">
+                  <label id="label-movement-reference" className="form-label" htmlFor="input-movement-reference">
+                    Invoice / Reference ID
+                  </label>
+                  <input
+                    id="input-movement-reference"
+                    type="text"
+                    className="modal-input"
+                    placeholder="e.g. PO-9904 or INVOICE-402"
+                    value={formData.reference}
+                    onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
+                  />
+                </div>
+
+                <div id="group-movement-notes" className="form-group full">
+                  <label id="label-movement-notes" className="form-label" htmlFor="input-movement-notes">
+                    Audit Note / Description
+                  </label>
+                  <input
+                    id="input-movement-notes"
+                    type="text"
+                    className="modal-input"
+                    placeholder="Optional details regarding physical stock condition"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div id="modal-actions-container" className="modal-actions">
+                <button
+                  id="btn-cancel-movement"
+                  type="button"
+                  className="modal-btn cancel"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button id="btn-submit-movement" type="submit" className="modal-btn confirm">
+                  Commit Stock Movement
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,8 @@ import Login from './pages/login'
 import Signup from './pages/signup'
 import Dashboard from './pages/dashboard'
 import StockMovement from './pages/stockMovement'
+import Pos from './pages/pos'
+import Orders from './pages/orders'
 import './App.css'
 
 function App() {
@@ -15,6 +17,8 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/stock-movement" element={<StockMovement />} />
+        <Route path="/pos" element={<Pos />} />
+        <Route path="/orders" element={<Orders />} />
       </Routes>
     </BrowserRouter>
   )
