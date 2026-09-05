@@ -1,35 +1,58 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import HeroPage from "./heroPage";
 import Dashboard from "./dashboard";
 import "./styles/landing.css";
 import "./styles/splash.css";
 
 function Landing() {
-  const [stage, setStage] = useState("splash"); // 'splash' | 'hero' | 'landing' | 'dashboard'
+  const [searchParams] = useSearchParams();
+  const skipToLanding = searchParams.get("view") === "landing";
+
+  const [stage, setStage] = useState(skipToLanding ? "landing" : "splash");
   const [fadeOut, setFadeOut] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    const fadeTimer = setTimeout(() => setFadeOut(true), 4400);
-    const advanceTimer = setTimeout(() => setStage("hero"), 5000);
+    if (skipToLanding) return;
+
+    const fadeTimer = setTimeout(() => setFadeOut(true), 6200);
+    const advanceTimer = setTimeout(() => setStage("hero"), 7000);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(advanceTimer);
     };
-  }, []);
+  }, [skipToLanding]);
+
+  useEffect(() => {
+  if (skipToLanding) {
+    setStage("landing");
+  }
+}, [skipToLanding]);
 
   if (stage === "splash") {
     return (
       <div className={`splash ${fadeOut ? "splash-fade-out" : ""}`}>
-        <h1 className="splash-text">BiasharaPulse</h1>
+        <h1 className="splash-text">
+          <span className="splash-biashara">Biashara</span>
+          <span className="splash-pulse">Pulse</span>
+        </h1>
+        <div className="splash-loader">
+          <svg viewBox="0 0 150 34" preserveAspectRatio="none">
+            <path d="M0,17 L35,17 L45,4 L55,30 L65,17 L150,17" />
+          </svg>
+        </div>
       </div>
     );
   }
 
   if (stage === "hero") {
-    return <HeroPage onGetStarted={() => setStage("landing")} />;
+    return (
+      <div className="stage-fade-in">
+        <HeroPage onGetStarted={() => setStage("landing")} />
+      </div>
+    );
   }
 
   if (stage === "dashboard") {
@@ -38,63 +61,45 @@ function Landing() {
 
   return (
     <div className="landing">
-      {/* Streamlined Navigation Bar */}
       <nav className="landing-nav">
         <div className="nav-container">
+          <button
+            className="mobile-nav-toggle"
+            aria-label="Toggle Navigation"
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
           <a href="#" className="brand">
-            <span className="brand-dot"></span>
-            BiasharaPulse
+            <span className="brand-biashara">Biashara</span>
+            <span className="brand-pulse">Pulse</span>
           </a>
 
-          {/* Desktop Links */}
-          <div className="nav-links-desktop">
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#values">Values</a>
-            <a href="#developer">Developer</a>
-          </div>
-
-          <div className="nav-actions">
-            <div className="nav-dropdown-wrapper">
-              <button
-                className="btn-account-trigger"
-                aria-label="Account Menu"
-                onClick={() => setAccountOpen(!accountOpen)}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span>Account</span>
-              </button>
-              {accountOpen && (
-                <div className="nav-dropdown">
-                  <Link to="/login" onClick={() => setAccountOpen(false)}>Sign in</Link>
-                  <Link to="/signup" className="highlight" onClick={() => setAccountOpen(false)}>Create Account</Link>
-                </div>
-              )}
-            </div>
-
-            <button className="cta-nav" onClick={() => setStage("dashboard")}>
-              Launch App
-            </button>
-
-            {/* Mobile Menu Toggle */}
+          <div className="nav-dropdown-wrapper">
             <button
-              className="mobile-nav-toggle"
-              aria-label="Toggle Navigation"
-              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              className="btn-account-trigger"
+              aria-label="Account Menu"
+              onClick={() => setAccountOpen(!accountOpen)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
               </svg>
             </button>
+            {accountOpen && (
+              <div className="nav-dropdown">
+                <Link to="/login" onClick={() => setAccountOpen(false)}>Sign in</Link>
+                <Link to="/signup" className="highlight" onClick={() => setAccountOpen(false)}>Create Account</Link>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Mobile Dropdown Drawer */}
         {mobileNavOpen && (
           <div className="mobile-menu-drawer">
             <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
@@ -108,23 +113,37 @@ function Landing() {
         )}
       </nav>
 
-      {/* Hero Section */}
-      <section className="hero">
-        <span className="hero-pill">Engineered for Kenyan SMEs 🇰🇪</span>
-        <h1>Run your business, not your spreadsheets</h1>
-        <p>
-          BiasharaPulse gives retail outlets, distributors, and vendors a unified system to track daily sales, expenses, and
-          stock levels in real time.
-        </p>
-        <div className="hero-cta-group">
-          <button className="cta-primary" onClick={() => setStage("dashboard")}>
-            Start Free Now
-          </button>
-          <a href="#pricing" className="cta-secondary">View Pricing</a>
-        </div>
-      </section>
+      <div className="landing-top">
+        <svg className="landing-wave-bg" viewBox="0 0 1440 600" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="landingGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0A0A0A" />
+              <stop offset="70%" stopColor="#141414" />
+              <stop offset="100%" stopColor="#4A000A" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M0,0 L0,560 C504,520 1008,620 1440,565 L1440,0 Z"
+            fill="url(#landingGradient)"
+          />
+        </svg>
 
-      {/* Features Overview */}
+        <section className="hero">
+          <span className="hero-pill">Engineered for Kenyan SMEs 🇰🇪</span>
+          <h1>Run your business, not your spreadsheets</h1>
+          <p>
+            No more guessing what sold, what's low, or where the money went. BiasharaPulse puts your sales,
+            expenses, and stock levels in one place — updated as it happens, not at closing time.
+          </p>
+          <div className="hero-cta-group">
+            <button className="cta-primary" onClick={() => setStage("dashboard")}>
+              Start Free Now
+            </button>
+            <a href="#pricing" className="cta-secondary">View Pricing</a>
+          </div>
+        </section>
+      </div>
+
       <section id="features" className="features-intro">
         <span className="features-tag">What you get</span>
         <h2>Everything your business needs</h2>
@@ -154,7 +173,6 @@ function Landing() {
         </div>
       </section>
 
-      {/* Pricing Section */}
       <section id="pricing" className="pricing">
         <div className="pricing-header">
           <span className="pricing-tag">Transparent SME Pricing</span>
@@ -163,7 +181,6 @@ function Landing() {
         </div>
 
         <div className="pricing-grid">
-          {/* Starter Plan */}
           <div className="pricing-card">
             <div className="pricing-card-header">
               <h3>Starter</h3>
@@ -187,7 +204,6 @@ function Landing() {
             </div>
           </div>
 
-          {/* Growth Plan */}
           <div className="pricing-card">
             <div className="pricing-card-header">
               <h3>Biashara Growth</h3>
@@ -211,7 +227,6 @@ function Landing() {
             </div>
           </div>
 
-          {/* Plus Plan - Featured */}
           <div className="pricing-card featured">
             <div className="popular-badge">Most Popular</div>
             <div className="pricing-card-header">
@@ -236,7 +251,6 @@ function Landing() {
             </div>
           </div>
 
-          {/* Pro Multi-Store Plan */}
           <div className="pricing-card">
             <div className="pricing-card-header">
               <h3>Pro Multi-Branch</h3>
@@ -262,48 +276,43 @@ function Landing() {
         </div>
       </section>
 
-      {/* Values Section */}
       <section id="values" className="values">
-        <h2>What shapes BiasharaPulse</h2>
+        <h2>Built around how you actually run your shop</h2>
         <div className="value-grid">
-          <div className="value">
-            <h4>Commitment</h4>
-            <p>Engineered with long-term stability in mind based directly on local SME feedback.</p>
+          <div className="value-stamp">
+            <span className="stamp-mark">Built with operators</span>
+            <p>We shape every feature around what Kenyan shop owners tell us they need, not what looks good in a demo.</p>
           </div>
-          <div className="value">
-            <h4>Data Sovereignty</h4>
-            <p>Your operational records remain strictly confidential, encrypted, and isolated.</p>
+          <div className="value-stamp">
+            <span className="stamp-mark">Your records, your business</span>
+            <p>Every transaction stays encrypted and walled off — nobody outside your shop ever sees your numbers.</p>
           </div>
-          <div className="value">
-            <h4>Simplicity</h4>
-            <p>Purpose-built UI designed for rapid workflow execution with zero training overhead.</p>
+          <div className="value-stamp">
+            <span className="stamp-mark">No manual required</span>
+            <p>Open it and start selling. The interface explains itself, so there's no training day.</p>
           </div>
-          <div className="value">
-            <h4>Accessibility</h4>
-            <p>Our free tier provides a fully functional base system without feature blockades.</p>
+          <div className="value-stamp">
+            <span className="stamp-mark">A real free tier</span>
+            <p>The free version does actual work — it's not a stripped demo waiting behind a paywall.</p>
           </div>
         </div>
       </section>
 
-      {/* Developer Portal Section */}
       <section id="developer" className="developer-section">
         <div className="dev-portal-content">
-          <span className="dev-portal-tag">Developer Portal</span>
-          <h2>Empowering Kenya’s Business Ecosystem</h2>
-          
-          <p className="dev-portal-about">
-            BiasharaPulse is built from the ground up to solve real operational bottlenecks faced by businesses across Kenya. Whether you are a solo pop-up vendor recording daily cash transactions, a high-traffic retail outlet managing fast-moving inventory, or a expanding multi-branch distributor coordinating stock across locations—BiasharaPulse delivers real-time visibility into your cash flow, sales trends, and profit margins. By replacing error-prone manual record-keeping with an intuitive, multi-device mobile platform, BiasharaPulse helps local enterprises prevent stock leakages, optimize order cycles, and make confident data-driven decisions that fuel long-term business growth.
-          </p>
-
-          <div className="dev-portal-link-box">
-            <p>
-              Looking for custom software engineering, enterprise platform integration, or web systems? Explore developer capabilities at{" "}
-              <a 
-                href="https://raburu.co.ke" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="dev-gold-link"
-              >
+          <div className="dev-mark">R</div>
+          <div className="dev-portal-body">
+            <h2>There's a developer behind this platform</h2>
+            <p className="dev-portal-about">
+              BiasharaPulse grew out of one real problem: shop owners tracking stock and cash by hand, with no
+              visibility until something went missing. It now runs sales, inventory, and reporting for pop-up
+              vendors, single outlets, and multi-branch distributors alike — replacing guesswork with numbers
+              you can actually check.
+            </p>
+            <p className="dev-portal-contact">
+              Need something similar for your own business — a mobile app, a web platform, or both working
+              together? <br />Reach out @{" "}
+              <a href="https://raburu.co.ke" target="_blank" rel="noopener noreferrer" className="dev-link">
                 raburu.co.ke
               </a>.
             </p>
@@ -312,7 +321,61 @@ function Landing() {
       </section>
 
       <footer className="landing-footer">
-        <div>© 2026 BiasharaPulse. Engineered for Kenyan Businesses.</div>
+        <div className="footer-top">
+          <div className="footer-brand">
+            <a href="#" className="footer-logo">
+              <span className="footer-logo-biashara">Biashara</span>
+              <span className="footer-logo-pulse">Pulse</span>
+            </a>
+            <p className="footer-tagline">
+              Sales, stock, and cash flow in one place — built for Kenyan SMEs.
+            </p>
+            <div className="footer-socials">
+              <a href="#" aria-label="X / Twitter" className="footer-social-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.9 2H22l-7.6 8.7L23.3 22h-7l-5.5-7.2L4.5 22H1.4l8.1-9.3L1 2h7.2l5 6.6L18.9 2Zm-1.2 18h1.7L7.4 4H5.6l12.1 16Z" />
+                </svg>
+              </a>
+              <a href="#" aria-label="Instagram" className="footer-social-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="3" y="3" width="18" height="18" rx="5" />
+                  <circle cx="12" cy="12" r="4" />
+                  <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+                </svg>
+              </a>
+              <a href="#" aria-label="LinkedIn" className="footer-social-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9h4v12H3V9Zm7 0h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.6c0-1.34-.02-3.05-1.86-3.05-1.87 0-2.15 1.46-2.15 2.96V21h-4V9Z" />
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          <div className="footer-col">
+            <h5>Product</h5>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#values">Values</a>
+          </div>
+
+          <div className="footer-col">
+            <h5>Company</h5>
+            <a href="#developer">Developer</a>
+            <a href="https://raburu.co.ke" target="_blank" rel="noopener noreferrer">About the builder</a>
+            <a href="#">Contact</a>
+          </div>
+
+          <div className="footer-col">
+            <h5>Legal</h5>
+            <a href="#">Terms of service</a>
+            <a href="#">Privacy policy</a>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <span>© 2026 BiasharaPulse. Engineered for Kenyan Businesses.</span>
+          <span className="footer-madein">Made in Nairobi 🇰🇪</span>
+        </div>
       </footer>
     </div>
   );

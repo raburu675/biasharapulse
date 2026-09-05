@@ -2,11 +2,13 @@
   position: fixed;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #0f172a;
+  gap: 28px;
+  background: linear-gradient(135deg, #0A0A0A 0%, #1A0507 55%, #6E0F1F 100%);
   z-index: 9999;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.8s ease;
   opacity: 1;
 }
 
@@ -15,12 +17,28 @@
 }
 
 .splash-text {
-  font-size: clamp(32px, 8vw, 64px);
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   opacity: 0;
   animation: splash-in 1s ease forwards;
+}
+
+.splash-biashara {
+  font-size: clamp(18px, 3.5vw, 30px);
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.splash-pulse {
+  font-size: clamp(44px, 11vw, 88px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(90deg, #B0142B 0%, #ffffff 50%, #0A7B34 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 @keyframes splash-in {
@@ -34,3 +52,45 @@
   }
 }
 
+.splash-loader {
+  width: 150px;
+  height: 34px;
+  opacity: 0;
+  animation: loader-fade-in 0.6s ease forwards;
+  animation-delay: 0.6s;
+}
+
+.splash-loader svg {
+  width: 100%;
+  height: 100%;
+}
+
+.splash-loader path {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  animation: pulse-draw 1.8s ease-in-out infinite;
+}
+
+@keyframes loader-fade-in {
+  to { opacity: 1; }
+}
+
+@keyframes pulse-draw {
+  0% { stroke-dashoffset: 260; opacity: 0.35; }
+  50% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -260; opacity: 0.35; }
+}
+
+.stage-fade-in {
+  animation: stageFadeIn 0.9s ease forwards;
+  opacity: 0;
+}
+
+@keyframes stageFadeIn {
+  to { opacity: 1; }
+}

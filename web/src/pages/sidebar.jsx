@@ -2,6 +2,18 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 const navIcons = {
+  home: (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+  ),
+  account: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
   dashboard: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
@@ -36,13 +48,20 @@ const navIcons = {
     </svg>
   ),
   menu: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  ),
+  close: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
 }
 
 const navItems = [
+  { key: 'home', label: 'Home', to: '/?view=landing', icon: 'home' },
+  { key: 'account', label: 'Account', to: '/account', icon: 'account' },
   { key: 'dashboard', label: 'Dashboard', to: '/dashboard', icon: 'dashboard' },
   { key: 'pos', label: 'POS', to: '/pos', icon: 'pos' },
   { key: 'stock-movement', label: 'Stock Movement', to: '/stock-movement', icon: 'stock' },
@@ -186,16 +205,17 @@ const styles = `
   position: fixed;
   top: 14px;
   left: 14px;
-  z-index: 300;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--border-dim);
-  background: var(--black-rich);
-  color: var(--off-white);
+  z-index: 200;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #FFFFFF;
+  color: var(--black-rich);
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .sbx-overlay {
@@ -230,6 +250,21 @@ const styles = `
 @media (min-width: 861px) {
   .sbx-drawer { display: none; }
 }
+
+.sbx-drawer-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sbx-drawer-close:hover { background: rgba(255, 255, 255, 0.08); color: var(--off-white); }
 `
 
 function SidebarBody({ current, collapsed, onNavigate }) {
@@ -290,15 +325,20 @@ function Sidebar({ current }) {
       </aside>
 
       {/* Mobile toggle + drawer */}
-      <button className="sbx-mobile-toggle" onClick={() => setMobileOpen(true)} aria-label="Open menu">
-        {navIcons.menu}
-      </button>
+      {!mobileOpen && (
+        <button className="sbx-mobile-toggle" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+          {navIcons.menu}
+        </button>
+      )}
       <div className={`sbx-overlay ${mobileOpen ? 'open' : ''}`} onClick={() => setMobileOpen(false)} />
       <aside className={`sbx-drawer ${mobileOpen ? 'open' : ''}`}>
         <div className="sbx-top">
           <div className="sbx-brand">
             <span className="b1">biashara</span><span className="b2">pulse</span>
           </div>
+          <button className="sbx-drawer-close" onClick={() => setMobileOpen(false)} aria-label="Close menu">
+            {navIcons.close}
+          </button>
         </div>
         <SidebarBody current={current} collapsed={false} onNavigate={() => setMobileOpen(false)} />
       </aside>

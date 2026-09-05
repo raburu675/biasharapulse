@@ -22,9 +22,10 @@
 
 .hero-intro-header {
   position: relative;
-  height: 52vh;
+  height: 70vh;
   min-height: 400px;
   overflow: hidden;
+  padding-bottom: 40px;
 }
 
 .hero-wave-bg {
@@ -78,7 +79,7 @@
 }
 
 .hero-headline-block {
-  margin-top: 20px;
+  margin-top: 40px;
 }
 
 .hero-tag {
@@ -109,7 +110,7 @@
   align-items: center;
   gap: 20px;
   padding: 0 clamp(20px, 5vw, 60px) 40px;
-  margin-top: 15%;
+  margin-top: 5%;
   position: relative;
   z-index: 2;
 }
@@ -155,25 +156,32 @@
 }
 
 .hero-get-started {
-  width: 100%;
+  width: 80%;
   max-width: 520px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: var(--amber-gold);
-  color: var(--black-base);
+  background: #6b0b19;  
+  color: var(--off-white-canvas);
   border: none;
   border-radius: 10px;
   padding: 14px 0;
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
   transition: background 0.2s;
 }
-
 .hero-get-started:hover {
-  background: var(--amber-gold-dark);
-  color: #fff;
+  background: #8a0f21;
+}
+.hero-card-desc {
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
 }
