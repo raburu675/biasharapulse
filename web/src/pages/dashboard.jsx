@@ -16,7 +16,7 @@ import Sidebar from './sidebar'
 import './styles/dashboard.css'
 
 // ── Config ─────────────────────────────────────
-const API_BASE = 'https://your-app.up.railway.app' // change to your Railway URL
+const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
 // ── Initial Mock Data ─────────────────────────────────────
