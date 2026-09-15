@@ -1,3 +1,7 @@
+import pandas as pd
+from django.http import FileResponse
+from django.conf import settings
+import os
 from decimal import Decimal
 from collections import defaultdict
 from django.db.models import Sum, Count
@@ -489,3 +493,81 @@ def update_order_status(request, business_id, order_id):
         'order_number': order.order_number,
         'status': order.status,
     })
+
+
+@api_view(['POST'])
+def import_products(request, business_id):
+    """
+    Bulk create/update Products from an uploaded spreadsheet (.xlsx or .csv).
+    Matches existing products by name (case-insensitive); creates new ones
+    if no match is found. Powers the "Import" button on the web dashboard.
+    """
+    try:
+        business = Business.objects.get(id=business_id)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+
+    file = request.FILES.get('file')
+    if not file:
+        return Response({'error': 'No file uploaded'}, status=400)
+
+    # Read the spreadsheet into a DataFrame — pandas picks the right parser
+    try:
+        if file.name.endswith('.csv'):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
+    except Exception as e:
+        return Response({'error': f'Could not read file: {e}'}, status=400)
+
+    # Normalize headers so minor variations (case, spacing) don't break matching
+    df.columns = [str(c).strip().lower() for c in df.columns]
+
+    required = {'name', 'category', 'price'}
+    missing = required - set(df.columns)
+    if missing:
+        return Response({
+            'error': f"Missing columns: {', '.join(missing)}. Download the template and use those exact column names.",
+            'found_columns': list(df.columns),
+        }, status=400)
+
+    created, updated, errors = 0, 0, []
+
+    # iterrows() walks the spreadsheet one row at a time
+    for i, row in df.iterrows():
+        try:
+            name = str(row['name']).strip()
+
+            # update_or_create: match on business + name (case-insensitive).
+            # If found -> update it. If not -> create a new Product.
+            product, was_created = Product.objects.update_or_create(
+                business=business,
+                name__iexact=name,
+                defaults={
+                    'name': name,
+                    'category': str(row['category']).strip(),
+                    'price': float(row['price']),
+                    'cost_price': float(row.get('cost_price', 0) or 0),
+                    'stock_count': int(row.get('stock_count', 0) or 0),
+                    'reorder_point': int(row.get('reorder_point', 5) or 5),
+                },
+            )
+            created += was_created
+            updated += not was_created
+        except Exception as e:
+            # +2 accounts for the header row + 0-based index, so this matches
+            # the row number the user actually sees in Excel
+            errors.append({'row': int(i) + 2, 'error': str(e)})
+
+    return Response({'created': created, 'updated': updated, 'errors': errors})
+
+
+@api_view(['GET'])
+def import_template(request):
+    """
+    Serves the blank product import template file so users know exactly
+    which columns to fill in. File itself is generated once via
+    `python manage.py generate_import_template` and saved to templates_data/.
+    """
+    path = os.path.join(settings.BASE_DIR, 'templates_data', 'product_import_template.xlsx')
+    return FileResponse(open(path, 'rb'), as_attachment=True, filename='product_import_template.xlsx')

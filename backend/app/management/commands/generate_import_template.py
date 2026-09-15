@@ -1,0 +1,17 @@
+import openpyxl
+from django.core.management.base import BaseCommand
+
+class Command(BaseCommand):
+    def handle(self, *args, **kwargs):
+        wb = openpyxl.Workbook() #creates a new blank spreadsheet
+        ws = wb.active     # first sheet in the workbook
+        ws.title = "Products"  #rename sheet tab
+
+        #column headers - must match names the import view reads (row["name"]), row["price"],etc)
+        headers = ["name", "category", "price", "cost_price", "stock_count", "reorder_point"]
+        ws.append(headers)  # write header row
+
+       # example row so users see the expected format
+        ws.append(["Coca Cola 500ml", "Beverages", 60, 45, 48, 10])
+
+        wb.save("templates_data/product_import_template.xlsx")  # save file to disk

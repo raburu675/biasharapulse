@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from app.views import dashboard_summary, pos_summary, stock_movements, create_sale, order_list, update_order_status
+from app.views import (
+    dashboard_summary, pos_summary, stock_movements, create_sale,
+    order_list, update_order_status, import_products, import_template,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -37,4 +40,8 @@ urlpatterns = [
     # NEW — Orders
     path('api/orders/<int:business_id>/', order_list, name='order_list'),
     path('api/orders/<int:business_id>/<int:order_id>/status/', update_order_status, name='update_order_status'),
+
+    # NEW — Product spreadsheet import
+    path('api/products/<int:business_id>/import/', import_products, name='import_products'),
+    path('api/products/import-template/', import_template, name='import_template'),
 ]

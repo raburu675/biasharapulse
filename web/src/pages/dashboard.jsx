@@ -15,6 +15,10 @@ import {
 import Sidebar from './sidebar'
 import './styles/dashboard.css'
 
+// ── Config ─────────────────────────────────────
+const API_BASE = 'https://your-app.up.railway.app' // change to your Railway URL
+const BUSINESS_ID = 1 // replace with real business id (auth/context)
+
 // ── Initial Mock Data ─────────────────────────────────────
 const initialSalesData = [
   { month: 'Jan', sales: 124000, expenses: 62000, margin: 50.0 },
@@ -26,7 +30,6 @@ const initialSalesData = [
   { month: 'Jul', sales: 197000, expenses: 89000, margin: 54.8 },
 ]
 
-// Payment Channels Palette (M-Pesa: Green, Cash: Yellow, Card: Blue)
 const paymentSplit = [
   { name: 'M-Pesa', value: 62, color: '#16A34A' },
   { name: 'Cash', value: 23, color: '#EAB308' },
@@ -58,8 +61,45 @@ function Dashboard() {
   const [salesData] = useState(initialSalesData)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
+  // ── Import modal state ─────────────────────────────────────
+  const [showImport, setShowImport] = useState(false) // modal open/closed
+  const [file, setFile] = useState(null)               // selected spreadsheet
+  const [importResult, setImportResult] = useState(null) // response after upload
+  const [importing, setImporting] = useState(false)      // loading state
+
   const toggleMenu = () => {
     setIsMenuOpen((prev) => !prev)
+  }
+
+  // Uploads the selected file to the Django import endpoint
+  const handleImport = async () => {
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch(`${API_BASE}/api/products/${BUSINESS_ID}/import/`, {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      setImportResult(data)
+      // Note: dashboard mock data above stays as-is; wire real fetches
+      // to your products/sales endpoints separately to reflect new data.
+    } catch (err) {
+      setImportResult({ error: err.message })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const closeImportModal = () => {
+    setShowImport(false)
+    setFile(null)
+    setImportResult(null)
   }
 
   const totalSales = salesData.reduce((sum, d) => sum + d.sales, 0)
@@ -85,7 +125,6 @@ function Dashboard() {
             <p className="header-sub">Live metrics & inventory health</p>
           </div>
 
-          {/* Far Right: Actions & Profile Dropdown */}
           <div className="header-right">
             <div className="live-badge">
               <span className="live-dot" />
@@ -133,12 +172,98 @@ function Dashboard() {
             className="search-input"
             placeholder="Search SKU, product, or shelf..."
           />
-          <button className="filter-btn" aria-label="Filter options">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+          <button
+            onClick={() => setShowImport(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              backgroundColor: "#15803D",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: "14px",
+              padding: "10px 16px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#166534")}
+            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#15803D")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
             </svg>
+            Import files
           </button>
         </div>
+
+        {/* Import modal */}
+        {showImport && (
+          <div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            }}
+            onClick={closeImportModal}
+          >
+            <div
+              style={{ backgroundColor: '#fff', padding: 24, borderRadius: 10, width: 360 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ marginTop: 0 }}>Import Products</h3>
+
+              <a
+                href={`${API_BASE}/api/products/import-template/`}
+                style={{ color: '#15803D', fontWeight: 600, textDecoration: 'none' }}
+              >
+                ⬇ Download Template
+              </a>
+
+              <p style={{ fontSize: 13, color: '#666', marginTop: 8 }}>
+                Fill in the template, then upload it below.
+              </p>
+
+              <input
+                type="file"
+                accept=".xlsx,.csv"
+                onChange={(e) => setFile(e.target.files[0])}
+                style={{ marginTop: 12 }}
+              />
+
+              <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleImport}
+                  disabled={!file || importing}
+                  style={{
+                    backgroundColor: '#15803D', color: '#fff', border: 'none',
+                    padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
+                    opacity: !file || importing ? 0.6 : 1,
+                  }}
+                >
+                  {importing ? 'Importing...' : 'Import'}
+                </button>
+                <button
+                  onClick={closeImportModal}
+                  style={{ backgroundColor: '#eee', border: 'none', padding: '8px 14px', borderRadius: 6, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {importResult?.error && <p style={{ color: 'red', marginTop: 12 }}>{importResult.error}</p>}
+              {importResult?.created !== undefined && (
+                <p style={{ marginTop: 12 }}>Created: {importResult.created}, Updated: {importResult.updated}</p>
+              )}
+              {importResult?.errors?.length > 0 && (
+                <ul style={{ color: 'red', fontSize: 13 }}>
+                  {importResult.errors.map((e, i) => <li key={i}>Row {e.row}: {e.error}</li>)}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Hero Banner */}
         <section className="hero-banner">
@@ -176,7 +301,6 @@ function Dashboard() {
 
         {/* Analytics Grid */}
         <section className="analytics-grid">
-          {/* Chart 1: Sales vs Expenses */}
           <div className="chart-section sales-card">
             <div className="chart-card-header">
               <h2>Sales & Expense Breakdown</h2>
@@ -198,7 +322,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Chart 2: Profit Margin Trend */}
           <div className="chart-section margin-card">
             <div className="chart-card-header">
               <h2>Profit Margin Trend</h2>
@@ -240,7 +363,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Payment Channels */}
           <div className="chart-section channel-card">
             <div className="chart-card-header">
               <h2>Payment Channels</h2>
@@ -272,7 +394,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Category Sales Volume */}
           <div className="chart-section volume-card">
             <div className="chart-card-header">
               <h2>Category Sales Volume</h2>
@@ -296,7 +417,6 @@ function Dashboard() {
 
         {/* Lower Feeds */}
         <section className="activity-grid">
-          {/* Recent Activity */}
           <div className="chart-section activity-card">
             <div className="chart-card-header">
               <h2>Recent Activity</h2>
@@ -320,7 +440,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Stock Audit Logs */}
           <div className="chart-section audit-card">
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>
