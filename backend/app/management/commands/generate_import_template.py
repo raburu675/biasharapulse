@@ -15,8 +15,8 @@
 #         ws.append(["Coca Cola 500ml", "Beverages", 60, 45, 48, 10])
 
 #         wb.save("templates_data/product_import_template.xlsx")  # save file to disk
-
 import openpyxl
+from openpyxl.styles import Font
 from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
@@ -26,10 +26,15 @@ class Command(BaseCommand):
         ws.title = "Products"
 
         headers = ["name", "category", "price", "cost_price", "stock_count", "reorder_point"]
-        ws.append(headers)
-        ws.append(["Coca Cola 500ml", "Beverages", 60, 45, 48, 10])  # example row
+        small_font = Font(size=10)
 
-        # Column widths — without this, headers/values overlap into next cell
+        ws.append(headers)
+
+        # Apply smaller font to header row
+        for cell in ws[1]:
+            cell.font = small_font
+
+        # Column widths
         widths = [22, 16, 10, 12, 14, 14]
         for i, w in enumerate(widths, start=1):
             ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
