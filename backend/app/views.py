@@ -571,3 +571,65 @@ def import_template(request):
     """
     path = os.path.join(settings.BASE_DIR, 'templates_data', 'product_import_template.xlsx')
     return FileResponse(open(path, 'rb'), as_attachment=True, filename='product_import_template.xlsx')
+
+
+@api_view(['POST'])
+def create_order(request, business_id):
+    """
+    Creates a customer order with real Product-backed line items.
+    total_amount is computed from each item's price_at_order x quantity —
+    not taken from the request — same "never trust client-sent totals"
+    principle as create_sale's amount calculation.
+    """
+    try:
+        business = Business.objects.get(id=business_id)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+    
+    customer_name = request.data.get('customer_name')
+    items = request.data.get('items', [])  # [{'product_id': 3, 'quantity': 2}, ...]
+
+    if not customer_name or not items:
+        return Response({'error': 'customer_name and items are required'}, status=400)
+    
+    # Simple sequential order number: ORD-0001, ORD-0002, ...
+    order_count = Order.objects.filter(business=business).count()
+    order_number = f'ORD-{order_count + 1:04d}'
+
+    order = Order.objects.create(
+        business=business,
+        order_number=order_number,
+        customer_name=customer_name,
+        customer_phone=request.data.get('customer_phone', ''),
+        shipping_address=request.data.get('shipping_address', ''),
+        total_amount=0,  # filled in below once line items exist
+        payment_method=request.data.get('payment_method', 'cash'),
+        source=request.data.get('source', 'manual'),
+        courier=request.data.get('courier', ''),
+        tracking_number=request.data.get('tracking_number', ''),
+        status='pending',
+    )
+
+    # Create each line item — OrderItem.save() auto-fills price_at_order
+    # and name from the Product, so we only need to pass product + quantity
+    total = Decimal('0')
+    for item in items:
+        try:
+            product = Product.objects.get(id=item['product_id'], business=business)
+        except Product.DoesNotExist:
+            continue  # skip invalid product IDs rather than failing the whole order
+        order_item = OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=item.get('quantity', 1),
+        )
+        total += order_item.line_total
+
+    order.total_amount = total
+    order.save(update_fields=['total_amount'])
+
+    return Response({
+        'id': order.id,
+        'order_number': order.order_number,
+        'total_amount': total,
+    }, status=201)

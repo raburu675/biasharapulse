@@ -129,11 +129,10 @@ function Landing() {
         </svg>
 
         <section className="hero">
-          <span className="hero-pill">Engineered for Kenyan SMEs 🇰🇪</span>
+          <span className="hero-pill">Developed for Kenyan SMEs 🇰🇪</span>
           <h1>Run your business, not your spreadsheets</h1>
           <p>
-            No more guessing what sold, what's low, or where the money went. BiasharaPulse puts your sales,
-            expenses, and stock levels in one place — updated as it happens, not at closing time.
+            Stop wasting time digging through spreadsheets, receipts, and scattered records just to figure out how your business is doing. BiasharaPulse brings your sales, expenses, inventory, and daily operations together in one simple platform. See what’s selling, know what’s running low, track where your money is going, and stay on top of your business in real time
           </p>
           <div className="hero-cta-group">
             <button className="cta-primary" onClick={() => setStage("dashboard")}>
@@ -164,7 +163,7 @@ function Landing() {
         <div className="feature">
           <div className="feature-icon">📈</div>
           <h3>Reports & Insights</h3>
-          <p>Exportable performance summaries showcasing profit margins and top-performing SKUs.</p>
+          <p>Exportable performance summaries showcasing profit margins and top-performing products.</p>
         </div>
         <div className="feature">
           <div className="feature-icon">⚡</div>
@@ -174,107 +173,111 @@ function Landing() {
       </section>
 
       <section id="pricing" className="pricing">
-        <div className="pricing-header">
-          <span className="pricing-tag">Transparent SME Pricing</span>
-          <h2>Plans built to fit every stage of your biashara</h2>
-          <p>Test free with your first 75 orders. Upgrade seamlessly as your shop scales.</p>
+  <div className="pricing-header">
+    <span className="pricing-tag">Transparent SME Pricing</span>
+    <h2>Plans built to fit every stage of your biashara</h2>
+    <p>Test free with your first 75 orders. Upgrade seamlessly as your shop scales.</p>
+  </div>
+
+  <div className="pricing-grid">
+    <div className="pricing-card">
+      <div className="pricing-card-header">
+        <h3>Starter</h3>
+        <p>For new vendors testing the app without commitment.</p>
+        <div className="pricing-amount">
+          <span className="currency">KES</span>
+          <span className="price">0</span>
+          <span className="period">/ 75 orders</span>
         </div>
+      </div>
+      <div className="pricing-card-body">
+        <ul className="pricing-features">
+          <li>✓ First 75 Orders Free</li>
+          <li>✓ 1 User / 1 Device</li>
+          <li>✓ Sales & Expense Logging</li>
+          <li>✓ Basic Inventory Tracking</li>
+          <li>✓ 30-Day History</li>
+        </ul>
+        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+          Start Free Test
+        </button>
+      </div>
+    </div>
 
-        <div className="pricing-grid">
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Starter</h3>
-              <p>For new vendors testing the app without commitment.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">0</span>
-                <span className="period">/ 75 orders</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ First 75 Orders Free</li>
-                <li>✓ 1 User / 1 Device</li>
-                <li>✓ Sales & Expense Logging</li>
-                <li>✓ Basic Inventory Tracking</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
-                Start Free Test
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Biashara Growth</h3>
-              <p>For active single-outlet retail shops needing automated tracking.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">750</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ <strong>Unlimited Orders</strong></li>
-                <li>✓ 2 Staff Accounts</li>
-                <li>✓ M-Pesa Transaction Tagging</li>
-                <li>✓ Low-Stock Threshold Alerts</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
-                Select Growth
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-card featured">
-            <div className="popular-badge">Most Popular</div>
-            <div className="pricing-card-header">
-              <h3>Biashara Plus</h3>
-              <p>For growing retail outlets managing staff and cashiers.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">1,500</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ Everything in Growth</li>
-                <li>✓ Up to 5 Staff Accounts</li>
-                <li>✓ Cashier Fraud & Edit Logs</li>
-                <li>✓ Supplier PO & Profit Reports</li>
-              </ul>
-              <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
-                Start 14-Day Free Trial
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Pro Multi-Branch</h3>
-              <p>For distributors & multi-location operations.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">2,200</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ Everything in Plus</li>
-                <li>✓ Up to 3 Shop Branches</li>
-                <li>✓ Inter-Branch Stock Transfers</li>
-                <li>✓ Priority Phone Support</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
-                Upgrade to Pro
-              </button>
-            </div>
-          </div>
+    <div className="pricing-card">
+      <div className="pricing-card-header">
+        <h3>Biashara Growth</h3>
+        <p>For active single-outlet retail shops needing automated tracking.</p>
+        <div className="pricing-amount">
+          <span className="currency">KES</span>
+          <span className="price">750</span>
+          <span className="period">/ month</span>
         </div>
-      </section>
+      </div>
+      <div className="pricing-card-body">
+        <ul className="pricing-features">
+          <li>✓ <strong>Unlimited Orders</strong></li>
+          <li>✓ Product Performance Analytics</li>
+          <li>✓ Bulk Spreadsheet Import</li>
+          <li>✓ M-Pesa Transaction Tagging</li>
+          <li>✓ Low-Stock Threshold Alerts</li>
+          <li>✓ Unlimited History</li>
+        </ul>
+        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+          Select Growth
+        </button>
+      </div>
+    </div>
+
+    <div className="pricing-card featured">
+      <div className="popular-badge">Most Popular</div>
+      <div className="pricing-card-header">
+        <h3>Biashara Plus</h3>
+        <p>For growing retail outlets managing customer orders and staff.</p>
+        <div className="pricing-amount">
+          <span className="currency">KES</span>
+          <span className="price">1,500</span>
+          <span className="period">/ month</span>
+        </div>
+      </div>
+      <div className="pricing-card-body">
+        <ul className="pricing-features">
+          <li>✓ Everything in Growth</li>
+          <li>✓ Customer Order Management</li>
+          <li>✓ Stock Movement Audit Trail</li>
+          <li>✓ Up to 5 Staff Accounts <span className="soon-tag">Coming soon</span></li>
+          <li>✓ Cashier Activity Logs <span className="soon-tag">Coming soon</span></li>
+        </ul>
+        <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
+          Start 14-Day Free Trial
+        </button>
+      </div>
+    </div>
+
+    <div className="pricing-card">
+      <div className="pricing-card-header">
+        <h3>Pro Multi-Branch</h3>
+        <p>For distributors & multi-location operations.</p>
+        <div className="pricing-amount">
+          <span className="currency">KES</span>
+          <span className="price">2,200</span>
+          <span className="period">/ month</span>
+        </div>
+      </div>
+      <div className="pricing-card-body">
+        <ul className="pricing-features">
+          <li>✓ Everything in Plus</li>
+          <li>✓ Up to 3 Shop Branches <span className="soon-tag">Coming soon</span></li>
+          <li>✓ Inter-Branch Stock Transfers <span className="soon-tag">Coming soon</span></li>
+          <li>✓ Priority Phone Support</li>
+        </ul>
+        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+          Upgrade to Pro
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
 
       <section id="values" className="values">
         <h2>Built around how you actually run your shop</h2>
@@ -302,7 +305,7 @@ function Landing() {
         <div className="dev-portal-content">
           <div className="dev-mark">R</div>
           <div className="dev-portal-body">
-            <h2>There's a developer behind this platform</h2>
+            <h2>Developers Portal</h2>
             <p className="dev-portal-about">
               BiasharaPulse grew out of one real problem: shop owners tracking stock and cash by hand, with no
               visibility until something went missing. It now runs sales, inventory, and reporting for pop-up

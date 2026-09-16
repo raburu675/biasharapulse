@@ -1,13 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/pos.css'
 
-const initialInventory = [
-  { id: 1, name: 'New Era 59FIFTY', category: 'Fitted', costPrice: 1800, sellingPrice: 3200, stockQuantity: 34, unitsSold: 58, totalRevenue: 185600, grossProfit: 81200, profitMargin: 43.8, sellThroughRate: 63.0, performanceTier: 'Star Performer', stockStatus: 'In Stock' },
-  { id: 2, name: 'New Era 9FORTY', category: 'Adjustable', costPrice: 1200, sellingPrice: 2200, stockQuantity: 18, unitsSold: 41, totalRevenue: 90200, grossProfit: 41000, profitMargin: 45.5, sellThroughRate: 69.0, performanceTier: 'Star Performer', stockStatus: 'Low Stock' },
-  { id: 3, name: 'New Era 9FIFTY', category: 'Snapback', costPrice: 1400, sellingPrice: 2600, stockQuantity: 7, unitsSold: 12, totalRevenue: 31200, grossProfit: 14400, profitMargin: 46.2, sellThroughRate: 40.0, performanceTier: 'Steady', stockStatus: 'Low Stock' },
-  { id: 4, name: 'New Era Low Profile', category: 'Fitted', costPrice: 1600, sellingPrice: 2900, stockQuantity: 0, unitsSold: 9, totalRevenue: 26100, grossProfit: 11700, profitMargin: 44.8, sellThroughRate: 100.0, performanceTier: 'Slow Mover', stockStatus: 'Out of Stock' },
-]
+const API_BASE = 'https://biasharapulse-production.up.railway.app'
+const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
 const sortOptions = [
   { id: 'unitsSold', label: 'Highest Units Sold' },
@@ -21,7 +18,10 @@ const tierClass = (tier) => (tier === 'Star Performer' ? 'tier-star' : tier === 
 const stockClass = (status) => (status === 'Out of Stock' ? 'stock-out' : status === 'Low Stock' ? 'stock-low' : 'stock-ok')
 
 function Pos() {
-  const [inventory, setInventory] = useState(initialInventory)
+  const [inventory, setInventory] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [sort, setSort] = useState('unitsSold')
@@ -29,11 +29,45 @@ function Pos() {
   const [sellItem, setSellItem] = useState(null)
   const [sellQty, setSellQty] = useState(1)
   const [channel, setChannel] = useState('mpesa')
+  const [selling, setSelling] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [savingProduct, setSavingProduct] = useState(false)
   const [newProduct, setNewProduct] = useState({ name: '', category: '', cost: '', price: '', stock: '' })
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
+
+  // Pulls per-product analytics — cost, margin, sell-through, stock status
+  const fetchInventory = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await axios.get(`${API_BASE}/pos-summary/${BUSINESS_ID}/`)
+      setInventory(res.data.products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        costPrice: Number(p.cost_price),
+        sellingPrice: Number(p.selling_price),
+        stockQuantity: p.stock_quantity,
+        unitsSold: p.units_sold,
+        totalRevenue: Number(p.total_revenue),
+        grossProfit: Number(p.gross_profit),
+        profitMargin: Number(p.profit_margin),
+        sellThroughRate: Number(p.sell_through_rate),
+        performanceTier: p.performance_tier,
+        stockStatus: p.stock_status,
+      })))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchInventory()
+  }, [fetchInventory])
 
   const categories = useMemo(() => ['All', ...new Set(inventory.map((i) => i.category))], [inventory])
 
@@ -46,9 +80,9 @@ function Pos() {
     return { totalRevenue, totalProfit, avgSellThrough }
   }, [inventory])
 
-  const topSeller = useMemo(() => [...inventory].sort((a, b) => b.unitsSold - a.unitsSold)[0], [inventory])
-  const mostProfitable = useMemo(() => [...inventory].sort((a, b) => b.grossProfit - a.grossProfit)[0], [inventory])
-  const bestMargin = useMemo(() => [...inventory].sort((a, b) => b.profitMargin - a.profitMargin)[0], [inventory])
+  const topSeller = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.unitsSold - a.unitsSold)[0] : null, [inventory])
+  const mostProfitable = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.grossProfit - a.grossProfit)[0] : null, [inventory])
+  const bestMargin = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.profitMargin - a.profitMargin)[0] : null, [inventory])
 
   const filtered = useMemo(() => {
     let list = inventory.filter(
@@ -70,46 +104,45 @@ function Pos() {
     setChannel('mpesa')
   }
 
-  const confirmSale = () => {
+  // Posts to create_sale — backend calculates amount and decrements stock
+  const confirmSale = async () => {
     if (!sellItem || sellItem.stockQuantity === 0) return
-    setInventory(
-      inventory.map((i) =>
-        i.id === sellItem.id
-          ? {
-              ...i,
-              stockQuantity: i.stockQuantity - sellQty,
-              unitsSold: i.unitsSold + sellQty,
-              totalRevenue: i.totalRevenue + sellQty * i.sellingPrice,
-              grossProfit: i.grossProfit + sellQty * (i.sellingPrice - i.costPrice),
-            }
-          : i
-      )
-    )
-    setSellItem(null)
+    setSelling(true)
+    try {
+      await axios.post(`${API_BASE}/create-sale/${BUSINESS_ID}/`, {
+        product_id: sellItem.id,
+        quantity: sellQty,
+        payment_channel: channel,
+      })
+      setSellItem(null)
+      fetchInventory() // refresh stock/analytics after the sale
+    } catch (err) {
+      alert(err.response?.data?.error || 'Could not record sale')
+    } finally {
+      setSelling(false)
+    }
   }
 
-  const addProduct = () => {
+  // Posts to create_product — one-off addition outside the bulk import
+  const addProduct = async () => {
     if (!newProduct.name || !newProduct.cost || !newProduct.price || !newProduct.stock) return
-    setInventory([
-      ...inventory,
-      {
-        id: Date.now(),
+    setSavingProduct(true)
+    try {
+      await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/create/`, {
         name: newProduct.name,
         category: newProduct.category || 'General',
-        costPrice: Number(newProduct.cost),
-        sellingPrice: Number(newProduct.price),
-        stockQuantity: Number(newProduct.stock),
-        unitsSold: 0,
-        totalRevenue: 0,
-        grossProfit: 0,
-        profitMargin: 0,
-        sellThroughRate: 0,
-        performanceTier: 'Slow Mover',
-        stockStatus: 'In Stock',
-      },
-    ])
-    setNewProduct({ name: '', category: '', cost: '', price: '', stock: '' })
-    setAddOpen(false)
+        cost_price: Number(newProduct.cost),
+        price: Number(newProduct.price),
+        stock_count: Number(newProduct.stock),
+      })
+      setNewProduct({ name: '', category: '', cost: '', price: '', stock: '' })
+      setAddOpen(false)
+      fetchInventory() // new product now shows up in the list
+    } catch (err) {
+      alert(err.response?.data?.error || 'Could not add product')
+    } finally {
+      setSavingProduct(false)
+    }
   }
 
   return (
@@ -118,7 +151,6 @@ function Pos() {
         <Sidebar current="pos" />
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Sticky Header Navigation */}
           <header className="sticky-navbar">
             <div className="header-center">
               <h1>BiasharaPulse</h1>
@@ -178,118 +210,127 @@ function Pos() {
               </button>
             </div>
 
-            {/* Metrics */}
-            <div className="metrics-card">
-              <div className="metric">
-                <span className="metric-label">Total Sales</span>
-                <span className="metric-value">KES {totals.totalRevenue.toLocaleString()}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Gross Profit</span>
-                <span className="metric-value highlight">KES {totals.totalProfit.toLocaleString()}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Avg Sell-Through</span>
-                <span className="metric-value">{totals.avgSellThrough.toFixed(1)}%</span>
-              </div>
-            </div>
-
-            {/* Spotlight */}
-            <div className="spotlight-scroll">
-              {topSeller && (
-                <div className="spotlight-card">
-                  <span className="spotlight-badge">TOP SELLER</span>
-                  <p className="spotlight-name">{topSeller.name}</p>
-                  <span className="spotlight-metric">{topSeller.unitsSold} units</span>
-                </div>
-              )}
-              {mostProfitable && (
-                <div className="spotlight-card">
-                  <span className="spotlight-badge">MOST PROFITABLE</span>
-                  <p className="spotlight-name">{mostProfitable.name}</p>
-                  <span className="spotlight-metric">KES {mostProfitable.grossProfit.toLocaleString()}</span>
-                </div>
-              )}
-              {bestMargin && (
-                <div className="spotlight-card">
-                  <span className="spotlight-badge">BEST MARGIN</span>
-                  <p className="spotlight-name">{bestMargin.name}</p>
-                  <span className="spotlight-metric">{bestMargin.profitMargin.toFixed(1)}%</span>
-                </div>
-              )}
-            </div>
-
-            {/* Search + QR */}
-            <div className="search-row">
-              <input
-                className="search-input"
-                placeholder="Filter products by name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <button className="qr-btn" aria-label="Scan">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-                  <rect x="3" y="14" width="7" height="7" /><line x1="14" y1="14" x2="14" y2="21" /><line x1="21" y1="14" x2="21" y2="21" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Category chips */}
-            <div className="category-scroll">
-              {categories.map((c) => (
-                <button
-                  key={c}
-                  className={`cat-chip ${category === c ? 'active' : ''}`}
-                  onClick={() => setCategory(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-
-            {/* Product list */}
-            {filtered.length === 0 ? (
-              <div className="empty-state">No products match your search or filter</div>
+            {loading ? (
+              <div className="empty-state">Loading products...</div>
+            ) : error ? (
+              <div className="empty-state">Couldn't load products: {error}</div>
             ) : (
-              filtered.map((item) => (
-                <div className="product-card" key={item.id}>
-                  <div className="product-card-top">
-                    <div>
-                      <p className="product-name">{item.name}</p>
-                      <div className="product-meta-row">
-                        <span className="product-category">{item.category}</span>
-                        <span className={`tier-badge ${tierClass(item.performanceTier)}`}>{item.performanceTier}</span>
+              <>
+                <div className="metrics-card">
+                  <div className="metric">
+                    <span className="metric-label">Total Sales</span>
+                    <span className="metric-value">KES {totals.totalRevenue.toLocaleString()}</span>
+                  </div>
+                  <div className="metric">
+                    <span className="metric-label">Gross Profit</span>
+                    <span className="metric-value highlight">KES {totals.totalProfit.toLocaleString()}</span>
+                  </div>
+                  <div className="metric">
+                    <span className="metric-label">Avg Sell-Through</span>
+                    <span className="metric-value">{totals.avgSellThrough.toFixed(1)}%</span>
+                  </div>
+                </div>
+
+                {inventory.length > 0 && (
+                  <div className="spotlight-scroll">
+                    {topSeller && (
+                      <div className="spotlight-card">
+                        <span className="spotlight-badge">TOP SELLER</span>
+                        <p className="spotlight-name">{topSeller.name}</p>
+                        <span className="spotlight-metric">{topSeller.unitsSold} units</span>
                       </div>
-                    </div>
-                    <div className="product-card-badges">
-                      <span className="margin-badge">{item.profitMargin.toFixed(1)}% Margin</span>
-                      <span className={`stock-badge ${stockClass(item.stockStatus)}`}>{item.stockStatus}</span>
-                    </div>
+                    )}
+                    {mostProfitable && (
+                      <div className="spotlight-card">
+                        <span className="spotlight-badge">MOST PROFITABLE</span>
+                        <p className="spotlight-name">{mostProfitable.name}</p>
+                        <span className="spotlight-metric">KES {mostProfitable.grossProfit.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {bestMargin && (
+                      <div className="spotlight-card">
+                        <span className="spotlight-badge">BEST MARGIN</span>
+                        <p className="spotlight-name">{bestMargin.name}</p>
+                        <span className="spotlight-metric">{bestMargin.profitMargin.toFixed(1)}%</span>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  <div className="product-divider" />
-
-                  <div className="stats-row">
-                    <div className="stat"><span className="stat-label">Cost</span><span className="stat-value">KES {item.costPrice}</span></div>
-                    <div className="stat"><span className="stat-label">Price</span><span className="stat-value">KES {item.sellingPrice}</span></div>
-                    <div className="stat"><span className="stat-label">In Stock</span><span className="stat-value">{item.stockQuantity} pcs</span></div>
-                  </div>
-                  <div className="stats-row">
-                    <div className="stat"><span className="stat-label">Units Sold</span><span className="stat-value">{item.unitsSold}</span></div>
-                    <div className="stat"><span className="stat-label">Sell-Through</span><span className="stat-value">{item.sellThroughRate.toFixed(1)}%</span></div>
-                    <div className="stat"><span className="stat-label">Profit</span><span className="stat-value bold">KES {item.grossProfit.toLocaleString()}</span></div>
-                  </div>
-
-                  <button
-                    className="sell-btn"
-                    disabled={item.stockQuantity === 0}
-                    onClick={() => openSell(item)}
-                  >
-                    {item.stockQuantity === 0 ? 'Out of Stock' : 'Record Sale'}
+                <div className="search-row">
+                  <input
+                    className="search-input"
+                    placeholder="Filter products by name..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  <button className="qr-btn" aria-label="Scan">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" /><line x1="14" y1="14" x2="14" y2="21" /><line x1="21" y1="14" x2="21" y2="21" />
+                    </svg>
                   </button>
                 </div>
-              ))
+
+                <div className="category-scroll">
+                  {categories.map((c) => (
+                    <button
+                      key={c}
+                      className={`cat-chip ${category === c ? 'active' : ''}`}
+                      onClick={() => setCategory(c)}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
+                {filtered.length === 0 ? (
+                  <div className="empty-state">
+                    {inventory.length === 0
+                      ? 'No products yet — add one below or import a spreadsheet.'
+                      : 'No products match your search or filter'}
+                  </div>
+                ) : (
+                  filtered.map((item) => (
+                    <div className="product-card" key={item.id}>
+                      <div className="product-card-top">
+                        <div>
+                          <p className="product-name">{item.name}</p>
+                          <div className="product-meta-row">
+                            <span className="product-category">{item.category}</span>
+                            <span className={`tier-badge ${tierClass(item.performanceTier)}`}>{item.performanceTier}</span>
+                          </div>
+                        </div>
+                        <div className="product-card-badges">
+                          <span className="margin-badge">{item.profitMargin.toFixed(1)}% Margin</span>
+                          <span className={`stock-badge ${stockClass(item.stockStatus)}`}>{item.stockStatus}</span>
+                        </div>
+                      </div>
+
+                      <div className="product-divider" />
+
+                      <div className="stats-row">
+                        <div className="stat"><span className="stat-label">Cost</span><span className="stat-value">KES {item.costPrice}</span></div>
+                        <div className="stat"><span className="stat-label">Price</span><span className="stat-value">KES {item.sellingPrice}</span></div>
+                        <div className="stat"><span className="stat-label">In Stock</span><span className="stat-value">{item.stockQuantity} pcs</span></div>
+                      </div>
+                      <div className="stats-row">
+                        <div className="stat"><span className="stat-label">Units Sold</span><span className="stat-value">{item.unitsSold}</span></div>
+                        <div className="stat"><span className="stat-label">Sell-Through</span><span className="stat-value">{item.sellThroughRate.toFixed(1)}%</span></div>
+                        <div className="stat"><span className="stat-label">Profit</span><span className="stat-value bold">KES {item.grossProfit.toLocaleString()}</span></div>
+                      </div>
+
+                      <button
+                        className="sell-btn"
+                        disabled={item.stockQuantity === 0}
+                        onClick={() => openSell(item)}
+                      >
+                        {item.stockQuantity === 0 ? 'Out of Stock' : 'Record Sale'}
+                      </button>
+                    </div>
+                  ))
+                )}
+              </>
             )}
 
             <button className="fab" onClick={() => setAddOpen(true)}>+ Add Product</button>
@@ -328,7 +369,9 @@ function Pos() {
 
             <div className="modal-actions">
               <button className="modal-btn cancel" onClick={() => setSellItem(null)}>Cancel</button>
-              <button className="modal-btn confirm" onClick={confirmSale}>Confirm Sale</button>
+              <button className="modal-btn confirm" onClick={confirmSale} disabled={selling}>
+                {selling ? 'Recording...' : 'Confirm Sale'}
+              </button>
             </div>
           </div>
         </div>
@@ -338,7 +381,7 @@ function Pos() {
       {addOpen && (
         <div className="modal-overlay" onClick={() => setAddOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <p className="modal-title">Add Product for Analytics</p>
+            <p className="modal-title">Add Product</p>
             <input className="modal-input" placeholder="Product Name" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
             <input className="modal-input" placeholder="Category" value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} />
             <div className="modal-input-row">
@@ -348,7 +391,9 @@ function Pos() {
             <input className="modal-input" type="number" placeholder="Stock Quantity" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} />
             <div className="modal-actions">
               <button className="modal-btn cancel" onClick={() => setAddOpen(false)}>Cancel</button>
-              <button className="modal-btn confirm" onClick={addProduct}>Add & Analyze</button>
+              <button className="modal-btn confirm" onClick={addProduct} disabled={savingProduct}>
+                {savingProduct ? 'Saving...' : 'Add & Analyze'}
+              </button>
             </div>
           </div>
         </div>

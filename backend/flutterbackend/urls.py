@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from app.views import (
     dashboard_summary, pos_summary, stock_movements, create_sale,
-    order_list, update_order_status, import_products, import_template,
+    order_list, update_order_status, import_products, import_template,create_order,
 )
 
 urlpatterns = [
@@ -40,8 +40,11 @@ urlpatterns = [
     # NEW — Orders
     path('api/orders/<int:business_id>/', order_list, name='order_list'),
     path('api/orders/<int:business_id>/<int:order_id>/status/', update_order_status, name='update_order_status'),
+    path('api/orders/<int:business_id>/create/', create_order, name='create_order'),
 
     # NEW — Product spreadsheet import
     path('api/products/<int:business_id>/import/', import_products, name='import_products'),
     path('api/products/import-template/', import_template, name='import_template'),
+
+
 ]

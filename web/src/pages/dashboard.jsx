@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import axios from 'axios'
 import {
   BarChart,
   Bar,
@@ -19,59 +20,43 @@ import './styles/dashboard.css'
 const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
-// ── Initial Mock Data ─────────────────────────────────────
-const initialSalesData = [
-  { month: 'Jan', sales: 124000, expenses: 62000, margin: 50.0 },
-  { month: 'Feb', sales: 158000, expenses: 71000, margin: 55.0 },
-  { month: 'Mar', sales: 112000, expenses: 58000, margin: 48.2 },
-  { month: 'Apr', sales: 186000, expenses: 84000, margin: 54.8 },
-  { month: 'May', sales: 213000, expenses: 92000, margin: 56.8 },
-  { month: 'Jun', sales: 261000, expenses: 105000, margin: 59.7 },
-  { month: 'Jul', sales: 197000, expenses: 89000, margin: 54.8 },
-]
-
-const paymentSplit = [
-  { name: 'M-Pesa', value: 62, color: '#16A34A' },
-  { name: 'Cash', value: 23, color: '#EAB308' },
-  { name: 'Card', value: 15, color: '#2563EB' },
-]
-
-const categoryVolume = [
-  { name: 'Beverages', volume: 42, color: '#800A26' },
-  { name: 'Snacks & Edibles', volume: 28, color: '#0F766E' },
-  { name: 'Household', volume: 18, color: '#B45309' },
-  { name: 'Toiletries', volume: 12, color: '#067A3B' },
-]
-
-const recentSales = [
-  { id: 'TXN-8821', item: 'White Bread 800g (x2)', channel: 'M-Pesa', amount: 'KES 240', time: '2m ago' },
-  { id: 'TXN-8820', item: 'Fresh Milk 1L', channel: 'Cash', amount: 'KES 110', time: '14m ago' },
-  { id: 'TXN-8819', item: 'Refined Sugar 2kg', channel: 'Card', amount: 'KES 310', time: '41m ago' },
-  { id: 'TXN-8818', item: 'Cooking Oil 3L', channel: 'M-Pesa', amount: 'KES 890', time: '1h ago' },
-]
-
-const stockMovements = [
-  { id: 1, type: 'Stock In', item: '24x Soda Cans 300ml', user: 'Sam K.', time: '10m ago', qty: '+24', isAlert: false },
-  { id: 2, type: 'Low Stock Alert', item: 'Maize Flour 2kg', user: 'System', time: '30m ago', qty: '4 left', isAlert: true },
-  { id: 3, type: 'Waste / Damage', item: 'Yogurt Strawberry 250ml', user: 'Mercy N.', time: '2h ago', qty: '-2', isAlert: false },
-]
+const PAYMENT_COLORS = { 'M-Pesa': '#16A34A', Cash: '#EAB308', Card: '#2563EB' }
+const CATEGORY_COLORS = ['#800A26', '#0F766E', '#B45309', '#067A3B', '#6D28D9', '#DB2777']
+const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 function Dashboard() {
   const [activeMovementTab, setActiveMovementTab] = useState(0)
-  const [salesData] = useState(initialSalesData)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
-  // ── Import modal state ─────────────────────────────────────
-  const [showImport, setShowImport] = useState(false) // modal open/closed
-  const [file, setFile] = useState(null)               // selected spreadsheet
-  const [importResult, setImportResult] = useState(null) // response after upload
-  const [importing, setImporting] = useState(false)      // loading state
+  const [summary, setSummary] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const toggleMenu = () => {
-    setIsMenuOpen((prev) => !prev)
-  }
+  const [showImport, setShowImport] = useState(false)
+  const [file, setFile] = useState(null)
+  const [importResult, setImportResult] = useState(null)
+  const [importing, setImporting] = useState(false)
 
-  // Uploads the selected file to the Django import endpoint
+  // axios.get parses JSON automatically — response body is res.data
+  const fetchSummary = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await axios.get(`${API_BASE}/api/dashboard/${BUSINESS_ID}/summary/`)
+      setSummary(res.data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchSummary()
+  }, [fetchSummary])
+
+  const toggleMenu = () => setIsMenuOpen((prev) => !prev)
+
   const handleImport = async () => {
     if (!file) return
     setImporting(true)
@@ -81,16 +66,13 @@ function Dashboard() {
     formData.append('file', file)
 
     try {
-      const res = await fetch(`${API_BASE}/api/products/${BUSINESS_ID}/import/`, {
-        method: 'POST',
-        body: formData,
-      })
-      const data = await res.json()
-      setImportResult(data)
-      // Note: dashboard mock data above stays as-is; wire real fetches
-      // to your products/sales endpoints separately to reflect new data.
+      // axios sets multipart Content-Type automatically for FormData
+      const res = await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/import/`, formData)
+      setImportResult(res.data)
+      fetchSummary() // refresh dashboard with the newly imported data
     } catch (err) {
-      setImportResult({ error: err.message })
+      // axios throws on 4xx/5xx — err.response.data holds the server's error body
+      setImportResult(err.response?.data || { error: err.message })
     } finally {
       setImporting(false)
     }
@@ -102,16 +84,44 @@ function Dashboard() {
     setImportResult(null)
   }
 
-  const totalSales = salesData.reduce((sum, d) => sum + d.sales, 0)
-  const totalExpenses = salesData.reduce((sum, d) => sum + d.expenses, 0)
-  const netProfit = totalSales - totalExpenses
-  const netMargin = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : '0.0'
+  if (loading) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Loading dashboard...</p></main></div>
+  if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
 
-  const filteredLogs = stockMovements.filter((log) => {
-    if (activeMovementTab === 1) return !log.isAlert
-    if (activeMovementTab === 2) return log.isAlert
-    return true
+  // ── Reshape API response into what the charts expect ──
+  const monthMap = {}
+  summary.monthly_sales.forEach((r) => {
+    const label = MONTH_LABELS[new Date(r.month).getMonth()]
+    monthMap[label] = { ...monthMap[label], month: label, sales: r.total }
   })
+  summary.monthly_expenses.forEach((r) => {
+    const label = MONTH_LABELS[new Date(r.month).getMonth()]
+    monthMap[label] = { ...monthMap[label], month: label, expenses: r.total }
+  })
+  summary.monthly_profit_margin.forEach((r) => {
+    const label = MONTH_LABELS[new Date(r.month).getMonth()]
+    monthMap[label] = { ...monthMap[label], month: label, margin: r.margin }
+  })
+  const salesData = Object.values(monthMap)
+
+  const paymentSplit = summary.payment_channel_split.map((p) => ({
+    name: p.channel,
+    value: p.percent,
+    color: PAYMENT_COLORS[p.channel] || '#999',
+  }))
+
+  const categoryVolume = summary.category_volume.map((c, i) => ({
+    name: c.category,
+    volume: c.percent,
+    color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+  }))
+
+  const recentSales = summary.recent_activity.map((s, i) => ({
+    id: `TXN-${i}`,
+    item: s.product,
+    channel: s.payment_channel,
+    amount: `KES ${s.amount}`,
+    time: new Date(s.created_at).toLocaleString(),
+  }))
 
   return (
     <div className="app-shell">
@@ -270,7 +280,7 @@ function Dashboard() {
           <div className="hero-banner-top">
             <div>
               <span className="hero-banner-label">NET REVENUE (TOTAL)</span>
-              <div className="hero-banner-value">KES {totalSales.toLocaleString()}</div>
+              <div className="hero-banner-value">KES {Number(summary.net_revenue).toLocaleString()}</div>
             </div>
             <div className="hero-banner-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -282,19 +292,19 @@ function Dashboard() {
           <div className="hero-mini-grid">
             <div className="hero-mini">
               <span>Expenses</span>
-              <strong className="text-purple">KES {totalExpenses.toLocaleString()}</strong>
+              <strong className="text-purple">KES {Number(summary.expenses).toLocaleString()}</strong>
             </div>
             <div className="hero-mini">
               <span>Net Profit</span>
-              <strong className="text-green">KES {netProfit.toLocaleString()}</strong>
+              <strong className="text-green">KES {Number(summary.net_profit).toLocaleString()}</strong>
             </div>
             <div className="hero-mini">
               <span>Net Margin</span>
-              <strong className="text-green">{netMargin}%</strong>
+              <strong className="text-green">{summary.net_margin}%</strong>
             </div>
             <div className="hero-mini">
               <span>Active Inventory</span>
-              <strong className="text-ivory">1,420 Pcs</strong>
+              <strong className="text-ivory">{summary.active_inventory} Pcs</strong>
             </div>
           </div>
         </section>
@@ -306,20 +316,26 @@ function Dashboard() {
               <h2>Sales & Expense Breakdown</h2>
               <p className="chart-sub">By month (KES)</p>
             </div>
-            <div style={{ height: 180, width: '100%' }}>
-              <ResponsiveContainer>
-                <BarChart data={salesData}>
-                  <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-main)' }} />
-                  <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} name="Expenses" />
-                  <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} name="Sales" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="chart-legend">
-              <span><i className="dot dot-expenses" /> Expenses</span>
-              <span><i className="dot dot-sales" /> Sales</span>
-            </div>
+            {salesData.length === 0 ? (
+              <p className="chart-empty">No sales data yet — import products or record a sale to see this chart.</p>
+            ) : (
+              <>
+                <div style={{ height: 180, width: '100%' }}>
+                  <ResponsiveContainer>
+                    <BarChart data={salesData}>
+                      <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-main)' }} />
+                      <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} name="Expenses" />
+                      <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} name="Sales" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="chart-legend">
+                  <span><i className="dot dot-expenses" /> Expenses</span>
+                  <span><i className="dot dot-sales" /> Sales</span>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="chart-section margin-card">
@@ -327,40 +343,44 @@ function Dashboard() {
               <h2>Profit Margin Trend</h2>
               <p className="chart-sub">Percentage (%) shift month-over-month</p>
             </div>
-            <div style={{ height: 180, width: '100%' }}>
-              <ResponsiveContainer>
-                <AreaChart data={salesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="marginGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--kenya-green)" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="var(--kenya-green)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis
-                    stroke="var(--text-muted)"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    domain={['dataMin - 5', 'dataMax + 5']}
-                    tickFormatter={(val) => `${Math.round(val)}%`}
-                  />
-                  <Tooltip
-                    formatter={(value) => [`${value}%`, 'Margin']}
-                    contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="margin"
-                    stroke="var(--kenya-green)"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#marginGrad)"
-                    name="Margin (%)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {salesData.length === 0 ? (
+              <p className="chart-empty">No margin data yet.</p>
+            ) : (
+              <div style={{ height: 180, width: '100%' }}>
+                <ResponsiveContainer>
+                  <AreaChart data={salesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="marginGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--kenya-green)" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="var(--kenya-green)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis
+                      stroke="var(--text-muted)"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                      tickFormatter={(val) => `${Math.round(val)}%`}
+                    />
+                    <Tooltip
+                      formatter={(value) => [`${value}%`, 'Margin']}
+                      contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="margin"
+                      stroke="var(--kenya-green)"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#marginGrad)"
+                      name="Margin (%)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
           <div className="chart-section channel-card">
@@ -368,30 +388,34 @@ function Dashboard() {
               <h2>Payment Channels</h2>
               <p className="chart-sub">Volume ratio by tender</p>
             </div>
-            <div className="payment-channel-container">
-              <div style={{ flex: 1, height: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={paymentSplit} innerRadius={32} outerRadius={52} paddingAngle={4} dataKey="value">
-                      {paymentSplit.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+            {paymentSplit.length === 0 ? (
+              <p className="chart-empty">No sales recorded yet.</p>
+            ) : (
+              <div className="payment-channel-container">
+                <div style={{ flex: 1, height: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={paymentSplit} innerRadius={32} outerRadius={52} paddingAngle={4} dataKey="value">
+                        {paymentSplit.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
 
-              <aside className="payment-legend-aside">
-                {paymentSplit.map((item) => (
-                  <div key={item.name} className="legend-item">
-                    <span className="legend-swatch" style={{ backgroundColor: item.color }} />
-                    <span>{item.name}</span>
-                    <span className="legend-value">{item.value}%</span>
-                  </div>
-                ))}
-              </aside>
-            </div>
+                <aside className="payment-legend-aside">
+                  {paymentSplit.map((item) => (
+                    <div key={item.name} className="legend-item">
+                      <span className="legend-swatch" style={{ backgroundColor: item.color }} />
+                      <span>{item.name}</span>
+                      <span className="legend-value">{item.value}%</span>
+                    </div>
+                  ))}
+                </aside>
+              </div>
+            )}
           </div>
 
           <div className="chart-section volume-card">
@@ -399,19 +423,23 @@ function Dashboard() {
               <h2>Category Sales Volume</h2>
               <p className="chart-sub">Product velocity mix</p>
             </div>
-            <div className="category-progress-list">
-              {categoryVolume.map((cat) => (
-                <div key={cat.name}>
-                  <div className="category-item-header">
-                    <span>{cat.name}</span>
-                    <span style={{ fontWeight: 700 }}>{cat.volume}%</span>
+            {categoryVolume.length === 0 ? (
+              <p className="chart-empty">No category data yet — import some products first.</p>
+            ) : (
+              <div className="category-progress-list">
+                {categoryVolume.map((cat) => (
+                  <div key={cat.name}>
+                    <div className="category-item-header">
+                      <span>{cat.name}</span>
+                      <span style={{ fontWeight: 700 }}>{cat.volume}%</span>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${cat.volume}%`, backgroundColor: cat.color }} />
+                    </div>
                   </div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${cat.volume}%`, backgroundColor: cat.color }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -422,24 +450,29 @@ function Dashboard() {
               <h2>Recent Activity</h2>
               <p className="chart-sub">Real-time sales stream</p>
             </div>
-            <div className="feed-list">
-              {recentSales.map((sale) => (
-                <div key={sale.id} className="feed-item">
-                  <div>
-                    <div className="feed-title">{sale.item}</div>
-                    <div className="feed-sub">
-                      {sale.id} <span className="feed-badge">{sale.channel}</span>
+            {recentSales.length === 0 ? (
+              <p className="chart-empty">No recent sales.</p>
+            ) : (
+              <div className="feed-list">
+                {recentSales.map((sale) => (
+                  <div key={sale.id} className="feed-item">
+                    <div>
+                      <div className="feed-title">{sale.item}</div>
+                      <div className="feed-sub">
+                        {sale.id} <span className="feed-badge">{sale.channel}</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="feed-val">{sale.amount}</div>
+                      <div className="feed-sub">{sale.time}</div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="feed-val">{sale.amount}</div>
-                    <div className="feed-sub">{sale.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Stock Audit Logs — still mock, wire to stock_movements endpoint separately */}
           <div className="chart-section audit-card">
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>
@@ -459,19 +492,7 @@ function Dashboard() {
             </div>
 
             <div className="feed-list">
-              {filteredLogs.map((log) => (
-                <div key={log.id} className="feed-item">
-                  <div>
-                    <div className={`feed-title ${log.isAlert ? 'alert' : ''}`}>
-                      {log.type}: {log.item}
-                    </div>
-                    <div className="feed-sub">By {log.user} • {log.time}</div>
-                  </div>
-                  <div className={`feed-val ${log.isAlert ? 'alert' : 'cyan'}`}>
-                    {log.qty}
-                  </div>
-                </div>
-              ))}
+              <p className="chart-empty">Wire this to /api/dashboard/{BUSINESS_ID}/stock-movements/ next.</p>
             </div>
           </div>
         </section>

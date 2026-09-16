@@ -682,3 +682,10 @@ body {
 @media (max-width: 899px) {
   .drawer-toggle { display: flex; }
 }
+
+.chart-empty {
+  font-size: 13px;
+  color: #999;
+  text-align: center;
+  padding: 24px 0;
+}
