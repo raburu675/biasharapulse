@@ -6,7 +6,6 @@ import './styles/orders.css'
 const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
-// Adjust these if your Order model's STATUS_CHOICES differ
 const STATUS_OPTIONS = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
 
 const statusClass = (s) => {
@@ -17,6 +16,7 @@ const statusClass = (s) => {
 
 function Orders() {
   const [orders, setOrders] = useState([])
+  const [products, setProducts] = useState([]) // for the product dropdown
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -25,9 +25,10 @@ function Orders() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+
   const [newOrder, setNewOrder] = useState({
     customer_name: '', customer_phone: '', shipping_address: '',
-    items: '', total_amount: '', payment_method: 'cash',
+    product_id: '', quantity: 1, payment_method: 'cash',
   })
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
@@ -45,9 +46,20 @@ function Orders() {
     }
   }, [])
 
+  // Product list for the dropdown — same source as stock movement's dropdown
+  const fetchProducts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/pos-summary/${BUSINESS_ID}/`)
+      setProducts(res.data.products.map((p) => ({ id: p.id, name: p.name, price: p.selling_price })))
+    } catch {
+      // non-fatal — form still usable, dropdown just stays empty
+    }
+  }, [])
+
   useEffect(() => {
     fetchOrders()
-  }, [fetchOrders])
+    fetchProducts()
+  }, [fetchOrders, fetchProducts])
 
   const metrics = useMemo(() => {
     const pending = orders.filter((o) => o.status === 'pending')
@@ -70,23 +82,22 @@ function Orders() {
     )
   }, [orders, search, status])
 
-  // Free-text "items summary" -> one OrderItem with quantity 1.
-  // For multiple distinct items, this form would need to become a repeatable
-  // row list instead of one text field — keeping it simple for now.
+  const selectedProduct = products.find((p) => p.id === Number(newOrder.product_id))
+  const previewTotal = selectedProduct ? selectedProduct.price * Number(newOrder.quantity || 0) : 0
+
   const handleCreateOrder = async () => {
-    if (!newOrder.customer_name || !newOrder.items || !newOrder.total_amount) return
+    if (!newOrder.customer_name || !newOrder.product_id || !newOrder.quantity) return
     setSaving(true)
     try {
       await axios.post(`${API_BASE}/api/orders/${BUSINESS_ID}/create/`, {
         customer_name: newOrder.customer_name,
         customer_phone: newOrder.customer_phone,
         shipping_address: newOrder.shipping_address,
-        total_amount: Number(newOrder.total_amount),
         payment_method: newOrder.payment_method,
         source: 'manual',
-        items: [{ name: newOrder.items, quantity: 1 }],
+        items: [{ product_id: Number(newOrder.product_id), quantity: Number(newOrder.quantity) }],
       })
-      setNewOrder({ customer_name: '', customer_phone: '', shipping_address: '', items: '', total_amount: '', payment_method: 'cash' })
+      setNewOrder({ customer_name: '', customer_phone: '', shipping_address: '', product_id: '', quantity: 1, payment_method: 'cash' })
       setIsAddOpen(false)
       fetchOrders()
     } catch (err) {
@@ -96,8 +107,6 @@ function Orders() {
     }
   }
 
-  // Advancing to 'delivered' triggers SaleRecord creation server-side (per your model) —
-  // so this button is also effectively "mark as sold"
   const advanceStatus = async (order, newStatus) => {
     try {
       await axios.patch(`${API_BASE}/api/orders/${BUSINESS_ID}/${order.id}/status/`, { status: newStatus })
@@ -271,7 +280,7 @@ function Orders() {
         <div className="modal-overlay" onClick={() => setIsAddOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <p className="modal-title">Create Order</p>
-            <p className="modal-subtext">Record a customer order manually</p>
+            <p className="modal-subtext">Record a customer order</p>
 
             <input
               className="modal-input"
@@ -291,19 +300,26 @@ function Orders() {
               value={newOrder.shipping_address}
               onChange={(e) => setNewOrder({ ...newOrder, shipping_address: e.target.value })}
             />
-            <input
+
+            <select
               className="modal-input"
-              placeholder="Items Summary (e.g. 2x Fitted Cap)"
-              value={newOrder.items}
-              onChange={(e) => setNewOrder({ ...newOrder, items: e.target.value })}
-            />
+              value={newOrder.product_id}
+              onChange={(e) => setNewOrder({ ...newOrder, product_id: e.target.value })}
+            >
+              <option value="">Choose product</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} — KES {p.price}</option>
+              ))}
+            </select>
+
             <div className="modal-input-row">
               <input
                 className="modal-input"
                 type="number"
-                placeholder="Total (KES)"
-                value={newOrder.total_amount}
-                onChange={(e) => setNewOrder({ ...newOrder, total_amount: e.target.value })}
+                min="1"
+                placeholder="Quantity"
+                value={newOrder.quantity}
+                onChange={(e) => setNewOrder({ ...newOrder, quantity: e.target.value })}
               />
               <select
                 className="modal-input"
@@ -315,6 +331,12 @@ function Orders() {
                 <option value="card">Card</option>
               </select>
             </div>
+
+            {selectedProduct && (
+              <p style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
+                Total: KES {previewTotal.toLocaleString()}
+              </p>
+            )}
 
             <div className="modal-actions">
               <button className="modal-btn cancel" onClick={() => setIsAddOpen(false)}>

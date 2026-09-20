@@ -1,7 +1,8 @@
+import io
+import openpyxl
+from openpyxl.styles import Font
 import pandas as pd
 from django.http import FileResponse
-from django.conf import settings
-import os
 from decimal import Decimal
 from collections import defaultdict
 from django.db.models import Sum, Count
@@ -18,28 +19,21 @@ def dashboard_summary(request, business_id):
     payment/category breakdowns, monthly trends, and recent sales.
     Powers inventory.dart's whole dashboard screen.
     """
-    # Look up the business — 404 if the ID doesn't exist
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # Scope every query to just this business's data
     sales = SaleRecord.objects.filter(business=business)
     expenses = Expense.objects.filter(business=business)
     products = Product.objects.filter(business=business)
 
-    # ── Hero banner numbers ──
-    # Sum() adds up a column across all matching rows in one DB query
     net_revenue = sales.aggregate(total=Sum('amount'))['total'] or Decimal('0')
     total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
     net_profit = max(Decimal('0'), net_revenue - total_expenses)
     net_margin = (net_profit / net_revenue * 100) if net_revenue > 0 else Decimal('0')
     active_inventory = products.aggregate(total=Sum('stock_count'))['total'] or 0
 
-    # ── Payment channel split (as % of total sales amount) ──
-    # values('payment_channel').annotate(...) groups sales by channel and
-    # sums each group — one query, not a loop over every sale
     payment_split = []
     if net_revenue > 0:
         by_channel = sales.values('payment_channel').annotate(total=Sum('amount'))
@@ -50,9 +44,6 @@ def dashboard_summary(request, business_id):
                 'percent': round(percent, 1),
             })
 
-    # ── Category volume (as % of total stock) ──
-    # Same grouping idea, but grouping products by category instead of
-    # sales by payment channel
     category_volume = []
     total_stock = active_inventory
     if total_stock > 0:
@@ -64,9 +55,6 @@ def dashboard_summary(request, business_id):
                 'percent': round(percent, 1),
             })
 
-    # ── Sales vs expense breakdown, by month ──
-    # TruncMonth() chops each row's exact timestamp down to just its month
-    # (e.g. 2026-08-15 -> 2026-08-01), so rows in the same month group together
     monthly_sales = (
         sales.annotate(month=TruncMonth('created_at'))
         .values('month')
@@ -80,9 +68,6 @@ def dashboard_summary(request, business_id):
         .order_by('month')
     )
 
-    # ── Monthly profit margin ──
-    # monthly_sales and monthly_expenses are two separate querysets — this
-    # merges them by month into one dict so we can compute margin per month
     monthly_data = defaultdict(lambda: {'sales': Decimal('0'), 'expenses': Decimal('0')})
     for row in monthly_sales:
         monthly_data[row['month']]['sales'] = row['total']
@@ -94,15 +79,11 @@ def dashboard_summary(request, business_id):
         month_sales = data['sales']
         month_expenses = data['expenses']
         margin = ((month_sales - month_expenses) / month_sales * 100) if month_sales > 0 else Decimal('0')
-        # sorted() above + append() here keeps months in chronological order
-        # (Jan before Feb before Mar...) instead of random dict order
         monthly_profit_margin.append({
             'month': month,
             'margin': round(margin, 1),
         })
 
-    # ── Recent activity (last 5 sales) ──
-    # order_by('-created_at') = newest first, [:5] = only the top 5
     recent_sales = sales.order_by('-created_at')[:5]
     recent_activity = [
         {
@@ -114,7 +95,6 @@ def dashboard_summary(request, business_id):
         for s in recent_sales
     ]
 
-    # Bundle everything into one JSON response for the frontend
     return Response({
         'net_revenue': net_revenue,
         'expenses': total_expenses,
@@ -144,23 +124,19 @@ def pos_summary(request, business_id):
 
     products = Product.objects.filter(business=business)
 
-    # One entry per product, with all its computed analytics attached
     product_list = []
     for p in products:
         sales = SaleRecord.objects.filter(business=business, product=p)
         units_sold = sales.aggregate(total=Sum('quantity'))['total'] or 0
         total_revenue = sales.aggregate(total=Sum('amount'))['total'] or Decimal('0')
 
-        # Cost of goods sold = units sold x what we paid per unit
         total_cost = Decimal(units_sold) * p.cost_price
         gross_profit = total_revenue - total_cost
         profit_margin = (gross_profit / total_revenue * 100) if total_revenue > 0 else Decimal('0')
 
-        # Sell-through = what % of everything we've ever handled has sold
         total_handled = units_sold + p.stock_count
         sell_through_rate = (Decimal(units_sold) / Decimal(total_handled) * 100) if total_handled > 0 else Decimal('0')
 
-        # Bucket each product into a performance tier based on sell-through
         if sell_through_rate >= 70:
             performance_tier = 'Star Performer'
         elif sell_through_rate >= 40:
@@ -168,7 +144,6 @@ def pos_summary(request, business_id):
         else:
             performance_tier = 'Slow Mover'
 
-        # Stock status compares current stock to the product's own reorder point
         if p.stock_count <= 0:
             stock_status = 'Out of Stock'
         elif p.stock_count <= p.reorder_point:
@@ -193,7 +168,6 @@ def pos_summary(request, business_id):
             'stock_status': stock_status,
         })
 
-    # ── Aggregate summary tiles (totals across all products) ──
     total_inventory_value = sum((item['stock_quantity'] * item['cost_price'] for item in product_list), Decimal('0'))
     total_revenue = sum((item['total_revenue'] for item in product_list), Decimal('0'))
     total_profit = sum((item['gross_profit'] for item in product_list), Decimal('0'))
@@ -202,7 +176,6 @@ def pos_summary(request, business_id):
         if product_list else Decimal('0')
     )
 
-    # ── Spotlight leaders — None if there are no products at all ──
     top_seller = max(product_list, key=lambda i: i['units_sold']) if product_list else None
     most_profitable = max(product_list, key=lambda i: i['gross_profit']) if product_list else None
     best_margin = max(product_list, key=lambda i: i['profit_margin']) if product_list else None
@@ -225,21 +198,15 @@ def stock_movements(request, business_id):
     One view for everything StockMovement-related, split by HTTP method:
       GET  -> return the recent stock movement log (read)
       POST -> create a new Stock In / Waste-Damage adjustment (write)
-    Merged into one function/URL since they're both about the same table.
     """
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # ══════════════════ GET: return the log ══════════════════
     if request.method == 'GET':
-        # Optional ?type=stock_in / waste_damage / low_stock_alert filter,
-        # e.g. GET /stock-movements/?type=stock_in
         movement_type = request.GET.get('type')
 
-        # select_related() pulls product/user in the same query instead of
-        # a separate query per row (avoids the N+1 query problem)
         movements = (
             StockMovement.objects.filter(business=business)
             .select_related('product', 'user')
@@ -249,11 +216,10 @@ def stock_movements(request, business_id):
         if movement_type:
             movements = movements.filter(movement_type=movement_type)
 
-        movements = movements[:20]  # only the most recent 20
+        movements = movements[:20]
 
         log_data = []
         for m in movements:
-            # Build a human-readable quantity string per movement type
             if m.movement_type == 'stock_in':
                 qty_display = f"+{m.quantity_change} units"
             elif m.movement_type == 'waste_damage':
@@ -263,7 +229,7 @@ def stock_movements(request, business_id):
 
             log_data.append({
                 'id': m.id,
-                'type': m.get_movement_type_display(),  # e.g. 'Stock In' not 'stock_in'
+                'type': m.get_movement_type_display(),
                 'item': m.product.name if m.product else 'Unknown',
                 'qty': qty_display,
                 'time': m.created_at,
@@ -275,14 +241,11 @@ def stock_movements(request, business_id):
 
         return Response({'movements': log_data})
 
-    # ══════════════════ POST: create a new adjustment ══════════════════
-    # Pull the submitted fields out of the request body
     product_id = request.data.get('product_id')
-    movement_type = request.data.get('movement_type')  # 'stock_in' or 'waste_damage'
+    movement_type = request.data.get('movement_type')
     quantity_change = request.data.get('quantity_change')
     note = request.data.get('note', '')
 
-    # Basic validation before touching the database
     if not product_id or not movement_type or quantity_change is None:
         return Response({'error': 'product_id, movement_type, and quantity_change are required'}, status=400)
 
@@ -295,17 +258,12 @@ def stock_movements(request, business_id):
         return Response({'error': 'Product not found'}, status=404)
 
     quantity_change = int(quantity_change)
-    # Force the sign to match the movement type, regardless of what was sent:
-    # stock_in always adds, waste_damage always subtracts
     if movement_type == 'waste_damage' and quantity_change > 0:
         quantity_change = -quantity_change
 
-    # Update the actual stock count — max(0, ...) stops it going negative
     product.stock_count = max(0, product.stock_count + quantity_change)
     product.save(update_fields=['stock_count'])
 
-    # Create the audit log row for this adjustment — the descriptive,
-    # human-readable trail (who, when, why, note).
     movement = StockMovement.objects.create(
         business=business,
         product=product,
@@ -315,14 +273,6 @@ def stock_movements(request, business_id):
         note=note,
     )
 
-    # NOTE: no Expense.objects.create() here anymore — Product.save() above
-    # (triggered by product.save(update_fields=['stock_count'])) already
-    # detected the stock increase and logged the matching Expense
-    # automatically. This is now the ONLY place that logic lives, so it
-    # can't be duplicated or forgotten, regardless of how stock changes.
-
-    # If this adjustment dropped stock to/below the reorder point,
-    # automatically create a second row flagging it
     if product.stock_count <= product.reorder_point:
         StockMovement.objects.create(
             business=business,
@@ -347,27 +297,18 @@ def stock_movements(request, business_id):
 def create_sale(request, business_id):
     """
     Records a sale AND decrements the product's stock count in the same
-    call — this is what keeps stock_count (and everything derived from it:
-    Total Value, Sell-Through Rate, Low Stock Alerts) accurate after a sale.
-
-    IMPORTANT: 'amount' is NOT taken from the request anymore. It's
-    calculated here as product.price x quantity, so it's impossible for
-    amount and quantity to drift out of sync the way they did when they
-    were entered manually (e.g. amount=1300 with quantity=4 instead of
-    amount=5200). If you need to support discounts later, add a separate
-    'discount' field instead of letting the caller set amount directly.
+    call. 'amount' is calculated as product.price x quantity, never taken
+    from the request.
     """
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # Pull the submitted sale details out of the request body
     product_id = request.data.get('product_id')
     quantity = request.data.get('quantity', 1)
     payment_channel = request.data.get('payment_channel')
 
-    # Basic validation before touching the database
     if not product_id or not payment_channel:
         return Response({'error': 'product_id and payment_channel are required'}, status=400)
 
@@ -377,17 +318,9 @@ def create_sale(request, business_id):
         return Response({'error': 'Product not found'}, status=404)
 
     quantity = int(quantity)
-    # Block overselling — can't sell more than what's physically in stock
     if quantity > product.stock_count:
         return Response({'error': f'Only {product.stock_count} units in stock'}, status=400)
 
-    # amount and stock_count are no longer touched here — SaleRecord.save()
-    # in models.py now handles both automatically the moment the record is
-    # created, so this stays correct no matter how a sale gets created
-    # (this endpoint, Django admin, the shell). See models.py for the logic.
-
-    # 1. Create the sale record — amount gets calculated and stock gets
-    # decremented automatically inside SaleRecord.save()
     sale = SaleRecord.objects.create(
         business=business,
         product=product,
@@ -395,15 +328,7 @@ def create_sale(request, business_id):
         payment_channel=payment_channel,
     )
 
-    # Refresh product from DB so we return the up-to-date stock_count
-    # (save() above updated it in the DB, but this local `product` object
-    # in memory still holds the old value until we reload it)
     product.refresh_from_db()
-
-    # 2. If this sale dropped stock to/below reorder point, auto-log an alert.
-    # (Sales themselves don't get a StockMovement row — SaleRecord and
-    # recent_activity already cover "what sold". StockMovement is reserved
-    # for manual adjustments and these alerts.)
 
     if product.stock_count <= product.reorder_point:
         StockMovement.objects.create(
@@ -430,7 +355,7 @@ def create_sale(request, business_id):
 def order_list(request, business_id):
     """
     Returns all orders for a business, newest first, with their line items
-    and computed total. Powers orders.dart's order list.
+    and computed total.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -457,7 +382,7 @@ def order_list(request, business_id):
             'source': o.get_source_display(),
             'courier': o.courier,
             'tracking_number': o.tracking_number,
-            'status': o.status,  # raw value ('pending', 'processing', etc) — Flutter maps this to OrderStatus enum
+            'status': o.status,
         })
 
     return Response({'orders': order_data})
@@ -467,8 +392,7 @@ def order_list(request, business_id):
 def update_order_status(request, business_id, order_id):
     """
     Updates an order's status. Advancing to 'delivered' triggers
-    Order.save() to create SaleRecords for each line item (see models.py)
-    — this is the ONLY status change that touches stock/revenue/expenses.
+    Order.save() to create SaleRecords for each line item.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -495,12 +419,24 @@ def update_order_status(request, business_id, order_id):
     })
 
 
+# Friendly spreadsheet headers -> actual model field names.
+# "Price" alone was ambiguous (selling price? cost price?), so the template
+# now has both spelled out explicitly.
+COLUMN_ALIASES = {
+    'product name': 'name',
+    'selling price (kes)': 'price',
+    'cost price (kes)': 'cost_price',
+    'stock count': 'stock_count',
+    'reorder point': 'reorder_point',
+}
+
+
 @api_view(['POST'])
 def import_products(request, business_id):
     """
     Bulk create/update Products from an uploaded spreadsheet (.xlsx or .csv).
     Matches existing products by name (case-insensitive); creates new ones
-    if no match is found. Powers the "Import" button on the web dashboard.
+    if no match is found.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -511,7 +447,6 @@ def import_products(request, business_id):
     if not file:
         return Response({'error': 'No file uploaded'}, status=400)
 
-    # Read the spreadsheet into a DataFrame — pandas picks the right parser
     try:
         if file.name.endswith('.csv'):
             df = pd.read_csv(file)
@@ -520,8 +455,9 @@ def import_products(request, business_id):
     except Exception as e:
         return Response({'error': f'Could not read file: {e}'}, status=400)
 
-    # Normalize headers so minor variations (case, spacing) don't break matching
+    # Normalize headers, then map friendly labels back to model field names
     df.columns = [str(c).strip().lower() for c in df.columns]
+    df = df.rename(columns=COLUMN_ALIASES)
 
     required = {'name', 'category', 'price'}
     missing = required - set(df.columns)
@@ -533,13 +469,10 @@ def import_products(request, business_id):
 
     created, updated, errors = 0, 0, []
 
-    # iterrows() walks the spreadsheet one row at a time
     for i, row in df.iterrows():
         try:
             name = str(row['name']).strip()
 
-            # update_or_create: match on business + name (case-insensitive).
-            # If found -> update it. If not -> create a new Product.
             product, was_created = Product.objects.update_or_create(
                 business=business,
                 name__iexact=name,
@@ -555,8 +488,6 @@ def import_products(request, business_id):
             created += was_created
             updated += not was_created
         except Exception as e:
-            # +2 accounts for the header row + 0-based index, so this matches
-            # the row number the user actually sees in Excel
             errors.append({'row': int(i) + 2, 'error': str(e)})
 
     return Response({'created': created, 'updated': updated, 'errors': errors})
@@ -565,12 +496,31 @@ def import_products(request, business_id):
 @api_view(['GET'])
 def import_template(request):
     """
-    Serves the blank product import template file so users know exactly
-    which columns to fill in. File itself is generated once via
-    `python manage.py generate_import_template` and saved to templates_data/.
+    Generates the blank product import template on the fly and streams it
+    straight back — no pre-generated file, no management command, no
+    templates_data/ folder needed.
     """
-    path = os.path.join(settings.BASE_DIR, 'templates_data', 'product_import_template.xlsx')
-    return FileResponse(open(path, 'rb'), as_attachment=True, filename='product_import_template.xlsx')
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Products"
+
+    headers = ["Product Name", "Category", "Selling Price (KES)", "Cost Price (KES)", "Stock Count", "Reorder Point"]
+    small_font = Font(size=10)
+
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = small_font
+
+    widths = [24, 16, 18, 16, 14, 14]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    # Write to an in-memory buffer instead of disk
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    return FileResponse(buffer, as_attachment=True, filename='product_import_template.xlsx')
 
 
 @api_view(['POST'])
@@ -578,21 +528,19 @@ def create_order(request, business_id):
     """
     Creates a customer order with real Product-backed line items.
     total_amount is computed from each item's price_at_order x quantity —
-    not taken from the request — same "never trust client-sent totals"
-    principle as create_sale's amount calculation.
+    not taken from the request.
     """
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
-    
+
     customer_name = request.data.get('customer_name')
-    items = request.data.get('items', [])  # [{'product_id': 3, 'quantity': 2}, ...]
+    items = request.data.get('items', [])
 
     if not customer_name or not items:
         return Response({'error': 'customer_name and items are required'}, status=400)
-    
-    # Simple sequential order number: ORD-0001, ORD-0002, ...
+
     order_count = Order.objects.filter(business=business).count()
     order_number = f'ORD-{order_count + 1:04d}'
 
@@ -602,7 +550,7 @@ def create_order(request, business_id):
         customer_name=customer_name,
         customer_phone=request.data.get('customer_phone', ''),
         shipping_address=request.data.get('shipping_address', ''),
-        total_amount=0,  # filled in below once line items exist
+        total_amount=0,
         payment_method=request.data.get('payment_method', 'cash'),
         source=request.data.get('source', 'manual'),
         courier=request.data.get('courier', ''),
@@ -610,14 +558,12 @@ def create_order(request, business_id):
         status='pending',
     )
 
-    # Create each line item — OrderItem.save() auto-fills price_at_order
-    # and name from the Product, so we only need to pass product + quantity
     total = Decimal('0')
     for item in items:
         try:
             product = Product.objects.get(id=item['product_id'], business=business)
         except Product.DoesNotExist:
-            continue  # skip invalid product IDs rather than failing the whole order
+            continue
         order_item = OrderItem.objects.create(
             order=order,
             product=product,
