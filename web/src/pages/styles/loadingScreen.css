@@ -1,0 +1,73 @@
+.loading-screen {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: #FAFAF9;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.loading-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.loading-biashara {
+  font-size: 16px;
+  font-weight: 700;
+  color: #14110F;
+}
+
+.loading-pulse {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #C4173F 0%, #14110F 50%, #12A056 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.loading-heartbeat {
+  width: 220px;
+  height: 44px;
+}
+
+.loading-heartbeat-path {
+  fill: none;
+  stroke: #7A0C29;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  animation: heartbeat-draw 1.4s ease-in-out infinite;
+}
+
+@keyframes heartbeat-draw {
+  0% {
+    stroke-dashoffset: 340;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -340;
+  }
+}
+
+.loading-label {
+  font-size: 12.5px;
+  color: #6B6560;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .loading-screen { background: #0B0B0C; }
+  .loading-biashara { color: #FFFFFF; }
+  .loading-label { color: rgba(255, 255, 255, 0.5); }
+}

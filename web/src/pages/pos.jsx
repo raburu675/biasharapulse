@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/pos.css'
+import LoadingScreen from './LoadingScreen'
 
 const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
@@ -145,6 +146,8 @@ function Pos() {
     }
   }
 
+  if (loading) return <LoadingScreen label="Loading products..." />
+
   return (
     <div className="pos-root">
       <div className="pos-shell">
@@ -210,9 +213,7 @@ function Pos() {
               </button>
             </div>
 
-            {loading ? (
-              <div className="empty-state">Loading products...</div>
-            ) : error ? (
+            {error ? (
               <div className="empty-state">Couldn't load products: {error}</div>
             ) : (
               <>

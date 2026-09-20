@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import LoadingScreen from './LoadingScreen'
 import axios from 'axios'
 import {
   BarChart,
@@ -22,11 +23,26 @@ const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
 const PAYMENT_COLORS = { 'M-Pesa': '#16A34A', Cash: '#EAB308', Card: '#2563EB' }
 const CATEGORY_COLORS = ['#800A26', '#0F766E', '#B45309', '#067A3B', '#6D28D9', '#DB2777']
-const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+const PERIOD_OPTIONS = [
+  { key: 'daily', label: 'Daily' },
+  { key: 'weekly', label: 'Weekly' },
+  { key: 'monthly', label: 'Monthly' },
+]
+
+// Formats a period's raw date string into a chart-friendly label,
+// depending on the selected granularity
+const formatPeriodLabel = (period, dateStr) => {
+  const d = new Date(dateStr)
+  if (period === 'daily') return d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })
+  if (period === 'weekly') return `Wk ${d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })}`
+  return d.toLocaleDateString('en-KE', { month: 'short', year: '2-digit' })
+}
 
 function Dashboard() {
   const [activeMovementTab, setActiveMovementTab] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [period, setPeriod] = useState('monthly')
 
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -37,12 +53,11 @@ function Dashboard() {
   const [importResult, setImportResult] = useState(null)
   const [importing, setImporting] = useState(false)
 
-  // axios.get parses JSON automatically — response body is res.data
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (p) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await axios.get(`${API_BASE}/api/dashboard/${BUSINESS_ID}/summary/`)
+      const res = await axios.get(`${API_BASE}/api/dashboard/${BUSINESS_ID}/summary/?period=${p}`)
       setSummary(res.data)
     } catch (err) {
       setError(err.message)
@@ -52,8 +67,8 @@ function Dashboard() {
   }, [])
 
   useEffect(() => {
-    fetchSummary()
-  }, [fetchSummary])
+    fetchSummary(period)
+  }, [period, fetchSummary])
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
 
@@ -66,12 +81,10 @@ function Dashboard() {
     formData.append('file', file)
 
     try {
-      // axios sets multipart Content-Type automatically for FormData
       const res = await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/import/`, formData)
       setImportResult(res.data)
-      fetchSummary() // refresh dashboard with the newly imported data
+      fetchSummary(period) // refresh dashboard with the newly imported data
     } catch (err) {
-      // axios throws on 4xx/5xx — err.response.data holds the server's error body
       setImportResult(err.response?.data || { error: err.message })
     } finally {
       setImporting(false)
@@ -84,24 +97,27 @@ function Dashboard() {
     setImportResult(null)
   }
 
-  if (loading) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Loading dashboard...</p></main></div>
+  if (loading) return <LoadingScreen label="Loading your dashboard..." />
   if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
 
   // ── Reshape API response into what the charts expect ──
-  const monthMap = {}
-  summary.monthly_sales.forEach((r) => {
-    const label = MONTH_LABELS[new Date(r.month).getMonth()]
-    monthMap[label] = { ...monthMap[label], month: label, sales: r.total }
+  // period_sales / period_expenses / period_margin come from the backend
+  // already grouped by whichever granularity was requested
+  const periodMap = {}
+  summary.period_sales.forEach((r) => {
+    const label = formatPeriodLabel(period, r.period)
+    periodMap[r.period] = { ...periodMap[r.period], label, sales: r.total }
   })
-  summary.monthly_expenses.forEach((r) => {
-    const label = MONTH_LABELS[new Date(r.month).getMonth()]
-    monthMap[label] = { ...monthMap[label], month: label, expenses: r.total }
+  summary.period_expenses.forEach((r) => {
+    const label = formatPeriodLabel(period, r.period)
+    periodMap[r.period] = { ...periodMap[r.period], label, expenses: r.total }
   })
-  summary.monthly_profit_margin.forEach((r) => {
-    const label = MONTH_LABELS[new Date(r.month).getMonth()]
-    monthMap[label] = { ...monthMap[label], month: label, margin: r.margin }
+  summary.period_margin.forEach((r) => {
+    const label = formatPeriodLabel(period, r.period)
+    periodMap[r.period] = { ...periodMap[r.period], label, margin: r.margin }
   })
-  const salesData = Object.values(monthMap)
+  // sort by the raw ISO key so chart stays chronological regardless of period type
+  const salesData = Object.keys(periodMap).sort().map((key) => periodMap[key])
 
   const paymentSplit = summary.payment_channel_split.map((p) => ({
     name: p.channel,
@@ -309,12 +325,34 @@ function Dashboard() {
           </div>
         </section>
 
+        {/* Period toggle — controls both charts below */}
+        <div style={{ display: 'flex', gap: 8, margin: '20px 0 4px' }}>
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setPeriod(opt.key)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 20,
+                border: '1px solid #E2E8F0',
+                background: period === opt.key ? '#15803D' : '#fff',
+                color: period === opt.key ? '#fff' : '#333',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         {/* Analytics Grid */}
         <section className="analytics-grid">
           <div className="chart-section sales-card">
             <div className="chart-card-header">
               <h2>Sales & Expense Breakdown</h2>
-              <p className="chart-sub">By month (KES)</p>
+              <p className="chart-sub">By {period.replace('ly', '')} (KES)</p>
             </div>
             {salesData.length === 0 ? (
               <p className="chart-empty">No sales data yet — import products or record a sale to see this chart.</p>
@@ -323,10 +361,10 @@ function Dashboard() {
                 <div style={{ height: 180, width: '100%' }}>
                   <ResponsiveContainer>
                     <BarChart data={salesData}>
-                      <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                      <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-main)' }} />
-                      <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} name="Expenses" />
-                      <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} name="Sales" />
+                      <Bar dataKey="expenses" fill="var(--color-expenses, #EF4444)" radius={[4, 4, 0, 0]} name="Expenses" />
+                      <Bar dataKey="sales" fill="var(--color-sales, #16A34A)" radius={[4, 4, 0, 0]} name="Sales" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -341,7 +379,7 @@ function Dashboard() {
           <div className="chart-section margin-card">
             <div className="chart-card-header">
               <h2>Profit Margin Trend</h2>
-              <p className="chart-sub">Percentage (%) shift month-over-month</p>
+              <p className="chart-sub">Percentage (%) shift {period}</p>
             </div>
             {salesData.length === 0 ? (
               <p className="chart-empty">No margin data yet.</p>
@@ -351,11 +389,11 @@ function Dashboard() {
                   <AreaChart data={salesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <defs>
                       <linearGradient id="marginGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--kenya-green)" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="var(--kenya-green)" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--kenya-green, #16A34A)" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="var(--kenya-green, #16A34A)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                    <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis
                       stroke="var(--text-muted)"
                       fontSize={10}
@@ -371,7 +409,7 @@ function Dashboard() {
                     <Area
                       type="monotone"
                       dataKey="margin"
-                      stroke="var(--kenya-green)"
+                      stroke="var(--kenya-green, #16A34A)"
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill="url(#marginGrad)"

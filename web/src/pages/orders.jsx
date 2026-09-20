@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/orders.css'
+import LoadingScreen from './LoadingScreen'
 
 const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
@@ -94,7 +95,7 @@ function Orders() {
         customer_phone: newOrder.customer_phone,
         shipping_address: newOrder.shipping_address,
         payment_method: newOrder.payment_method,
-        source: 'manual',
+        source: 'website',
         items: [{ product_id: Number(newOrder.product_id), quantity: Number(newOrder.quantity) }],
       })
       setNewOrder({ customer_name: '', customer_phone: '', shipping_address: '', product_id: '', quantity: 1, payment_method: 'cash' })
@@ -115,6 +116,8 @@ function Orders() {
       alert(err.response?.data?.error || 'Could not update status')
     }
   }
+
+  if (loading) return <LoadingScreen label="Loading orders..." />
 
   return (
     <div className="ord-root">
@@ -179,9 +182,7 @@ function Orders() {
               </button>
             </div>
 
-            {loading ? (
-              <div className="ord-empty">Loading orders...</div>
-            ) : error ? (
+            {error ? (
               <div className="ord-empty">Couldn't load orders: {error}</div>
             ) : (
               <>

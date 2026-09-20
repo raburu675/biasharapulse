@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/stockMovement.css'
+import LoadingScreen from './LoadingScreen'
 
 const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
@@ -101,6 +102,8 @@ function StockMovement() {
       m.item.toLowerCase().includes(search.toLowerCase())
     )
   }, [movements, search])
+
+  if (loading) return <LoadingScreen label="Loading stock movements..." />
 
   return (
     <div id="stock-movement-root" className="stm-root">
@@ -206,9 +209,7 @@ function StockMovement() {
             </div>
 
             <div id="stock-movement-table-wrapper" className="table-container">
-              {loading ? (
-                <div className="stm-empty">Loading movements...</div>
-              ) : error ? (
+              {error ? (
                 <div className="stm-empty">Couldn't load movements: {error}</div>
               ) : (
                 <>

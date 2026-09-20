@@ -210,7 +210,7 @@ function Landing() {
         <p>For active single-outlet retail shops needing automated tracking.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">750</span>
+          <span className="price">2200</span>
           <span className="period">/ month</span>
         </div>
       </div>
@@ -236,7 +236,7 @@ function Landing() {
         <p>For growing retail outlets managing customer orders and staff.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">1,500</span>
+          <span className="price">4,500</span>
           <span className="period">/ month</span>
         </div>
       </div>
@@ -260,7 +260,7 @@ function Landing() {
         <p>For distributors & multi-location operations.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">2,200</span>
+          <span className="price">7000</span>
           <span className="period">/ month</span>
         </div>
       </div>
