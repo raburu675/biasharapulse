@@ -6,23 +6,34 @@ from django.http import FileResponse
 from decimal import Decimal
 from collections import defaultdict
 from django.db.models import Sum, Count
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Business, Product, SaleRecord, Expense, StockMovement, Order, OrderItem
+
+
+TRUNC_FUNCS = {
+    'daily': TruncDay,
+    'weekly': TruncWeek,
+    'monthly': TruncMonth,
+}
 
 
 @api_view(['GET'])
 def dashboard_summary(request, business_id):
     """
     Executive dashboard data for one business: revenue, expenses, profit,
-    payment/category breakdowns, monthly trends, and recent sales.
-    Powers inventory.dart's whole dashboard screen.
+    payment/category breakdowns, period trends, and recent sales.
+    Accepts ?period=daily|weekly|monthly (defaults to monthly) to control
+    the granularity of the sales/expense/margin chart.
     """
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
+
+    period = request.GET.get('period', 'monthly')
+    trunc_func = TRUNC_FUNCS.get(period, TruncMonth)
 
     sales = SaleRecord.objects.filter(business=business)
     expenses = Expense.objects.filter(business=business)
@@ -55,32 +66,33 @@ def dashboard_summary(request, business_id):
                 'percent': round(percent, 1),
             })
 
-    monthly_sales = (
-        sales.annotate(month=TruncMonth('created_at'))
-        .values('month')
+    # Period-aware grouping — daily/weekly/monthly, driven by trunc_func
+    period_sales = (
+        sales.annotate(period=trunc_func('created_at'))
+        .values('period')
         .annotate(total=Sum('amount'))
-        .order_by('month')
+        .order_by('period')
     )
-    monthly_expenses = (
-        expenses.annotate(month=TruncMonth('created_at'))
-        .values('month')
+    period_expenses = (
+        expenses.annotate(period=trunc_func('created_at'))
+        .values('period')
         .annotate(total=Sum('amount'))
-        .order_by('month')
+        .order_by('period')
     )
 
-    monthly_data = defaultdict(lambda: {'sales': Decimal('0'), 'expenses': Decimal('0')})
-    for row in monthly_sales:
-        monthly_data[row['month']]['sales'] = row['total']
-    for row in monthly_expenses:
-        monthly_data[row['month']]['expenses'] = row['total']
+    period_data = defaultdict(lambda: {'sales': Decimal('0'), 'expenses': Decimal('0')})
+    for row in period_sales:
+        period_data[row['period']]['sales'] = row['total']
+    for row in period_expenses:
+        period_data[row['period']]['expenses'] = row['total']
 
-    monthly_profit_margin = []
-    for month, data in sorted(monthly_data.items()):
-        month_sales = data['sales']
-        month_expenses = data['expenses']
-        margin = ((month_sales - month_expenses) / month_sales * 100) if month_sales > 0 else Decimal('0')
-        monthly_profit_margin.append({
-            'month': month,
+    period_margin = []
+    for p, data in sorted(period_data.items()):
+        p_sales = data['sales']
+        p_expenses = data['expenses']
+        margin = ((p_sales - p_expenses) / p_sales * 100) if p_sales > 0 else Decimal('0')
+        period_margin.append({
+            'period': p,
             'margin': round(margin, 1),
         })
 
@@ -103,9 +115,10 @@ def dashboard_summary(request, business_id):
         'active_inventory': active_inventory,
         'payment_channel_split': payment_split,
         'category_volume': category_volume,
-        'monthly_sales': [{'month': r['month'], 'total': r['total']} for r in monthly_sales],
-        'monthly_expenses': [{'month': r['month'], 'total': r['total']} for r in monthly_expenses],
-        'monthly_profit_margin': monthly_profit_margin,
+        'period': period,
+        'period_sales': [{'period': r['period'], 'total': r['total']} for r in period_sales],
+        'period_expenses': [{'period': r['period'], 'total': r['total']} for r in period_expenses],
+        'period_margin': period_margin,
         'recent_activity': recent_activity,
     })
 
