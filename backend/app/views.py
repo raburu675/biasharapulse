@@ -420,8 +420,6 @@ def update_order_status(request, business_id, order_id):
 
 
 # Friendly spreadsheet headers -> actual model field names.
-# "Price" alone was ambiguous (selling price? cost price?), so the template
-# now has both spelled out explicitly.
 COLUMN_ALIASES = {
     'product name': 'name',
     'selling price (kes)': 'price',
@@ -455,7 +453,6 @@ def import_products(request, business_id):
     except Exception as e:
         return Response({'error': f'Could not read file: {e}'}, status=400)
 
-    # Normalize headers, then map friendly labels back to model field names
     df.columns = [str(c).strip().lower() for c in df.columns]
     df = df.rename(columns=COLUMN_ALIASES)
 
@@ -497,8 +494,7 @@ def import_products(request, business_id):
 def import_template(request):
     """
     Generates the blank product import template on the fly and streams it
-    straight back — no pre-generated file, no management command, no
-    templates_data/ folder needed.
+    straight back.
     """
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -515,7 +511,6 @@ def import_template(request):
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
-    # Write to an in-memory buffer instead of disk
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -527,8 +522,9 @@ def import_template(request):
 def create_order(request, business_id):
     """
     Creates a customer order with real Product-backed line items.
-    total_amount is computed from each item's price_at_order x quantity —
-    not taken from the request.
+    total_amount is a computed property on Order (sum of line item
+    totals) — never assigned or saved directly.
+    order_number is left blank here; Order.save() auto-generates it.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -541,41 +537,31 @@ def create_order(request, business_id):
     if not customer_name or not items:
         return Response({'error': 'customer_name and items are required'}, status=400)
 
-    order_count = Order.objects.filter(business=business).count()
-    order_number = f'ORD-{order_count + 1:04d}'
-
     order = Order.objects.create(
         business=business,
-        order_number=order_number,
         customer_name=customer_name,
         customer_phone=request.data.get('customer_phone', ''),
         shipping_address=request.data.get('shipping_address', ''),
-        total_amount=0,
-        payment_method=request.data.get('payment_method', 'cash'),
-        source=request.data.get('source', 'manual'),
+        payment_method=request.data.get('payment_method', 'mpesa'),
+        source=request.data.get('source', 'website'),
         courier=request.data.get('courier', ''),
         tracking_number=request.data.get('tracking_number', ''),
         status='pending',
     )
 
-    total = Decimal('0')
     for item in items:
         try:
             product = Product.objects.get(id=item['product_id'], business=business)
         except Product.DoesNotExist:
             continue
-        order_item = OrderItem.objects.create(
+        OrderItem.objects.create(
             order=order,
             product=product,
             quantity=item.get('quantity', 1),
         )
-        total += order_item.line_total
-
-    order.total_amount = total
-    order.save(update_fields=['total_amount'])
 
     return Response({
         'id': order.id,
         'order_number': order.order_number,
-        'total_amount': total,
+        'total_amount': order.total_amount,
     }, status=201)
