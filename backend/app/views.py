@@ -66,7 +66,6 @@ def dashboard_summary(request, business_id):
                 'percent': round(percent, 1),
             })
 
-    # Period-aware grouping — daily/weekly/monthly, driven by trunc_func
     period_sales = (
         sales.annotate(period=trunc_func('created_at'))
         .values('period')
@@ -128,7 +127,7 @@ def pos_summary(request, business_id):
     """
     Per-product analytics: cost, price, stock, units sold, profit margin,
     sell-through rate, and performance tier for every product this business
-    has. Powers pos.dart's product list and summary tiles.
+    has.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -286,6 +285,9 @@ def stock_movements(request, business_id):
         note=note,
     )
 
+    # Low-stock-alert check for manual adjustments only lives here — this
+    # path (stock_in/waste_damage) doesn't go through SaleRecord at all,
+    # so the model-level check on SaleRecord.save() doesn't cover it.
     if product.stock_count <= product.reorder_point:
         StockMovement.objects.create(
             business=business,
@@ -309,9 +311,9 @@ def stock_movements(request, business_id):
 @api_view(['POST'])
 def create_sale(request, business_id):
     """
-    Records a sale AND decrements the product's stock count in the same
-    call. 'amount' is calculated as product.price x quantity, never taken
-    from the request.
+    Records a sale. Stock decrement, amount calculation, and the low-stock
+    alert now all happen inside SaleRecord.save() itself — this view just
+    validates input and creates the record.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -342,16 +344,6 @@ def create_sale(request, business_id):
     )
 
     product.refresh_from_db()
-
-    if product.stock_count <= product.reorder_point:
-        StockMovement.objects.create(
-            business=business,
-            product=product,
-            movement_type='low_stock_alert',
-            quantity_change=0,
-            resulting_stock=product.stock_count,
-            note=f'Stock at {product.stock_count}, reorder point is {product.reorder_point}',
-        )
 
     return Response({
         'id': sale.id,
@@ -405,7 +397,8 @@ def order_list(request, business_id):
 def update_order_status(request, business_id, order_id):
     """
     Updates an order's status. Advancing to 'delivered' triggers
-    Order.save() to create SaleRecords for each line item.
+    Order.save() to create SaleRecords for each line item — which now
+    handles stock decrement AND the low-stock alert automatically.
     """
     try:
         business = Business.objects.get(id=business_id)
@@ -432,7 +425,6 @@ def update_order_status(request, business_id, order_id):
     })
 
 
-# Friendly spreadsheet headers -> actual model field names.
 COLUMN_ALIASES = {
     'product name': 'name',
     'selling price (kes)': 'price',

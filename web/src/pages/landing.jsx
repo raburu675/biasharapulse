@@ -172,7 +172,7 @@ function Landing() {
         </div>
       </section>
 
-      <section id="pricing" className="pricing">
+  <section id="pricing" className="pricing">
   <div className="pricing-header">
     <span className="pricing-tag">Transparent SME Pricing</span>
     <h2>Plans built to fit every stage of your biashara</h2>
@@ -193,9 +193,10 @@ function Landing() {
       <div className="pricing-card-body">
         <ul className="pricing-features">
           <li>✓ First 75 Orders Free</li>
-          <li>✓ 1 User / 1 Device</li>
+          <li>✓ Order Tracking</li>
+          <li>✓ Stock Movement Log</li>
           <li>✓ Sales & Expense Logging</li>
-          <li>✓ Basic Inventory Tracking</li>
+          <li>✓ 1 User / 1 Device</li>
           <li>✓ 30-Day History</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
@@ -206,25 +207,25 @@ function Landing() {
 
     <div className="pricing-card">
       <div className="pricing-card-header">
-        <h3>Biashara Growth</h3>
-        <p>For active single-outlet retail shops needing automated tracking.</p>
+        <h3>Biashara Lite</h3>
+        <p>For small online sellers with light, steady order volume.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">2200</span>
+          <span className="price">990</span>
           <span className="period">/ month</span>
         </div>
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ <strong>Unlimited Orders</strong></li>
-          <li>✓ Product Performance Analytics</li>
+          <li>✓ Up to 30 Orders / Month</li>
+          <li>✓ Order Tracking</li>
+          <li>✓ Stock Movement Log</li>
+          <li>✓ Sales & Expense Logging</li>
           <li>✓ Bulk Spreadsheet Import</li>
-          <li>✓ M-Pesa Transaction Tagging</li>
-          <li>✓ Low-Stock Threshold Alerts</li>
           <li>✓ Unlimited History</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
-          Select Growth
+          Select Lite
         </button>
       </div>
     </div>
@@ -232,8 +233,31 @@ function Landing() {
     <div className="pricing-card featured">
       <div className="popular-badge">Most Popular</div>
       <div className="pricing-card-header">
-        <h3>Biashara Plus</h3>
-        <p>For growing retail outlets managing customer orders and staff.</p>
+        <h3>Biashara Growth</h3>
+        <p>For active retail shops that need imports and faster stock entry.</p>
+        <div className="pricing-amount">
+          <span className="currency">KES</span>
+          <span className="price">2,500</span>
+          <span className="period">/ month</span>
+        </div>
+      </div>
+      <div className="pricing-card-body">
+        <ul className="pricing-features">
+          <li>✓ <strong>Unlimited Orders</strong></li>
+          <li>✓ Everything in Lite</li>          
+          <li>✓ QR Code Product Scanning</li>
+          <li>✓ Unlimited History</li>
+        </ul>
+        <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
+          Start free 14 day trial
+        </button>
+      </div>
+    </div>
+
+    <div className="pricing-card">      
+      <div className="pricing-card-header">
+        <h3>Biashara Pro</h3>
+        <p>For shops that need full product performance insight and a team.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
           <span className="price">4,500</span>
@@ -243,13 +267,12 @@ function Landing() {
       <div className="pricing-card-body">
         <ul className="pricing-features">
           <li>✓ Everything in Growth</li>
-          <li>✓ Customer Order Management</li>
-          <li>✓ Stock Movement Audit Trail</li>
-          <li>✓ Up to 5 Staff Accounts <span className="soon-tag">Coming soon</span></li>
-          <li>✓ Cashier Activity Logs <span className="soon-tag">Coming soon</span></li>
+          <li>✓ Full POS Page</li>          
+          <li>✓ Owner & Staff Accounts</li>
+          <li>✓ Upto 2 shop branches</li>
         </ul>
-        <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
-          Start 14-Day Free Trial
+        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+          Start Pro
         </button>
       </div>
     </div>
@@ -257,19 +280,17 @@ function Landing() {
     <div className="pricing-card">
       <div className="pricing-card-header">
         <h3>Pro Multi-Branch</h3>
-        <p>For distributors & multi-location operations.</p>
+        <p>For businesses running multiple locations with a team.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">7000</span>
+          <span className="price">7,000</span>
           <span className="period">/ month</span>
         </div>
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ Everything in Plus</li>
-          <li>✓ Up to 3 Shop Branches <span className="soon-tag">Coming soon</span></li>
-          <li>✓ Inter-Branch Stock Transfers <span className="soon-tag">Coming soon</span></li>
-          <li>✓ Priority Phone Support</li>
+          <li>✓ Everything in Pro</li>
+          <li>✓ Up to 5 Shop Branches</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
           Upgrade to Pro

@@ -113,6 +113,21 @@ class SaleRecord(models.Model):
             self.product.stock_count = max(0, self.product.stock_count - self.quantity)
             self.product.save(update_fields=['stock_count'])
 
+            # Low-stock alert now lives HERE, not in individual views — this
+            # runs no matter which code path created the sale: create_sale,
+            # Order.save() on delivery, Django admin, the shell. One place,
+            # can't be forgotten or duplicated across call sites.
+            self.product.refresh_from_db()
+            if self.product.stock_count <= self.product.reorder_point:
+                StockMovement.objects.create(
+                    business=self.business,
+                    product=self.product,
+                    movement_type='low_stock_alert',
+                    quantity_change=0,
+                    resulting_stock=self.product.stock_count,
+                    note=f'Stock at {self.product.stock_count}, reorder point is {self.product.reorder_point}',
+                )
+
 
 class Expense(models.Model):
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='expenses')
@@ -131,11 +146,11 @@ class StockMovement(models.Model):
     # Reorder Alerts). Every stock change should go through this model so
     # the frontend log is always real, not placeholder data.
     #
-    # NOTE: Expense creation for stock increases now lives entirely in
-    # Product.save() above — this model is purely the audit trail (who,
-    # when, why, with a note) and does NOT create Expenses itself. The
-    # stock_movements() view still creates these rows for the descriptive
-    # log, but Product.save() independently handles the Expense side.
+    # NOTE: Expense creation for stock increases lives entirely in
+    # Product.save(). Low-stock alerts triggered by a sale (POS or a
+    # delivered order) now live in SaleRecord.save(). Only manual
+    # stock_in/waste_damage adjustments still create their alert directly
+    # in the stock_movements() view, since those never touch SaleRecord.
     MOVEMENT_CHOICES = [
         ('stock_in', 'Stock In'),
         ('waste_damage', 'Waste/Damage'),
@@ -219,7 +234,8 @@ class Order(models.Model):
 
         # Only fires the FIRST time status becomes 'delivered' — this is
         # where an order becomes real revenue and touches stock, via the
-        # same SaleRecord.save() logic every other sale goes through.
+        # same SaleRecord.save() logic every other sale goes through
+        # (including the low-stock alert check, now built into it).
         just_delivered = (
             self.status == 'delivered'
             and previous_status != 'delivered'
