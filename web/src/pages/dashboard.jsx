@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import LoadingScreen from './LoadingScreen'
 import axios from 'axios'
 import {
   BarChart,
@@ -21,8 +20,24 @@ import './styles/dashboard.css'
 const API_BASE = 'https://biasharapulse-production.up.railway.app'
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
-const PAYMENT_COLORS = { 'M-Pesa': '#16A34A', Cash: '#EAB308', Card: '#2563EB' }
-const CATEGORY_COLORS = ['#800A26', '#0F766E', '#B45309', '#067A3B', '#6D28D9', '#DB2777']
+// ── Brand color system — matches landing.css tokens ─────────────────────
+const BRAND = {
+  burgundy: '#7A0C29',
+  burgundyHover: '#5C0A20',
+  green: '#0F7A44',
+  greenHover: '#0B5E35',
+  amber: '#D97706',
+  blue: '#1E3A8A',
+  red: '#B91C1C',
+  ink: '#14110F',
+  inkSoft: '#6B6560',
+  line: '#E7E5E2',
+  surface: '#FFFFFF',
+}
+
+const PAYMENT_COLORS = { mpesa: BRAND.green, cash: BRAND.amber, card: BRAND.blue }
+const PAYMENT_LABELS = { mpesa: 'M-Pesa', cash: 'Cash', card: 'Card' }
+const CATEGORY_COLORS = [BRAND.burgundy, BRAND.green, BRAND.amber, BRAND.blue, '#6D28D9', '#DB2777']
 
 const PERIOD_OPTIONS = [
   { key: 'daily', label: 'Daily' },
@@ -39,6 +54,14 @@ const formatPeriodLabel = (period, dateStr) => {
   return d.toLocaleDateString('en-KE', { month: 'short', year: '2-digit' })
 }
 
+// Stock movement rows: amber for a low-stock alert, red if it left the
+// product at zero, green for a normal, healthy stock-in/waste-damage entry
+const getMovementColor = (m) => {
+  if (m.type === 'Low Stock Alert') return BRAND.amber
+  if (m.currentStock === 0) return BRAND.red
+  return BRAND.green
+}
+
 function Dashboard() {
   const [activeMovementTab, setActiveMovementTab] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -52,6 +75,10 @@ function Dashboard() {
   const [file, setFile] = useState(null)
   const [importResult, setImportResult] = useState(null)
   const [importing, setImporting] = useState(false)
+
+  const [movements, setMovements] = useState([])
+  const [movementsLoading, setMovementsLoading] = useState(true)
+  const [movementsError, setMovementsError] = useState(null)
 
   const fetchSummary = useCallback(async (p) => {
     setLoading(true)
@@ -70,6 +97,25 @@ function Dashboard() {
     fetchSummary(period)
   }, [period, fetchSummary])
 
+  // Pulls the recent stock movement log — same endpoint the Stock Movement
+  // page uses. Fetched once; the 3 tab chips filter client-side below.
+  const fetchMovements = useCallback(async () => {
+    setMovementsLoading(true)
+    setMovementsError(null)
+    try {
+      const res = await axios.get(`${API_BASE}/api/dashboard/${BUSINESS_ID}/stock-movements/`)
+      setMovements(res.data.movements)
+    } catch (err) {
+      setMovementsError(err.message)
+    } finally {
+      setMovementsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMovements()
+  }, [fetchMovements])
+
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
 
   const handleImport = async () => {
@@ -83,7 +129,7 @@ function Dashboard() {
     try {
       const res = await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/import/`, formData)
       setImportResult(res.data)
-      fetchSummary(period) // refresh dashboard with the newly imported data
+      fetchSummary(period)
     } catch (err) {
       setImportResult(err.response?.data || { error: err.message })
     } finally {
@@ -97,12 +143,10 @@ function Dashboard() {
     setImportResult(null)
   }
 
-  if (loading) return <LoadingScreen label="Loading your dashboard..." />
+  if (loading) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Loading dashboard...</p></main></div>
   if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
 
   // ── Reshape API response into what the charts expect ──
-  // period_sales / period_expenses / period_margin come from the backend
-  // already grouped by whichever granularity was requested
   const periodMap = {}
   summary.period_sales.forEach((r) => {
     const label = formatPeriodLabel(period, r.period)
@@ -116,11 +160,10 @@ function Dashboard() {
     const label = formatPeriodLabel(period, r.period)
     periodMap[r.period] = { ...periodMap[r.period], label, margin: r.margin }
   })
-  // sort by the raw ISO key so chart stays chronological regardless of period type
   const salesData = Object.keys(periodMap).sort().map((key) => periodMap[key])
 
   const paymentSplit = summary.payment_channel_split.map((p) => ({
-    name: p.channel,
+    name: PAYMENT_LABELS[p.channel] || p.channel,
     value: p.percent,
     color: PAYMENT_COLORS[p.channel] || '#999',
   }))
@@ -142,21 +185,15 @@ function Dashboard() {
   return (
     <div className="app-shell">
       <Sidebar current="dashboard" />
-
       <main className="main">
         {/* Header */}
         <header className="main-header">
-          <div className="header-center">
-            <h1>BiasharaPulse</h1>
-            <p className="header-sub">Live metrics & inventory health</p>
+          <div className="header-center">            
+              <span className="brand-biashara">Biashara</span>
+              <span className="brand-pulse">Pulse</span>                                     
           </div>
 
-          <div className="header-right">
-            <div className="live-badge">
-              <span className="live-dot" />
-              LIVE
-            </div>
-
+          <div className="header-right">        
             <div className="dropdown-container">
               <button
                 id="user-menu-btn"
@@ -191,36 +228,53 @@ function Dashboard() {
           </div>
         </header>
 
-        {/* Search */}
-        <div className="search-container">
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search SKU, product, or shelf..."
-          />
+        {/* Toolbar — replaces the old unused search bar. Import is the only
+            real action here, so it gets full visual weight instead of
+            competing with a search field that did nothing. */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            margin: '4px 0 20px',
+            flexWrap: 'wrap',
+            gap: 12,
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: BRAND.ink, letterSpacing: '-0.01em', margin: 0 }}>
+              Overview
+            </h2>
+            <p style={{ fontSize: 10.5, color: BRAND.inkSoft, margin: '2px 0 0' }}>
+              Snapshot of sales, stock, and cash flow
+            </p>
+          </div>
+
           <button
             onClick={() => setShowImport(true)}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              backgroundColor: "#15803D",
-              color: "#fff",
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              backgroundColor: '#2D030D',
+              color: '#fff',
               fontWeight: 600,
-              fontSize: "14px",
-              padding: "10px 16px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
+              fontSize: 10.5,
+              padding: '8px 17px',
+              borderRadius: 12,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 6px 16px -4px rgba(122, 12, 41, 0.4)',
+              transition: 'background-color 0.18s ease, transform 0.18s ease',
             }}
-            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#166534")}
-            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#15803D")}
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = BRAND.burgundy; e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseOut={(e) => {e.currentTarget.style.backgroundColor = '#2D030D';e.currentTarget.style.transform = 'translateY(0)';}}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 5v14" />
               <path d="M5 12h14" />
             </svg>
-            Import files
+            Import Products
           </button>
         </div>
 
@@ -235,19 +289,19 @@ function Dashboard() {
             onClick={closeImportModal}
           >
             <div
-              style={{ backgroundColor: '#fff', padding: 24, borderRadius: 10, width: 360 }}
+              style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, width: 360 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ marginTop: 0 }}>Import Products</h3>
+              <h3 style={{ marginTop: 0, fontSize: 16, fontWeight: 700, color: BRAND.ink }}>Import Products</h3>
 
               <a
                 href={`${API_BASE}/api/products/import-template/`}
-                style={{ color: '#15803D', fontWeight: 600, textDecoration: 'none' }}
+                style={{ color: BRAND.green, fontWeight: 600, textDecoration: 'none', fontSize: 13.5 }}
               >
                 ⬇ Download Template
               </a>
 
-              <p style={{ fontSize: 13, color: '#666', marginTop: 8 }}>
+              <p style={{ fontSize: 13, color: BRAND.inkSoft, marginTop: 8 }}>
                 Fill in the template, then upload it below.
               </p>
 
@@ -263,8 +317,8 @@ function Dashboard() {
                   onClick={handleImport}
                   disabled={!file || importing}
                   style={{
-                    backgroundColor: '#15803D', color: '#fff', border: 'none',
-                    padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
+                    backgroundColor: BRAND.burgundy, color: '#fff', border: 'none',
+                    padding: '9px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
                     opacity: !file || importing ? 0.6 : 1,
                   }}
                 >
@@ -272,18 +326,18 @@ function Dashboard() {
                 </button>
                 <button
                   onClick={closeImportModal}
-                  style={{ backgroundColor: '#eee', border: 'none', padding: '8px 14px', borderRadius: 6, cursor: 'pointer' }}
+                  style={{ backgroundColor: '#F3F1EE', border: `1px solid ${BRAND.line}`, padding: '9px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
                 >
                   Cancel
                 </button>
               </div>
 
-              {importResult?.error && <p style={{ color: 'red', marginTop: 12 }}>{importResult.error}</p>}
+              {importResult?.error && <p style={{ color: BRAND.red, marginTop: 12, fontSize: 13 }}>{importResult.error}</p>}
               {importResult?.created !== undefined && (
-                <p style={{ marginTop: 12 }}>Created: {importResult.created}, Updated: {importResult.updated}</p>
+                <p style={{ marginTop: 12, fontSize: 13 }}>Created: {importResult.created}, Updated: {importResult.updated}</p>
               )}
               {importResult?.errors?.length > 0 && (
-                <ul style={{ color: 'red', fontSize: 13 }}>
+                <ul style={{ color: BRAND.red, fontSize: 12.5 }}>
                   {importResult.errors.map((e, i) => <li key={i}>Row {e.row}: {e.error}</li>)}
                 </ul>
               )}
@@ -308,7 +362,7 @@ function Dashboard() {
           <div className="hero-mini-grid">
             <div className="hero-mini">
               <span>Expenses</span>
-              <strong className="text-purple">KES {Number(summary.expenses).toLocaleString()}</strong>
+              <strong className="">KES {Number(summary.expenses).toLocaleString()}</strong>
             </div>
             <div className="hero-mini">
               <span>Net Profit</span>
@@ -325,27 +379,28 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* Period toggle — controls both charts below */}
+        {/* Period toggle */}
         <div style={{ display: 'flex', gap: 8, margin: '20px 0 4px' }}>
-          {PERIOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => setPeriod(opt.key)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 20,
-                border: '1px solid #E2E8F0',
-                background: period === opt.key ? '#15803D' : '#fff',
-                color: period === opt.key ? '#fff' : '#333',
-                fontSize: 12.5,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {PERIOD_OPTIONS.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setPeriod(opt.key)}
+            style={{
+              padding: '7px 16px',
+              borderRadius: 20,
+              border: `1px solid ${period === opt.key ? '#2D030D' : BRAND.line}`,
+              background: period === opt.key ? '#2D030D' : '#fff',
+              color: period === opt.key ? '#fff' : BRAND.ink,
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
         {/* Analytics Grid */}
         <section className="analytics-grid">
@@ -361,16 +416,16 @@ function Dashboard() {
                 <div style={{ height: 180, width: '100%' }}>
                   <ResponsiveContainer>
                     <BarChart data={salesData}>
-                      <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-main)' }} />
-                      <Bar dataKey="expenses" fill="var(--color-expenses, #EF4444)" radius={[4, 4, 0, 0]} name="Expenses" />
-                      <Bar dataKey="sales" fill="var(--color-sales, #16A34A)" radius={[4, 4, 0, 0]} name="Sales" />
+                      <XAxis dataKey="label" stroke={BRAND.inkSoft} fontSize={10} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: '#fff', border: `1px solid ${BRAND.line}`, borderRadius: 8 }} />
+                      <Bar dataKey="expenses" fill="#000" radius={[4, 4, 0, 0]} name="Expenses" />
+                      <Bar dataKey="sales" fill="#008B55" radius={[4, 4, 0, 0]} name="Sales" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="chart-legend">
-                  <span><i className="dot dot-expenses" /> Expenses</span>
-                  <span><i className="dot dot-sales" /> Sales</span>
+                  <span><i className="dot" style={{ backgroundColor: "#000" }} /> Expenses</span>
+                  <span><i className="dot" style={{ backgroundColor: "#008B55" }} /> Sales</span>
                 </div>
               </>
             )}
@@ -389,13 +444,13 @@ function Dashboard() {
                   <AreaChart data={salesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <defs>
                       <linearGradient id="marginGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--kenya-green, #16A34A)" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="var(--kenya-green, #16A34A)" stopOpacity={0} />
+                        <stop offset="5%" stopColor={BRAND.green} stopOpacity={0.4} />
+                        <stop offset="95%" stopColor={BRAND.green} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                    <XAxis dataKey="label" stroke={BRAND.inkSoft} fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis
-                      stroke="var(--text-muted)"
+                      stroke={BRAND.inkSoft}
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -404,12 +459,12 @@ function Dashboard() {
                     />
                     <Tooltip
                       formatter={(value) => [`${value}%`, 'Margin']}
-                      contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}
+                      contentStyle={{ backgroundColor: '#fff', border: `1px solid ${BRAND.line}`, borderRadius: 8 }}
                     />
                     <Area
                       type="monotone"
                       dataKey="margin"
-                      stroke="var(--kenya-green, #16A34A)"
+                      stroke={BRAND.green}
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill="url(#marginGrad)"
@@ -438,7 +493,7 @@ function Dashboard() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--card-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#fff', border: `1px solid ${BRAND.line}`, borderRadius: 8 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -485,8 +540,8 @@ function Dashboard() {
         <section className="activity-grid">
           <div className="chart-section activity-card">
             <div className="chart-card-header">
-              <h2>Recent Activity</h2>
-              <p className="chart-sub">Real-time sales stream</p>
+              <h2>Recent Sales Activity</h2>
+              <p className="chart-sub">Real-time sales stream, whether it happened through the POS "Record Sale" button or an order marked "delivered." It answers: "what did I sell recently"</p>
             </div>
             {recentSales.length === 0 ? (
               <p className="chart-empty">No recent sales.</p>
@@ -494,14 +549,20 @@ function Dashboard() {
               <div className="feed-list">
                 {recentSales.map((sale) => (
                   <div key={sale.id} className="feed-item">
-                    <div>
-                      <div className="feed-title">{sale.item}</div>
-                      <div className="feed-sub">
-                        {sale.id} <span className="feed-badge">{sale.channel}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                        backgroundColor: PAYMENT_COLORS[sale.channel] || BRAND.amber,
+                      }} />
+                      <div>
+                        <div className="feed-title">{sale.item}</div>
+                        <div className="feed-sub">
+                          {sale.id} <span className="feed-badge">{PAYMENT_LABELS[sale.channel] || sale.channel}</span>
+                        </div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div className="feed-val">{sale.amount}</div>
+                      <div className="feed-val" style={{ color: PAYMENT_COLORS[sale.channel] || BRAND.amber }}>{sale.amount}</div>
                       <div className="feed-sub">{sale.time}</div>
                     </div>
                   </div>
@@ -510,11 +571,11 @@ function Dashboard() {
             )}
           </div>
 
-          {/* Stock Audit Logs — still mock, wire to stock_movements endpoint separately */}
+          {/* Stock Audit Logs — wired to /stock-movements/, colored by severity */}
           <div className="chart-section audit-card">
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>
-              <p className="chart-sub">Inventory mutations & system alerts</p>
+              <p className="chart-sub">Inventory Movement,Every row comes from StockMovement page — a restock, a waste/damage write-off, or a system-generated low-stock warning.</p>
             </div>
 
             <div className="tab-chips">
@@ -529,9 +590,46 @@ function Dashboard() {
               ))}
             </div>
 
-            <div className="feed-list">
-              <p className="chart-empty">Wire this to /api/dashboard/{BUSINESS_ID}/stock-movements/ next.</p>
-            </div>
+            {movementsLoading ? (
+              <p className="chart-empty">Loading movements...</p>
+            ) : movementsError ? (
+              <p className="chart-empty">Couldn't load movements: {movementsError}</p>
+            ) : (
+              (() => {
+                const filtered = movements.filter((m) => {
+                  if (activeMovementTab === 1) return m.type !== 'Low Stock Alert'
+                  if (activeMovementTab === 2) return m.type === 'Low Stock Alert'
+                  return true
+                }).slice(0, 5)
+
+                return filtered.length === 0 ? (
+                  <p className="chart-empty">No stock movements yet.</p>
+                ) : (
+                  <div className="feed-list">
+                    {filtered.map((m) => (
+                      <div key={m.id} className="feed-item">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            backgroundColor: getMovementColor(m),
+                          }} />
+                          <div>
+                            <div className="feed-title">{m.type}: {m.item}</div>
+                            <div className="feed-sub">
+                              By {m.user} <span className="feed-badge">{m.category}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="feed-val" style={{ color: getMovementColor(m) }}>{m.qty}</div>
+                          <div className="feed-sub">{new Date(m.time).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()
+            )}
           </div>
         </section>
       </main>

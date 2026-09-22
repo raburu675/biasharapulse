@@ -10,27 +10,32 @@
 
   /* Kenyan Theme Secondary Tokens (Black & Burgundy Red) */
   --black-solid: #0B0C0E;
-  --burgundy-deep: #5C061C;
-  --burgundy-rich: #800A26;
+  --burgundy-deep: #5C0A20;
+  --burgundy-rich: #7A0C29;
   --burgundy-light: #FDF2F4;
 
   /* Kenya Flag Green Accent */
-  --kenya-green: #067A3B;
+  --kenya-green: #0F7A44;
   --kenya-green-light: #F0FDF4;
+
+  /* Shared brand accents — match dashboard.jsx's BRAND object exactly */
+  --amber: #D97706;
+  --blue: #1E3A8A;
+  --danger-red: #B91C1C;
 
   /* Data Visualization Colors */
   --color-sales: var(--kenya-green);
-  --color-expenses: var(--black-solid);
+  --color-expenses: var(--danger-red);
 
   /* Uniform Title Color Across All Section Cards */
   --color-card-heading: var(--burgundy-rich);
 
   /* Status Tokens */
-  --cherry-red: #DC2626;
+  --cherry-red: var(--danger-red);
 }
 
-* { 
-  box-sizing: border-box; 
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
@@ -41,6 +46,7 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+/* ── APP SHELL ── */
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -49,11 +55,7 @@ body {
 
 /* ── SIDEBAR ── */
 .sidebar {
-  width: 170px;
   flex-shrink: 0;
-  
-  border-right: 2px solid var(--burgundy-rich);
-  padding: 16px 10px;
   display: none;
   color: #0B0C0E;
 }
@@ -65,8 +67,13 @@ body {
   padding: 0 6px 16px;
 }
 
-.brand-biashara { color: #FFFFFF; }
-.brand-pulse { color: var(--kenya-green); }
+.brand-biashara {
+  color: #FFFFFF;
+}
+
+.brand-pulse {
+  color: var(--kenya-green);
+}
 
 .side-nav {
   display: flex;
@@ -99,7 +106,10 @@ body {
   border-left: 2px solid var(--kenya-green);
 }
 
-.nav-icon { display: flex; color: inherit; }
+.nav-icon {
+  display: flex;
+  color: inherit;
+}
 
 /* ── DRAWER (Mobile) ── */
 .drawer-overlay {
@@ -123,7 +133,9 @@ body {
   transition: transform 0.25s ease;
 }
 
-.drawer-open { transform: translateX(0); }
+.drawer-open {
+  transform: translateX(0);
+}
 
 .drawer-toggle {
   background: var(--card-surface);
@@ -142,202 +154,216 @@ body {
 /* ── MAIN CONTENT ── */
 .main {
   flex: 1;
+  position: relative;
+  z-index: 1;
   padding: 0 clamp(10px, 2vw, 24px) 30px;
   max-width: 1100px;
+  overflow: visible;
 }
 
 /* ── STICKY TOP NAVBAR ── */
 .main-header {
   position: sticky;
   top: 0;
-  z-index: 50;
-  background: rgba(250, 250, 250, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+
+  padding: 8px 12px;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px 16px;
+
+  background: rgba(250, 250, 250, 0.90);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
   border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 14px;
+
+  /*
+    Creates its own stacking context so the
+    dropdown always stays above dashboard content.
+  */
+  isolation: isolate;
+
+  /*
+    Prevents the dropdown from being clipped.
+  */
+  overflow: visible;
 }
 
-/* Middle Text Alignment */
+/* ── PERFECTLY CENTERED BRAND ── */
 .header-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  transform: translate(-50%, -50%);
   text-align: center;
-  margin: 0 auto;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.header-center h1 {
-  color: var(--color-card-heading);
-  font-size: 15px;
+.header-center .brand-biashara {
+  font-size: 14px;
+  margin-top: 6px;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: -0.01em;
+}
+
+.header-center .brand-pulse {
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0;
+  background: linear-gradient(
+    90deg,
+    #C4173F 0%,
+    #000 52%,
+    #12A056 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .header-sub {
+  margin: 3px 0 0;
   color: var(--text-muted);
-  font-size: 9px;
-  margin-top: 1px;
-}
-
-/* Far Right Layout */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: 0;
-}
-
-.live-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--kenya-green-light);
-  border: 1px solid rgba(6, 122, 59, 0.25);
-  border-radius: 14px;
-  padding: 3px 7px;
-  color: var(--kenya-green);
   font-size: 8px;
-  font-weight: 800;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
-.live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--kenya-green);
+/* ── RIGHT SIDE ── */
+.header-right {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  position: relative;
+  z-index: 100000;
 }
 
-/* Dropdown Container */
+/* ── PROFILE / ACCOUNT ── */
 .dropdown-container {
   position: relative;
+  z-index: 100001;
 }
 
 .profile-btn {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 27px;
+  height: 27px;
+
+  padding: 0;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+
+  color: #2D030D;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+
+  position: relative;
+  z-index: 100002;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .profile-btn:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  border-color: var(--text-muted);
+  background: #FDF2F4;
+  border-color: #2D030D;
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 4px 10px rgba(45, 3, 13, 0.12);
+}
+
+.profile-btn:active {
+  transform: translateY(0);
 }
 
 .user-icon {
-  width: 14px;
-  height: 14px;
-  stroke: var(--color-card-heading);
+  width: 13px;
+  height: 13px;
+
+  stroke: #2D030D;
+  stroke-width: 1.8;
 }
 
-/* Smooth Slide-Down Dropdown Menu */
+/* ── ACCOUNT DROPDOWN ── */
+.dropdown-container {
+  position: relative;
+  z-index: 100003;
+}
+
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
-  width: 115px;
-  background: #ffffff;
+  width: 140px;
+  padding: 6px;
+  background-color: #FFFFFF;   /* ← this is the gap color you're seeing */
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.1), 0 6px 8px -4px rgba(0, 0, 0, 0.1);
-  padding: 4px;
+  border-radius: 9px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12), 0 6px 14px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   
-  /* Slide transition setup */
   opacity: 0;
-  visibility: hidden;
-  transform: translateY(-8px);
-  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              visibility 0.25s;
+  pointer-events: none;
+  transform: translateY(-12px) scale(0.96);
+  transform-origin: top right;
+  transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dropdown-menu.open {
   opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
+/* ── DROPDOWN ITEMS ── */
 .dropdown-item {
-  display: block;
-  padding: 6px 9px;
-  font-size: 10px;
+  background-color: #FFFFFF;
+  color: var(--text-main);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--color-card-heading);
   text-decoration: none;
-  border-radius: 4px;
-  text-align: center;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
+/* ── DROPDOWN ITEM HOVER ── */
 .dropdown-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background: var(--card-elevated);
+  color: var(--text-main);
+  transform: translateX(1px);
 }
 
-.dropdown-item.btn-signup {
-  background-color: var(--color-card-heading);
-  color: #ffffff;
-}
+
 
 .dropdown-item.btn-signup:hover {
-  opacity: 0.9;
-}
-
-/* ── SEARCH & FILTERS ── */
-.search-container {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.search-input {
-  flex: 1;
-  background-color: var(--card-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 7px 10px;
-  color: var(--text-main);
-  font-size: 10px;
-  outline: none;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-}
-
-.search-input:focus {
-  border-color: var(--burgundy-rich);
-}
-
-.filter-btn {
-  width: 30px;
-  height: 30px;
-  background-color: var(--card-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  color: var(--black-solid);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-}
-
-.filter-btn:hover {
-  background-color: var(--card-elevated);
+  background: #5C0A20;
+  color: #FFFFFF;
+  transform: translateX(0);
 }
 
 /* ── HERO BANNER ── */
 .hero-banner {
-  background: linear-gradient(135deg, var(--black-solid) 0%, var(--burgundy-deep) 65%, #2D030D 100%);
+  background: #2D030D;
   border-top: 2px solid var(--kenya-green);
   border-radius: 10px;
   padding: 15px;
@@ -404,9 +430,17 @@ body {
   font-weight: 800;
 }
 
-.text-purple { color: #FECDD3; }
-.text-green { color: #86EFAC; }
-.text-ivory { color: #FFFFFF; }
+.text-purple {
+  color: #FECDD3;
+}
+
+.text-green {
+  color: #86EFAC;
+}
+
+.text-ivory {
+  color: #FFFFFF;
+}
 
 /* ── QUICK WORKFLOWS ── */
 .section-title {
@@ -430,16 +464,25 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+
   background: var(--card-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
+
   padding: 8px 12px;
+
   color: var(--black-solid);
   text-decoration: none;
+
   font-size: 9.5px;
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
   transition: all 0.15s ease;
+
+  position: relative;
+  z-index: 1;
 }
 
 .workflow-btn:hover {
@@ -465,10 +508,9 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 14px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
-/* UNIFORM BURGUNDY RED FOR ALL CARD TITLES */
 .chart-card-header h2 {
   color: var(--color-card-heading);
   font-size: 11px;
@@ -504,8 +546,13 @@ body {
   display: inline-block;
 }
 
-.dot-expenses { background: var(--color-expenses); }
-.dot-sales { background: var(--color-sales); }
+.dot-expenses {
+  background: var(--color-expenses);
+}
+
+.dot-sales {
+  background: var(--color-sales);
+}
 
 /* ── SIDE LEGEND FOR PAYMENT CHANNELS ── */
 .payment-channel-container {
@@ -591,10 +638,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+
   padding: 7px 9px;
+
   background: var(--bg-primary);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
+
   transition: background 0.15s ease;
 }
 
@@ -629,6 +679,9 @@ body {
   margin-left: 4px;
 }
 
+/* Default feed-val color — dashboard.jsx now overrides this per-row with
+   an inline style (payment-channel or movement-severity color), so this
+   only applies where no inline color is set. */
 .feed-val {
   font-size: 10px;
   font-weight: 800;
@@ -637,14 +690,14 @@ body {
 }
 
 .feed-val.cyan {
-  color: var(--burgundy-rich);
+  color: var(--blue);
 }
 
 .feed-val.alert {
-  color: var(--cherry-red);
+  color: var(--danger-red);
 }
 
-/* Filter Chips */
+/* ── FILTER CHIPS ── */
 .tab-chips {
   display: flex;
   gap: 6px;
@@ -671,18 +724,38 @@ body {
 
 /* ── RESPONSIVE MEDIA QUERIES ── */
 @media (min-width: 900px) {
-  .sidebar { display: block; }
-  .drawer-toggle { display: none; }
-  .main { max-width: none; }
-  .hero-mini-grid { grid-template-columns: repeat(4, 1fr); }
-  .analytics-grid { grid-template-columns: repeat(2, 1fr); }
-  .activity-grid { grid-template-columns: repeat(2, 1fr); }
+  .sidebar {
+    display: block;
+  }
+
+  .drawer-toggle {
+    display: none;
+  }
+
+  .main {
+    max-width: none;
+  }
+
+  .hero-mini-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .activity-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 899px) {
-  .drawer-toggle { display: flex; }
+  .drawer-toggle {
+    display: flex;
+  }
 }
 
+/* ── EMPTY CHART ── */
 .chart-empty {
   font-size: 13px;
   color: #999;
