@@ -111,35 +111,42 @@ function StockMovement() {
         <Sidebar current="stock-movement" />
 
         <div id="stock-movement-content-wrapper" className="stm-content-wrapper">
-          <header id="stock-movement-navbar" className="sticky-navbar">
-            <div id="nav-brand-container" className="header-center">
-              <h1 id="nav-brand-title">BiasharaPulse</h1>
-              <p id="nav-brand-sub" className="header-sub">Live metrics &amp; inventory health</p>
+          <header className="sticky-navbar">
+            <div className="header-center">       
+              <span className="brand-biashara">Biashara</span>
+              <span className="brand-pulse">Pulse</span>                                               
             </div>
 
-            <div id="nav-actions-container" className="header-right">
-              <div id="live-status-indicator" className="live-badge">
-                <span id="live-status-dot" className="live-dot" />
-                LIVE
-              </div>
-
-              <div id="profile-dropdown-wrapper" className="dropdown-container">
+            <div className="header-right">            
+              <div className="dropdown-container">
                 <button
-                  id="user-profile-menu-btn"
+                  id="user-menu-btn"
                   className="profile-btn"
                   onClick={toggleMenu}
                   aria-label="Toggle Menu"
                   aria-expanded={isMenuOpen}
                 >
-                  <svg className="user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    className="user-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                 </button>
 
-                <div id="user-profile-dropdown-menu" className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a id="link-sign-in" href="/signin" className="dropdown-item">Sign In</a>
-                  <a id="link-sign-up" href="/signup" className="dropdown-item btn-signup">Sign Up</a>
+                <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
+                  <a href="/signin" className="dropdown-item">
+                    Sign In
+                  </a>
+                  <a href="/signup" className="dropdown-item btn-signup">
+                    Sign Up
+                  </a>
                 </div>
               </div>
             </div>

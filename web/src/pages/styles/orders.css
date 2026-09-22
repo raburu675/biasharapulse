@@ -33,115 +33,288 @@
 }
 
 /* Compact Sticky Top Navigation Bar */
-.sticky-navbar {
-  position: sticky;
+/* ── SIDEBAR ── */
+.sidebar {
+  flex-shrink: 0;
+  display: none;
+  color: var(--white);
+  background: var(--black-rich);
+  width: 190px;
+  padding: 16px 10px;
+}
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.side-nav a,
+.drawer .side-nav a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 7px 9px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.side-nav a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+}
+
+.side-nav a.active {
+  background: var(--burgundy);
+  color: #FFFFFF;
+}
+
+.nav-icon {
+  display: flex;
+  color: inherit;
+}
+
+/* Mobile drawer version */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+}
+
+.drawer {
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  width: 190px;
+  background: var(--black-rich);
+  padding: 16px 10px;
   z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 24px;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+
+.drawer-open {
+  transform: translateX(0);
+}
+
+.drawer-toggle {
   background: var(--white);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
-.header-center h1 {
-  font-size: 15px;
-  font-weight: 800;
-  margin: 0;
-}
-
-.header-sub {
-  margin: 1px 0 0;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.live-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
-  padding: 3px 8px;
-  border-radius: 20px;
-}
-
-.live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background-color: #10b981;
-}
-
-.dropdown-container {
-  position: relative;
-}
-
-.profile-btn {
-  background: var(--off-white);
   border: 1px solid var(--border);
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  color: var(--black-rich);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--text-main);
-  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+
+.main-header {
+  position: sticky;
+  top: 0;
+  z-index: 99999;
+
+  padding: 8px 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: rgba(250, 250, 250, 0.90);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 14px;
+
+  /*
+    Creates its own stacking context so the
+    dropdown always stays above dashboard content.
+  */
+  isolation: isolate;
+
+  /*
+    Prevents the dropdown from being clipped.
+  */
+  overflow: visible;
+}
+
+/* ── PERFECTLY CENTERED BRAND ── */
+.header-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.header-center .brand-biashara {
+  font-size: 14px;
+  margin-top: 6px;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: -0.01em;
+}
+
+.header-center .brand-pulse {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(
+    90deg,
+    #C4173F 0%,
+    #000 52%,
+    #12A056 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.header-sub {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* ── RIGHT SIDE ── */
+.header-right {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  position: relative;
+  z-index: 100000;
+}
+
+/* ── PROFILE / ACCOUNT ── */
+.dropdown-container {
+  position: relative;
+  z-index: 100001;
+}
+
+.profile-btn {
+  width: 27px;
+  height: 27px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+
+  color: #2D030D;
+  cursor: pointer;
+
+  position: relative;
+  z-index: 100002;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .profile-btn:hover {
-  background: var(--border);
+  background: #FDF2F4;
+  border-color: #2D030D;
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 4px 10px rgba(45, 3, 13, 0.12);
+}
+
+.profile-btn:active {
+  transform: translateY(0);
 }
 
 .user-icon {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
+
+  stroke: #2D030D;
+  stroke-width: 1.8;
+}
+
+/* ── ACCOUNT DROPDOWN ── */
+.dropdown-container {
+  position: relative;
+  z-index: 100003;
 }
 
 .dropdown-menu {
   position: absolute;
+  top: calc(100% + 8px);
   right: 0;
-  top: calc(100% + 6px);
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  display: none;
+  width: 140px;
+  padding: 6px;
+  background-color: #FFFFFF;   /* ← this is the gap color you're seeing */
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12), 0 6px 14px rgba(0, 0, 0, 0.08);
+  display: flex;
   flex-direction: column;
-  min-width: 120px;
-  overflow: hidden;
+  gap: 4px;
+  
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px) scale(0.96);
+  transform-origin: top right;
+  transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dropdown-menu.open {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
+/* ── DROPDOWN ITEMS ── */
 .dropdown-item {
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 600;
+  background-color: #FFFFFF;
   color: var(--text-main);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
   text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
+/* ── DROPDOWN ITEM HOVER ── */
 .dropdown-item:hover {
-  background: var(--off-white);
+  background: var(--card-elevated);
+  color: var(--text-main);
+  transform: translateX(1px);
 }
 
-.btn-signup {
-  color: var(--burgundy);
+
+
+.dropdown-item.btn-signup:hover {
+  background: #5C0A20;
+  color: #FFFFFF;
+  transform: translateX(0);
 }
 
 /* Main Dashboard Area */
@@ -514,6 +687,14 @@
   .ord-metrics-grid {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
+}
+@media (min-width: 900px) {
+  .sidebar { display: block; }
+  .drawer-toggle { display: none; }
+}
+
+@media (max-width: 899px) {
+  .drawer-toggle { display: flex; }
 }
 
 @media (max-width: 768px) {

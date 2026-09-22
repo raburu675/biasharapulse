@@ -155,17 +155,12 @@ function Pos() {
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <header className="sticky-navbar">
-            <div className="header-center">
-              <h1>BiasharaPulse</h1>
-              <p className="header-sub">Live metrics & inventory health</p>
+            <div className="header-center">       
+              <span className="brand-biashara">Biashara</span>
+              <span className="brand-pulse">Pulse</span>                                               
             </div>
 
-            <div className="header-right">
-              <div className="live-badge">
-                <span className="live-dot" />
-                LIVE
-              </div>
-
+            <div className="header-right">            
               <div className="dropdown-container">
                 <button
                   id="user-menu-btn"

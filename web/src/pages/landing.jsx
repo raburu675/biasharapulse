@@ -211,13 +211,13 @@ function Landing() {
         <p>For small online sellers with light, steady order volume.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">990</span>
+          <span className="price">1499</span>
           <span className="period">/ month</span>
         </div>
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ Up to 30 Orders / Month</li>
+          <li>✓ Up to 70 Orders / Month</li>
           <li>✓ Order Tracking</li>
           <li>✓ Stock Movement Log</li>
           <li>✓ Sales & Expense Logging</li>
@@ -244,9 +244,10 @@ function Landing() {
       <div className="pricing-card-body">
         <ul className="pricing-features">
           <li>✓ <strong>Unlimited Orders</strong></li>
-          <li>✓ Everything in Lite</li>          
+          <li>✓ Everything in Lite</li> 
+          <li>✓ Full POS Page</li>         
           <li>✓ QR Code Product Scanning</li>
-          <li>✓ Unlimited History</li>
+          <li>✓ Get detailed business reports generated to your email</li>          
         </ul>
         <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
           Start free 14 day trial
@@ -260,16 +261,15 @@ function Landing() {
         <p>For shops that need full product performance insight and a team.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">4,500</span>
+          <span className="price">4,999</span>
           <span className="period">/ month</span>
         </div>
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ Everything in Growth</li>
-          <li>✓ Full POS Page</li>          
-          <li>✓ Owner & Staff Accounts</li>
-          <li>✓ Upto 2 shop branches</li>
+          <li>✓ Everything in Growth</li>    
+          <li>✓ Upto 3 shop branches</li>                
+          <li>✓ Owner & Staff Accounts</li>          
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
           Start Pro
@@ -283,7 +283,7 @@ function Landing() {
         <p>For businesses running multiple locations with a team.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">7,000</span>
+          <span className="price">7,999</span>
           <span className="period">/ month</span>
         </div>
       </div>
