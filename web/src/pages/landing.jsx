@@ -5,6 +5,7 @@ import Dashboard from "./dashboard";
 import "./styles/landing.css";
 import "./styles/splash.css";
 
+
 function Landing() {
   const [searchParams] = useSearchParams();
   const skipToLanding = searchParams.get("view") === "landing";
@@ -13,7 +14,55 @@ function Landing() {
   const [fadeOut, setFadeOut] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [activeShowcase, setActiveShowcase] = useState(0)
 
+const showcaseTabs = [
+  {
+    label: 'Dashboard',
+    desktopSrc: '/screenshots/dashboard-desktop.png',
+    mobileSrc: [
+      '/screenshots/dashboard-mobile1.png',
+      '/screenshots/dashboard-mobile2.png',
+      '/screenshots/dashboard-mobile3.png',
+    ],
+    heading: 'Know exactly how your business is doing', 
+    description: 'A clear view of your sales, expenses, profit, and stock health without digging through spreadsheets or doing manual calculations.', benefits: [ { icon: '↗', text: 'Track revenue and expenses as they happen' }, { icon: '◉', text: 'See profit, margins, and business performance at a glance' }, { icon: '▣', text: 'Monitor stock levels before products run out' }, ],
+    caption: 'Revenue, expenses, margin, and stock health — all in one live view.',
+  },
+
+  {
+    label: 'Point of Sale',
+    desktopSrc: '/screenshots/pos-desktop.png',
+    mobileSrc: [
+      '/screenshots/pos-mobile.png',
+    ],
+    heading: 'Close sales in seconds, not minutes', 
+    description: 'A simple POS built for busy Kenyan shops. Record sales quickly, automatically update stock, and keep every transaction accounted for.', benefits: [ { icon: '⚡', text: 'Complete sales quickly with a simple checkout flow' }, { icon: 'KSh', text: 'Track cash, M-Pesa, and other payment methods' }, { icon: '✓', text: 'Automatically deduct sold products from stock' }, ],
+    caption: 'Cost, margin, and sell-through per product, with one-tap sales.',
+  },
+
+  {
+    label: 'Stock Movement',
+    desktopSrc: '/screenshots/stock-desktop.png',
+    mobileSrc: [
+      '/screenshots/stock-mobile.png',
+    ],
+    heading: 'Know where every product is going', 
+    description: 'Keep your inventory under control by recording stock coming in, going out, being adjusted, or running low.', benefits: [ { icon: '+', text: 'Record new stock and incoming inventory' }, { icon: '↕', text: 'Track stock movement and adjustments' }, { icon: '!', text: 'Spot low-stock products before they become a problem' }, ],
+    caption: 'Every restock and write-off logged, with low-stock alerts built in.',
+  },
+
+  {
+    label: 'Orders',
+    desktopSrc: '/screenshots/orders-desktop.png',
+    mobileSrc: [
+      '/screenshots/orders-mobile.png',
+    ],
+    heading: 'Keep every customer order on track', 
+    description: 'Manage orders from the moment they are placed until they are completed, so nothing gets forgotten or lost in chats and notebooks.', benefits: [ { icon: '◷', text: 'See pending, active, and completed orders' }, { icon: '✓', text: 'Track each order through its status' }, { icon: '▤', text: 'Keep customer orders organized in one place' }, ],
+    caption: 'Track customer orders from pending to delivered.',
+  },
+];
   useEffect(() => {
     if (skipToLanding) return;
 
@@ -58,6 +107,7 @@ function Landing() {
   if (stage === "dashboard") {
     return <Dashboard />;
   }
+
 
   return (
     <div className="landing">
@@ -172,6 +222,116 @@ function Landing() {
         </div>
       </section>
 
+<section id="showcase" className="showcase">
+  <div className="showcase-intro">
+    <span className="features-tag">See it in action</span>
+    <h2>Built for how you actually run your shop</h2>
+    <p>View real snapshots from biasharaPulse.</p>
+  </div>
+
+  <div className="showcase-tabs">
+    {showcaseTabs.map((tab, i) => (
+      <button
+        key={tab.label}
+        className={`showcase-tab ${activeShowcase === i ? 'active' : ''}`}
+        onClick={() => setActiveShowcase(i)}
+      >
+        {tab.label}
+      </button>
+    ))}
+  </div>
+
+  <div className="showcase-content">
+    <div className="showcase-info">
+      <span className="showcase-number">
+        {String(activeShowcase + 1).padStart(2, '0')} / {showcaseTabs[activeShowcase].label}
+      </span>
+
+      <h2>{showcaseTabs[activeShowcase].heading}</h2>
+
+      <p className="showcase-description">
+        {showcaseTabs[activeShowcase].description}
+      </p>
+
+      <ul className="showcase-benefits">
+        {showcaseTabs[activeShowcase].benefits.map((benefit) => (
+          <li key={benefit.text}>
+            <span className="benefit-icon">{benefit.icon}</span>
+            <span>{benefit.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div className="showcase-frame">
+      <img
+        src={showcaseTabs[activeShowcase].desktopSrc}
+        alt={`${showcaseTabs[activeShowcase].label} screenshot`}
+        className="showcase-shot showcase-shot-desktop"
+      />
+
+      <div className="showcase-mobile-shots">
+        {showcaseTabs[activeShowcase].mobileSrc.map((src, index) => (
+          <img
+            key={src}
+            src={src}
+            alt={`${showcaseTabs[activeShowcase].label} mobile screenshot ${index + 1}`}
+            className="showcase-shot showcase-shot-mobile"
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <p className="showcase-caption">
+    {showcaseTabs[activeShowcase].caption}
+  </p>
+</section>
+
+{/* ── PRODUCT VIDEO ── */}
+<section className="product-video">
+  <div className="product-video-intro">
+    <span className="section-eyebrow">SEE IT IN ACTION</span>
+
+    <h2>
+      See how BiasharaPulse
+      <span> works in your business.</span>
+    </h2>
+
+    <p>
+      Take a quick walkthrough of BiasharaPulse and see how you can
+      manage sales, inventory, expenses and business performance
+      from one place.
+    </p>
+  </div>
+
+  <div className="product-video-wrapper">
+    <div className="product-video-player">
+      <video
+        controls
+        preload="metadata"
+        poster="/videos/biasharapulse-preview.png"
+      >
+        <source
+          src="/videos/biasharapulse-demo.mp4"
+          type="video/mp4"
+        />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+
+    <div className="product-video-meta">
+      <div>
+        <span className="video-dot"></span>
+        BiasharaPulse walkthrough
+      </div>
+
+      <span>2–3 min</span>
+    </div>
+  </div>
+</section>
+
+  {/* pricing */}
   <section id="pricing" className="pricing">
   <div className="pricing-header">
     <span className="pricing-tag">Transparent SME Pricing</span>
@@ -298,6 +458,45 @@ function Landing() {
       </div>
     </div>
   </div>
+</section>
+
+{/* ── HOW IT WORKS ── */}
+<section id="how-it-works" className="how-it-works">
+  <div className="how-intro">
+    <span className="features-tag">How it works</span>
+    <h2>Live in minutes, not days</h2>
+    <p>No setup calls, no training sessions — open it and start running your shop.</p>
+  </div>
+
+  <div className="how-steps">
+    <div className="how-step">
+      <span className="how-step-number">1</span>
+      <h3>Create your account</h3>
+      <p>Sign up free — no card required, no sales call.</p>
+    </div>
+
+    <div className="how-step">
+      <span className="how-step-number">2</span>
+      <h3>Add your products</h3>
+      <p>Import your whole catalog from a spreadsheet, or add items one by one as you go.</p>
+    </div>
+
+    <div className="how-step">
+      <span className="how-step-number">3</span>
+      <h3>Sell and track</h3>
+      <p>Record sales at the counter, log stock movements, and manage customer orders — all in one place.</p>
+    </div>
+
+    <div className="how-step">
+      <span className="how-step-number">4</span>
+      <h3>See it on your dashboard</h3>
+      <p>Revenue, margin, and stock health update automatically — no spreadsheets to reconcile.</p>
+    </div>
+  </div>
+
+  <button className="how-cta" onClick={() => setStage("dashboard")}>
+    Start Free Now
+  </button>
 </section>
 
       <section id="values" className="values">
