@@ -1,7 +1,3 @@
-"""
-Django settings for flutterbackend project.
-"""
-
 import os
 from pathlib import Path
 import dj_database_url

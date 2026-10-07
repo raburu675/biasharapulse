@@ -4,7 +4,8 @@ import Sidebar from './sidebar'
 import './styles/orders.css'
 import LoadingScreen from './LoadingScreen'
 
-const API_BASE = 'https://biasharapulse-production.up.railway.app'
+// const API_BASE = 'https://biasharapulse-production.up.railway.app'
+const API_BASE = 'http://127.0.0.1:8000' // local testing
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
 const STATUS_OPTIONS = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']

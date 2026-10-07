@@ -17,7 +17,8 @@ import Sidebar from './sidebar'
 import './styles/dashboard.css'
 
 // ── Config ─────────────────────────────────────
-const API_BASE = 'https://biasharapulse-production.up.railway.app'
+// const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
+const API_BASE = 'http://127.0.0.1:8000' // local testing
 const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
 // ── Brand color system — matches landing.css tokens ─────────────────────
@@ -250,100 +251,237 @@ function Dashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowImport(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              backgroundColor: '#2D030D',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 10.5,
-              padding: '8px 17px',
-              borderRadius: 12,
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 6px 16px -4px rgba(122, 12, 41, 0.4)',
-              transition: 'background-color 0.18s ease, transform 0.18s ease',
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = BRAND.burgundy; e.currentTarget.style.transform = 'translateY(-1px)' }}
-            onMouseOut={(e) => {e.currentTarget.style.backgroundColor = '#2D030D';e.currentTarget.style.transform = 'translateY(0)';}}
-          >
+          <button className="import-btn" onClick={() => setShowImport(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
+              <path d="M12 16V4" />
+              <path d="m7 9 5-5 5 5" />
+              <path d="M5 20h14" />
             </svg>
             Import Products
           </button>
+      </div>
+
+       {/* Import modal */}
+      
+  {showImport && (
+  <div className="import-modal-overlay" onClick={closeImportModal}>
+    <div className="import-modal" onClick={(e) => e.stopPropagation()}>
+
+      <div className="import-modal-header">
+        <div className="import-modal-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
         </div>
 
-        {/* Import modal */}
-        {showImport && (
-          <div
-            style={{
-              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-            }}
-            onClick={closeImportModal}
-          >
-            <div
-              style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, width: 360 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ marginTop: 0, fontSize: 16, fontWeight: 700, color: BRAND.ink }}>Import Products</h3>
+        <div>
+          <h3 className="import-modal-title">Import Products</h3>
+          <p className="import-modal-subtitle">
+            Add multiple products to your inventory at once.
+          </p>
+        </div>
 
-              <a
-                href={`${API_BASE}/api/products/import-template/`}
-                style={{ color: BRAND.green, fontWeight: 600, textDecoration: 'none', fontSize: 13.5 }}
-              >
-                ⬇ Download Template
-              </a>
+        <button className="import-modal-close" onClick={closeImportModal}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
 
-              <p style={{ fontSize: 13, color: BRAND.inkSoft, marginTop: 8 }}>
-                Fill in the template, then upload it below.
-              </p>
+      <div className="import-template-row">
+        <div>
+          <strong>Don't have the template?</strong>
+          <span>Use our ready-made spreadsheet.</span>
+        </div>
 
-              <input
-                type="file"
-                accept=".xlsx,.csv"
-                onChange={(e) => setFile(e.target.files[0])}
-                style={{ marginTop: 12 }}
-              />
+        <a
+          href={`${API_BASE}/api/products/import-template/`}
+          className="import-template-link"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          Download Template
+        </a>
+      </div>
 
-              <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                <button
-                  onClick={handleImport}
-                  disabled={!file || importing}
-                  style={{
-                    backgroundColor: BRAND.burgundy, color: '#fff', border: 'none',
-                    padding: '9px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
-                    opacity: !file || importing ? 0.6 : 1,
-                  }}
-                >
-                  {importing ? 'Importing...' : 'Import'}
-                </button>
-                <button
-                  onClick={closeImportModal}
-                  style={{ backgroundColor: '#F3F1EE', border: `1px solid ${BRAND.line}`, padding: '9px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
-                >
-                  Cancel
-                </button>
-              </div>
+      <div
+        className={`import-dropzone ${file ? 'has-file' : ''}`}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.currentTarget.classList.add('dragging')
+        }}
+        onDragLeave={(e) => {
+          e.currentTarget.classList.remove('dragging')
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.currentTarget.classList.remove('dragging')
 
-              {importResult?.error && <p style={{ color: BRAND.red, marginTop: 12, fontSize: 13 }}>{importResult.error}</p>}
-              {importResult?.created !== undefined && (
-                <p style={{ marginTop: 12, fontSize: 13 }}>Created: {importResult.created}, Updated: {importResult.updated}</p>
-              )}
-              {importResult?.errors?.length > 0 && (
-                <ul style={{ color: BRAND.red, fontSize: 12.5 }}>
-                  {importResult.errors.map((e, i) => <li key={i}>Row {e.row}: {e.error}</li>)}
-                </ul>
-              )}
+          const droppedFile = e.dataTransfer.files[0]
+
+          if (
+            droppedFile &&
+            (
+              droppedFile.name.endsWith('.xlsx') ||
+              droppedFile.name.endsWith('.csv')
+            )
+          ) {
+            setFile(droppedFile)
+          }
+        }}
+        onClick={() => document.getElementById('product-import-file').click()}
+      >
+
+        {!file ? (
+          <>
+            <div className="import-upload-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 16V4" />
+                <path d="m7 9 5-5 5 5" />
+                <path d="M5 20h14" />
+              </svg>
             </div>
+
+            <strong>Drop your file here</strong>
+
+            <span>
+              or <b>browse from your computer</b>
+            </span>
+
+            <small>
+              XLSX or CSV · Maximum file size 10MB
+            </small>
+          </>
+        ) : (
+          <div className="import-selected-file">
+
+            <div className="import-file-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M8 13h8" />
+                <path d="M8 17h6" />
+              </svg>
+            </div>
+
+            <div className="import-file-info">
+              <strong>{file.name}</strong>
+              <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+            </div>
+
+            <button
+              type="button"
+              className="import-remove-file"
+              onClick={(e) => {
+                e.stopPropagation()
+                setFile(null)
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+
           </div>
         )}
+
+        <input
+          id="product-import-file"
+          type="file"
+          accept=".xlsx,.csv"
+          hidden
+          onChange={(e) => setFile(e.target.files[0])}
+        />
+      </div>
+
+      <div className="import-info-row">
+        <div className="import-info-item">
+          <span className="import-info-number">01</span>
+          <div>
+            <strong>Download</strong>
+            <small>Use the template</small>
+          </div>
+        </div>
+
+        <div className="import-info-line"></div>
+
+        <div className="import-info-item">
+          <span className="import-info-number">02</span>
+          <div>
+            <strong>Fill in</strong>
+            <small>Add your products</small>
+          </div>
+        </div>
+
+        <div className="import-info-line"></div>
+
+        <div className="import-info-item">
+          <span className="import-info-number">03</span>
+          <div>
+            <strong>Upload</strong>
+            <small>Upload your data</small>
+          </div>
+        </div>
+      </div>
+
+      <div className="import-modal-actions">
+        <button
+          onClick={handleImport}
+          disabled={!file || importing}
+          className="import-btn-confirm"
+        >
+          {importing ? (
+            <>
+              <span className="import-spinner"></span>
+              Importing...
+            </>
+          ) : (
+            <>
+              Upload Products
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M5 12h14" />
+                <path d="m13 6 6 6-6 6" />
+              </svg>
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={closeImportModal}
+          className="import-btn-cancel"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {importResult?.error && (
+        <p className="import-error">{importResult.error}</p>
+      )}
+
+      {importResult?.created !== undefined && (
+        <p className="import-success">
+          Created: {importResult.created}, Updated: {importResult.updated}
+        </p>
+      )}
+
+      {importResult?.errors?.length > 0 && (
+        <ul className="import-error-list">
+          {importResult.errors.map((e, i) => (
+            <li key={i}>Row {e.row}: {e.error}</li>
+          ))}
+        </ul>
+      )}
+
+    </div>
+  </div>
+)}
 
         {/* Hero Banner */}
         <section className="hero-banner">
@@ -353,10 +491,20 @@ function Dashboard() {
               <div className="hero-banner-value">KES {Number(summary.net_revenue).toLocaleString()}</div>
             </div>
             <div className="hero-banner-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" />
-              </svg>
-            </div>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21V3z" />
+    <line x1="8" y1="8" x2="16" y2="8" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+    <line x1="8" y1="16" x2="13" y2="16" />
+  </svg>
+
+  {/* <span>
+    Generate Report
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  </span> */}
+</div>
           </div>
           <div className="hero-banner-divider" />
           <div className="hero-mini-grid">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect,useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import HeroPage from "./heroPage";
 import Dashboard from "./dashboard";
@@ -14,7 +14,8 @@ function Landing() {
   const [fadeOut, setFadeOut] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [activeShowcase, setActiveShowcase] = useState(0)
+  const mobileScrollRefs = useRef([]);
+
 
 const showcaseTabs = [
   {
@@ -151,16 +152,19 @@ const showcaseTabs = [
         </div>
 
         {mobileNavOpen && (
-          <div className="mobile-menu-drawer">
-            <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
-            <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
-            <a href="#values" onClick={() => setMobileNavOpen(false)}>Values</a>
-            <a href="#developer" onClick={() => setMobileNavOpen(false)}>Developer</a>
-            <div className="mobile-drawer-divider"></div>
-            <Link to="/login" onClick={() => setMobileNavOpen(false)}>Sign in</Link>
-            <Link to="/signup" onClick={() => setMobileNavOpen(false)}>Create Account</Link>
-          </div>
-        )}
+        <div className="mobile-menu-drawer">
+          <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
+          <a href="#showcase" onClick={() => setMobileNavOpen(false)}>Product</a>
+          <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
+          <a href="#how-it-works" onClick={() => setMobileNavOpen(false)}>How It Works</a>
+          <a href="#values" onClick={() => setMobileNavOpen(false)}>Values</a>          
+
+          {/* <div className="mobile-drawer-divider"></div>
+
+          <Link to="/login" onClick={() => setMobileNavOpen(false)}>Sign In</Link>
+          <Link to="/signup" onClick={() => setMobileNavOpen(false)}>Sign Up</Link> */}
+        </div>
+      )}
       </nav>
 
       <div className="landing-top">
@@ -193,32 +197,38 @@ const showcaseTabs = [
         </section>
       </div>
 
+
+      {/* FEATURES SECTION */}
       <section id="features" className="features-intro">
         <span className="features-tag">What you get</span>
-        <h2>Everything your business needs</h2>
-        <p>From daily cash flow logs to shelf inventory — track operations without complexity.</p>
+        <h2>Everything your business needs to run smarter</h2>
+        <p>Sales, stock, expenses, orders, and performance — brought together in one clear view.</p>
       </section>
 
       <section className="features">
         <div className="feature">
-          <div className="feature-icon">📊</div>
+          <div className="feature-top"><span className="feature-index">01</span><div className="feature-icon">📊</div></div>
           <h3>Sales & Expense Tracking</h3>
-          <p>Instant revenue metrics and daily expense classification without manual calculations.</p>
+          <p>See what is coming in, what is going out, and where your money is going without manual calculations.</p>
+          <span className="feature-note">Know your numbers</span>
         </div>
         <div className="feature">
-          <div className="feature-icon">📦</div>
+          <div className="feature-top"><span className="feature-index">02</span><div className="feature-icon">📦</div></div>
           <h3>Stock Movement</h3>
-          <p>Track incoming inventory batches and automated point-of-sale deductions instantly.</p>
+          <p>Record incoming stock, sales, adjustments, and low-stock activity so your inventory stays under control.</p>
+          <span className="feature-note">Stay ahead of stock</span>
         </div>
         <div className="feature">
-          <div className="feature-icon">📈</div>
+          <div className="feature-top"><span className="feature-index">03</span><div className="feature-icon">📈</div></div>
           <h3>Reports & Insights</h3>
-          <p>Exportable performance summaries showcasing profit margins and top-performing products.</p>
+          <p>Turn everyday transactions into useful performance information, from profit margins to your best products.</p>
+          <span className="feature-note">Understand performance</span>
         </div>
         <div className="feature">
-          <div className="feature-icon">⚡</div>
+          <div className="feature-top"><span className="feature-index">04</span><div className="feature-icon">⚡</div></div>
           <h3>Built for Local SMEs</h3>
-          <p>Lightweight architecture designed for multi-device performance across standard mobile networks.</p>
+          <p>Simple enough for a busy shop floor and lightweight enough to work smoothly across everyday mobile networks.</p>
+          <span className="feature-note">Made for real biashara</span>
         </div>
       </section>
 
@@ -226,66 +236,63 @@ const showcaseTabs = [
   <div className="showcase-intro">
     <span className="features-tag">See it in action</span>
     <h2>Built for how you actually run your shop</h2>
-    <p>View real snapshots from biasharaPulse.</p>
+    <p>Scroll through the platform and see how each part fits into the way you work.</p>
   </div>
 
-  <div className="showcase-tabs">
+  <div className="showcase-scroll">
     {showcaseTabs.map((tab, i) => (
-      <button
-        key={tab.label}
-        className={`showcase-tab ${activeShowcase === i ? 'active' : ''}`}
-        onClick={() => setActiveShowcase(i)}
-      >
-        {tab.label}
-      </button>
+      <article className="showcase-item" key={tab.label}>
+        <div className="showcase-content">
+          <div className="showcase-info">
+            <span className="showcase-number">{String(i + 1).padStart(2, '0')} / {tab.label}</span>
+            <h2>{tab.heading}</h2>
+            <p className="showcase-description">{tab.description}</p>
+            <ul className="showcase-benefits">
+              {tab.benefits.map((benefit) => (
+                <li key={benefit.text}><span className="benefit-icon">{benefit.icon}</span><span>{benefit.text}</span></li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="showcase-frame">
+            <img src={tab.desktopSrc} alt={`${tab.label} screenshot`} className="showcase-shot showcase-shot-desktop" />
+
+            <div className="showcase-mobile-scroll-wrap">
+              <div
+              className="showcase-mobile-shots"
+              style={{ justifyContent: tab.mobileSrc.length > 1 ? 'flex-start' : 'center' }}
+              ref={(el) => {
+                mobileScrollRefs.current[i] = el
+                if (el) el.scrollLeft = 0
+              }}
+            >
+                {tab.mobileSrc.map((src, index) => (
+                  <img key={src} src={src} alt={`${tab.label} mobile screenshot ${index + 1}`} className="showcase-shot showcase-shot-mobile" />
+                ))}
+              </div>
+
+              {tab.mobileSrc.length > 1 && (
+                <button
+                  className="showcase-scroll-btn"
+                  aria-label="Scroll to see more screenshots"
+                  onClick={() => {
+                    const el = mobileScrollRefs.current[i]
+                    if (el) el.scrollBy({ left: el.clientWidth * 0.8, behavior: 'smooth' })
+                  }}
+                >
+                  <span>Swipe for more</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        <p className="showcase-caption">{tab.caption}</p>
+      </article>
     ))}
   </div>
-
-  <div className="showcase-content">
-    <div className="showcase-info">
-      <span className="showcase-number">
-        {String(activeShowcase + 1).padStart(2, '0')} / {showcaseTabs[activeShowcase].label}
-      </span>
-
-      <h2>{showcaseTabs[activeShowcase].heading}</h2>
-
-      <p className="showcase-description">
-        {showcaseTabs[activeShowcase].description}
-      </p>
-
-      <ul className="showcase-benefits">
-        {showcaseTabs[activeShowcase].benefits.map((benefit) => (
-          <li key={benefit.text}>
-            <span className="benefit-icon">{benefit.icon}</span>
-            <span>{benefit.text}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-
-    <div className="showcase-frame">
-      <img
-        src={showcaseTabs[activeShowcase].desktopSrc}
-        alt={`${showcaseTabs[activeShowcase].label} screenshot`}
-        className="showcase-shot showcase-shot-desktop"
-      />
-
-      <div className="showcase-mobile-shots">
-        {showcaseTabs[activeShowcase].mobileSrc.map((src, index) => (
-          <img
-            key={src}
-            src={src}
-            alt={`${showcaseTabs[activeShowcase].label} mobile screenshot ${index + 1}`}
-            className="showcase-shot showcase-shot-mobile"
-          />
-        ))}
-      </div>
-    </div>
-  </div>
-
-  <p className="showcase-caption">
-    {showcaseTabs[activeShowcase].caption}
-  </p>
 </section>
 
 {/* ── PRODUCT VIDEO ── */}
@@ -294,8 +301,7 @@ const showcaseTabs = [
     <span className="section-eyebrow">SEE IT IN ACTION</span>
 
     <h2>
-      See how BiasharaPulse
-      <span> works in your business.</span>
+      See how BiasharaPulse Works      
     </h2>
 
     <p>
@@ -353,10 +359,11 @@ const showcaseTabs = [
       <div className="pricing-card-body">
         <ul className="pricing-features">
           <li>✓ First 75 Orders Free</li>
+          <li>✓ 1 Branch</li>
+          <li>✓ 1 User</li>
           <li>✓ Order Tracking</li>
           <li>✓ Stock Movement Log</li>
           <li>✓ Sales & Expense Logging</li>
-          <li>✓ 1 User / 1 Device</li>
           <li>✓ 30-Day History</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
@@ -371,17 +378,19 @@ const showcaseTabs = [
         <p>For small online sellers with light, steady order volume.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">1499</span>
+          <span className="price">1299</span>
           <span className="period">/ month</span>
         </div>
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ Up to 70 Orders / Month</li>
+          <li>✓ <strong>Unlimited Orders</strong></li>
+          <li>✓ 1 Branch</li>
+          <li>✓ 1 User</li>
           <li>✓ Order Tracking</li>
           <li>✓ Stock Movement Log</li>
           <li>✓ Sales & Expense Logging</li>
-          <li>✓ Bulk Spreadsheet Import</li>
+          <li>✓ Bulk Spreadsheet Import</li>          
           <li>✓ Unlimited History</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
@@ -408,6 +417,7 @@ const showcaseTabs = [
           <li>✓ Full POS Page</li>         
           <li>✓ QR Code Product Scanning</li>
           <li>✓ Get detailed business reports generated to your email</li>          
+          <li>✓ 3 users </li>          
         </ul>
         <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
           Start free 14 day trial
@@ -427,7 +437,7 @@ const showcaseTabs = [
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ Everything in Growth</li>    
+          <li>✓ Everything in Growth</li>                         
           <li>✓ Upto 3 shop branches</li>                
           <li>✓ Owner & Staff Accounts</li>          
         </ul>
@@ -449,7 +459,7 @@ const showcaseTabs = [
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ Everything in Pro</li>
+          <li>✓ Everything in Pro</li>           
           <li>✓ Up to 5 Shop Branches</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
@@ -464,39 +474,30 @@ const showcaseTabs = [
 <section id="how-it-works" className="how-it-works">
   <div className="how-intro">
     <span className="features-tag">How it works</span>
-    <h2>Live in minutes, not days</h2>
-    <p>No setup calls, no training sessions — open it and start running your shop.</p>
+    <h2>A simpler way to stay on top of the business</h2>
+    <p>Set it up once, keep your day moving, and let the numbers build themselves around your work.</p>
   </div>
 
   <div className="how-steps">
     <div className="how-step">
-      <span className="how-step-number">1</span>
-      <h3>Create your account</h3>
-      <p>Sign up free — no card required, no sales call.</p>
+      <span className="how-step-number">01</span>
+      <div><h3>Start with your account</h3><p>Create your account and get into your workspace without a long setup process.</p></div>
     </div>
-
     <div className="how-step">
-      <span className="how-step-number">2</span>
-      <h3>Add your products</h3>
-      <p>Import your whole catalog from a spreadsheet, or add items one by one as you go.</p>
+      <span className="how-step-number">02</span>
+      <div><h3>Bring in your products</h3><p>Import your catalog from a spreadsheet or add products as you build your inventory.</p></div>
     </div>
-
     <div className="how-step">
-      <span className="how-step-number">3</span>
-      <h3>Sell and track</h3>
-      <p>Record sales at the counter, log stock movements, and manage customer orders — all in one place.</p>
+      <span className="how-step-number">03</span>
+      <div><h3>Run your daily operations</h3><p>Sell, receive stock, record expenses, and keep customer orders moving from one place.</p></div>
     </div>
-
     <div className="how-step">
-      <span className="how-step-number">4</span>
-      <h3>See it on your dashboard</h3>
-      <p>Revenue, margin, and stock health update automatically — no spreadsheets to reconcile.</p>
+      <span className="how-step-number">04</span>
+      <div><h3>Make decisions with clarity</h3><p>Your dashboard turns those everyday activities into numbers you can actually use.</p></div>
     </div>
   </div>
 
-  <button className="how-cta" onClick={() => setStage("dashboard")}>
-    Start Free Now
-  </button>
+  <button className="how-cta" onClick={() => setStage("dashboard")}>Start Free Now</button>
 </section>
 
       <section id="values" className="values">
@@ -521,27 +522,24 @@ const showcaseTabs = [
         </div>
       </section>
 
-      <section id="developer" className="developer-section">
+      {/* <section id="developer" className="developer-section">
+        <div className="developer-orbit developer-orbit-one"></div>
+        <div className="developer-orbit developer-orbit-two"></div>
         <div className="dev-portal-content">
-          <div className="dev-mark">R</div>
+          
           <div className="dev-portal-body">
-            <h2>Developers Portal</h2>
-            <p className="dev-portal-about">
-              BiasharaPulse grew out of one real problem: shop owners tracking stock and cash by hand, with no
-              visibility until something went missing. It now runs sales, inventory, and reporting for pop-up
-              vendors, single outlets, and multi-branch distributors alike — replacing guesswork with numbers
-              you can actually check.
-            </p>
-            <p className="dev-portal-contact">
-              Need something similar for your own business — a mobile app, a web platform, or both working
-              together? <br />Reach out @{" "}
-              <a href="https://raburu.co.ke" target="_blank" rel="noopener noreferrer" className="dev-link">
-                raburu.co.ke
-              </a>.
-            </p>
+            <span className="dev-kicker">Developer </span>
+            <h2>One product. Built from the ground up.</h2>
+            <p className="dev-portal-about">BiasharaPulse started with a simple idea: business software should help owners understand what is happening without making them become accountants or spreadsheet experts.</p>
+            <div className="dev-details">
+              <div><span>01</span><p>Product design</p></div>
+              <div><span>02</span><p>Web platform</p></div>
+              <div><span>03</span><p>Business systems</p></div>
+            </div>
+            <p className="dev-portal-contact">Need a custom platform, internal system, or business app built around the way you work? <a href="https://raburu.co.ke" target="_blank" rel="noopener noreferrer" className="dev-link">raburu.co.ke ↗</a></p>
           </div>
         </div>
-      </section>
+      </section> */}
 
       <footer className="landing-footer">
         <div className="footer-top">
@@ -582,10 +580,8 @@ const showcaseTabs = [
           </div>
 
           <div className="footer-col">
-            <h5>Company</h5>
-            <a href="#developer">Developer</a>
-            <a href="https://raburu.co.ke" target="_blank" rel="noopener noreferrer">About the builder</a>
-            <a href="#">Contact</a>
+            <h5>Developer's portal</h5>          
+            <a href="https://raburu.co.ke" target="_blank" rel="noopener noreferrer">raburu.co.ke</a>            
           </div>
 
           <div className="footer-col">
