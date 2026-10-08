@@ -1,7 +1,6 @@
 import { useState, useEffect,useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate} from "react-router-dom";
 import HeroPage from "./heroPage";
-import Dashboard from "./dashboard";
 import "./styles/landing.css";
 import "./styles/splash.css";
 
@@ -9,6 +8,7 @@ import "./styles/splash.css";
 function Landing() {
   const [searchParams] = useSearchParams();
   const skipToLanding = searchParams.get("view") === "landing";
+  const navigate = useNavigate();
 
   const [stage, setStage] = useState(skipToLanding ? "landing" : "splash");
   const [fadeOut, setFadeOut] = useState(false);
@@ -81,6 +81,19 @@ const showcaseTabs = [
   }
 }, [skipToLanding]);
 
+  // Scroll to the section named in the URL hash (e.g. #pricing from locked links)
+  useEffect(() => {
+    if (stage !== "landing") return;
+    const id = window.location.hash.replace("#", "");
+    if (!id) return;
+
+    const go = () => document.getElementById(id)?.scrollIntoView();
+    go();
+    // Retry once in case images above the section finished loading and shifted the layout
+    const retry = setTimeout(go, 300);
+    return () => clearTimeout(retry);
+  }, [stage]);
+
   if (stage === "splash") {
     return (
       <div className={`splash ${fadeOut ? "splash-fade-out" : ""}`}>
@@ -104,11 +117,6 @@ const showcaseTabs = [
       </div>
     );
   }
-
-  if (stage === "dashboard") {
-    return <Dashboard />;
-  }
-
 
   return (
     <div className="landing">
@@ -189,7 +197,7 @@ const showcaseTabs = [
             Stop wasting time digging through spreadsheets, receipts, and scattered records just to figure out how your business is doing. BiasharaPulse brings your sales, expenses, inventory, and daily operations together in one simple platform. See what’s selling, know what’s running low, track where your money is going, and stay on top of your business in real time
           </p>
           <div className="hero-cta-group">
-            <button className="cta-primary" onClick={() => setStage("dashboard")}>
+            <button className="cta-primary" onClick={() => navigate("/dashboard")}>
               Start Free Now
             </button>
             <a href="#pricing" className="cta-secondary">View Pricing</a>
@@ -337,6 +345,8 @@ const showcaseTabs = [
   </div>
 </section>
 
+
+
   {/* pricing */}
   <section id="pricing" className="pricing">
   <div className="pricing-header">
@@ -353,26 +363,30 @@ const showcaseTabs = [
         <div className="pricing-amount">
           <span className="currency">KES</span>
           <span className="price">0</span>
-          <span className="period">/ 75 orders</span>
+          {/* <span className="period">/ 100 orders</span> */}
         </div>
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ First 75 Orders Free</li>
+          <li>✓ First 100 Orders </li>
           <li>✓ 1 Branch</li>
           <li>✓ 1 User</li>
           <li>✓ Order Tracking</li>
-          <li>✓ Stock Movement Log</li>
+          {/* <li>✓ Stock Movement Log</li> */}
+          <li>✓ Full POS Page</li>         
+          {/* <li>✓ QR Code Product Scanning</li> */}
           <li>✓ Sales & Expense Logging</li>
           <li>✓ 30-Day History</li>
+          {/* <li>✓ First 100 Orders Free</li>
+          <li>✓ Every feature included in this tier for new vendors testing the app</li>  */}
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
-          Start Free Test
+          Select starter
         </button>
       </div>
     </div>
 
-    <div className="pricing-card">
+    <div  className="pricing-card">
       <div className="pricing-card-header">
         <h3>Biashara Lite</h3>
         <p>For small online sellers with light, steady order volume.</p>
@@ -387,10 +401,9 @@ const showcaseTabs = [
           <li>✓ <strong>Unlimited Orders</strong></li>
           <li>✓ 1 Branch</li>
           <li>✓ 1 User</li>
-          <li>✓ Order Tracking</li>
-          <li>✓ Stock Movement Log</li>
-          <li>✓ Sales & Expense Logging</li>
-          <li>✓ Bulk Spreadsheet Import</li>          
+          <li>✓ Order Tracking</li>          
+          <li>✓ Full POS Page</li> 
+          <li>✓ Sales & Expense Logging</li>                    
           <li>✓ Unlimited History</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
@@ -403,7 +416,7 @@ const showcaseTabs = [
       <div className="popular-badge">Most Popular</div>
       <div className="pricing-card-header">
         <h3>Biashara Growth</h3>
-        <p>For active retail shops that need imports and faster stock entry.</p>
+        <p>For active retail shops that need faster imports and stock entry log.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
           <span className="price">2,500</span>
@@ -412,12 +425,11 @@ const showcaseTabs = [
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ <strong>Unlimited Orders</strong></li>
-          <li>✓ Everything in Lite</li> 
-          <li>✓ Full POS Page</li>         
+          <li>✓ <strong>Everything in lite</strong></li>   
+          <li>✓ Stock Movement Log</li>       
+          <li>✓ Full Product performance page</li>                 
           <li>✓ QR Code Product Scanning</li>
-          <li>✓ Get detailed business reports generated to your email</li>          
-          <li>✓ 3 users </li>          
+          <li>✓ Get detailed business reports generated to your email</li>                          
         </ul>
         <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
           Start free 14 day trial

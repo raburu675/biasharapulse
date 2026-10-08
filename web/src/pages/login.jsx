@@ -16,6 +16,8 @@ function Login() {
     try {
       const res = await axios.post('/api/auth/login/', { email, password })
       localStorage.setItem('token', res.data.token)
+      // PLAN: needed by usePlan() to fetch this business's plan
+      localStorage.setItem('businessId', res.data.business_id)
       navigate('/dashboard')
     } catch (err) {
       setError('Incorrect email or password')

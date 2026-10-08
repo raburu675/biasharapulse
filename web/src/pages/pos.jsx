@@ -1,614 +1,375 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/pos.css'
-import LoadingScreen from './LoadingScreen'
 
-// const API_BASE = 'https://biasharapulse-production.up.railway.app'
-const API_BASE = 'http://127.0.0.1:8000' // local testing
-const BUSINESS_ID = 1 // replace with real business id (auth/context)
+// Keep in sync with API_BASE in your pages (swap to the Railway URL when deploying)
+const API_BASE = 'http://127.0.0.1:8000'
 
-const sortOptions = [
-  { id: 'unitsSold', label: 'Highest Units Sold' },
-  { id: 'sellThrough', label: 'Highest Sell-Through Rate' },
-  { id: 'margin', label: 'Highest Profit Margin' },
-  { id: 'revenue', label: 'Highest Revenue' },
-  { id: 'stock', label: 'Lowest Stock Quantity' },
+const CHANNELS = [
+  { key: 'mpesa', label: 'M-Pesa' },
+  { key: 'cash', label: 'Cash' },
+  { key: 'card', label: 'Card' },
 ]
 
-const tierClass = (tier) => (tier === 'Star Performer' ? 'tier-star' : tier === 'Steady' ? 'tier-steady' : 'tier-slow')
-const stockClass = (status) => (status === 'Out of Stock' ? 'stock-out' : status === 'Low Stock' ? 'stock-low' : 'stock-ok')
+const SCAN_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
 
 function Pos() {
-  const [inventory, setInventory] = useState([])
+  const businessId = localStorage.getItem('businessId') || 1
+
+  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [loadError, setLoadError] = useState('')
+  const [query, setQuery] = useState('')
 
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('All')
-  const [sort, setSort] = useState('unitsSold')
-  const [sortOpen, setSortOpen] = useState(false)
-  const [sellItem, setSellItem] = useState(null)
-  const [sellQty, setSellQty] = useState(1)
+  const [cart, setCart] = useState([]) // [{ product, qty }]
   const [channel, setChannel] = useState('mpesa')
-  const [selling, setSelling] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
-  const [savingProduct, setSavingProduct] = useState(false)
-  const [newProduct, setNewProduct] = useState({ name: '', category: '', cost: '', price: '', stock: '' })
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [complete, setComplete] = useState(null) // { items, total } after a sale
 
-  const toggleMenu = () => setIsMenuOpen((prev) => !prev)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [scanMsg, setScanMsg] = useState('')
+  const videoRef = useRef(null)
+  const lastScan = useRef({ code: '', at: 0 })
+  const handleCodeRef = useRef(() => {})
 
-  // Pulls per-product analytics — cost, margin, sell-through, stock status
-  const fetchInventory = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadProducts = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/pos-summary/${BUSINESS_ID}/`)
-      setInventory(res.data.products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        category: p.category,
-        costPrice: Number(p.cost_price),
-        sellingPrice: Number(p.selling_price),
-        stockQuantity: p.stock_quantity,
-        unitsSold: p.units_sold,
-        totalRevenue: Number(p.total_revenue),
-        grossProfit: Number(p.gross_profit),
-        profitMargin: Number(p.profit_margin),
-        sellThroughRate: Number(p.sell_through_rate),
-        performanceTier: p.performance_tier,
-        stockStatus: p.stock_status,
-      })))
+      const res = await axios.get(`${API_BASE}/pos-summary/${businessId}/`)
+      setProducts(res.data.products)
+      setLoadError('')
     } catch (err) {
-      setError(err.message)
+      setLoadError(err.response?.data?.error || 'Could not load products')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [businessId])
 
   useEffect(() => {
-    fetchInventory()
-  }, [fetchInventory])
+    loadProducts()
+  }, [loadProducts])
 
-  const categories = useMemo(() => ['All', ...new Set(inventory.map((i) => i.category))], [inventory])
+  // ── Cart actions ──
+  const addToCart = (p) => {
+    if (p.stock_quantity <= 0) return
+    setComplete(null)
+    setError('')
+    setCart((prev) => {
+      const existing = prev.find((l) => l.product.id === p.id)
+      if (existing) {
+        return prev.map((l) =>
+          l.product.id === p.id ? { ...l, qty: Math.min(l.qty + 1, p.stock_quantity) } : l
+        )
+      }
+      return [...prev, { product: p, qty: 1 }]
+    })
+  }
 
-  const totals = useMemo(() => {
-    const totalRevenue = inventory.reduce((s, i) => s + i.totalRevenue, 0)
-    const totalProfit = inventory.reduce((s, i) => s + i.grossProfit, 0)
-    const avgSellThrough = inventory.length
-      ? inventory.reduce((s, i) => s + i.sellThroughRate, 0) / inventory.length
-      : 0
-    return { totalRevenue, totalProfit, avgSellThrough }
-  }, [inventory])
-
-  const topSeller = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.unitsSold - a.unitsSold)[0] : null, [inventory])
-  const mostProfitable = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.grossProfit - a.grossProfit)[0] : null, [inventory])
-  const bestMargin = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.profitMargin - a.profitMargin)[0] : null, [inventory])
-
-  const filtered = useMemo(() => {
-    let list = inventory.filter(
-      (i) => (category === 'All' || i.category === category) && i.name.toLowerCase().includes(search.toLowerCase())
+  const changeQty = (id, delta) => {
+    setCart((prev) =>
+      prev.map((l) =>
+        l.product.id === id
+          ? { ...l, qty: Math.max(1, Math.min(l.qty + delta, l.product.stock_quantity)) }
+          : l
+      )
     )
-    const sorters = {
-      margin: (a, b) => b.profitMargin - a.profitMargin,
-      unitsSold: (a, b) => b.unitsSold - a.unitsSold,
-      stock: (a, b) => a.stockQuantity - b.stockQuantity,
-      sellThrough: (a, b) => b.sellThroughRate - a.sellThroughRate,
-      revenue: (a, b) => b.totalRevenue - a.totalRevenue,
-    }
-    return [...list].sort(sorters[sort])
-  }, [inventory, search, category, sort])
-
-  const openSell = (item) => {
-    setSellItem(item)
-    setSellQty(1)
-    setChannel('mpesa')
   }
 
-  // Posts to create_sale — backend calculates amount and decrements stock
-  const confirmSale = async () => {
-    if (!sellItem || sellItem.stockQuantity === 0) return
-    setSelling(true)
+  const removeLine = (id) => setCart((prev) => prev.filter((l) => l.product.id !== id))
+
+  const clearCart = () => {
+    setCart([])
+    setError('')
+  }
+
+  const total = cart.reduce((sum, l) => sum + Number(l.product.selling_price) * l.qty, 0)
+  const itemCount = cart.reduce((sum, l) => sum + l.qty, 0)
+
+  // ── Checkout: one create-sale call per cart line ──
+  const checkout = async () => {
+    if (cart.length === 0) return
+    setSubmitting(true)
+    setError('')
+    const done = []
+
     try {
-      await axios.post(`${API_BASE}/create-sale/${BUSINESS_ID}/`, {
-        product_id: sellItem.id,
-        quantity: sellQty,
-        payment_channel: channel,
-      })
-      setSellItem(null)
-      fetchInventory()
+      for (const line of cart) {
+        await axios.post(`${API_BASE}/create-sale/${businessId}/`, {
+          product_id: line.product.id,
+          quantity: line.qty,
+          payment_channel: channel,
+        })
+        done.push(line.product.id)
+      }
+      setComplete({ items: itemCount, total })
+      setCart([])
     } catch (err) {
-      alert(err.response?.data?.error || 'Could not record sale')
+      const msg = err.response?.data?.error || 'Could not complete the sale'
+      // Lines already recorded must leave the cart so they aren't charged twice
+      setCart((prev) => prev.filter((l) => !done.includes(l.product.id)))
+      setError(
+        done.length > 0
+          ? `${msg}. ${done.length} item(s) were already recorded and removed from the cart.`
+          : msg
+      )
     } finally {
-      setSelling(false)
+      setSubmitting(false)
+      loadProducts() // refresh stock counts
     }
   }
 
-  // Posts to create_product — one-off addition outside the bulk import
-  const addProduct = async () => {
-    if (!newProduct.name || !newProduct.cost || !newProduct.price || !newProduct.stock) return
-    setSavingProduct(true)
-    try {
-      await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/create/`, {
-        name: newProduct.name,
-        category: newProduct.category || 'General',
-        cost_price: Number(newProduct.cost),
-        price: Number(newProduct.price),
-        stock_count: Number(newProduct.stock),
-      })
-      setNewProduct({ name: '', category: '', cost: '', price: '', stock: '' })
-      setAddOpen(false)
-      fetchInventory()
-    } catch (err) {
-      alert(err.response?.data?.error || 'Could not add product')
-    } finally {
-      setSavingProduct(false)
+  // ── Barcode handling (camera or a USB/Bluetooth scanner typing into the search box) ──
+  const findByCode = (code) =>
+    products.find((p) => p.barcode && String(p.barcode) === String(code).trim())
+
+  const handleCode = (code) => {
+    const now = Date.now()
+    if (lastScan.current.code === code && now - lastScan.current.at < 1500) return
+    lastScan.current = { code, at: now }
+
+    const p = findByCode(code)
+    if (!p) {
+      setScanMsg(`No product matches code ${code}`)
+      return
+    }
+    addToCart(p)
+    setScanMsg(`Added ${p.name}`)
+  }
+  handleCodeRef.current = handleCode
+
+  const handleSearchKey = (e) => {
+    if (e.key !== 'Enter') return
+    const p = findByCode(query)
+    if (p) {
+      addToCart(p)
+      setQuery('')
     }
   }
 
-  if (loading) return <LoadingScreen label="Loading products..." />
+  // Camera scanner lifecycle
+  useEffect(() => {
+    if (!scannerOpen) return
+
+    let stream = null
+    let timer = null
+    let active = true
+
+    const start = async () => {
+      if (!('BarcodeDetector' in window)) {
+        setScanMsg("Camera scanning isn't supported in this browser. Use a USB or Bluetooth scanner in the search box instead.")
+        return
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        if (!active) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+
+        const detector = new window.BarcodeDetector({ formats: SCAN_FORMATS })
+        setScanMsg('Point the camera at a barcode')
+        timer = setInterval(async () => {
+          try {
+            const codes = await detector.detect(videoRef.current)
+            if (codes.length > 0) handleCodeRef.current(codes[0].rawValue)
+          } catch {
+            // ignore frames that fail to decode
+          }
+        }, 400)
+      } catch {
+        setScanMsg('Could not access the camera. Check the browser permission.')
+      }
+    }
+
+    start()
+
+    return () => {
+      active = false
+      clearInterval(timer)
+      if (stream) stream.getTracks().forEach((t) => t.stop())
+    }
+  }, [scannerOpen])
+
+  const openScanner = () => {
+    setScanMsg('')
+    setScannerOpen(true)
+  }
+
+  const filtered = products.filter((p) => {
+    const q = query.trim().toLowerCase()
+    return !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+  })
 
   return (
-    <div className="pos-root">
-      <div className="pos-shell">
-        <Sidebar current="pos" />
+    <div className="pos-shell">
+      <Sidebar current="pos" />
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <header className="sticky-navbar">
-            <div className="header-center">
-              <span className="brand-biashara">Biashara</span>
-              <span className="brand-pulse">Pulse</span>
-            </div>
+      <main className="pos-main">
+        <h1 className="pos-title">Point of Sale</h1>
 
-            <div className="header-right">
-              <div className="dropdown-container">
-                <button
-                  id="user-menu-btn"
-                  className="profile-btn"
-                  onClick={toggleMenu}
-                  aria-label="Toggle Menu"
-                  aria-expanded={isMenuOpen}
-                >
-                  <svg
-                    className="user-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </button>
+        <div className="pos-layout">
 
-                <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a href="/signin" className="dropdown-item">Sign In</a>
-                  <a href="/signup" className="dropdown-item btn-signup">Sign Up</a>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          <main className="pos-main">
-            <div className="pos-page-header">
-              <div>
-                <span className="page-eyebrow">PRODUCT ANALYTICS</span>
-                <h1 className="pos-title">Product Performance</h1>
-                <p className="pos-subtitle">Cost, margin, and sell-through across your inventory</p>
-              </div>
-
-              <button className="insight-filter-btn" aria-label="Filter insights" onClick={() => setSortOpen(true)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 5h16" />
-                  <path d="M7 12h10" />
-                  <path d="M10 19h4" />
+          {/* Products */}
+          <section>
+            <div className="pos-search-row">
+              <input
+                className="pos-search"
+                type="text"
+                placeholder="Search products or scan a barcode"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleSearchKey}
+              />
+              <button className="pos-scan-btn" onClick={openScanner} aria-label="Scan barcode">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <line x1="7" y1="8" x2="7" y2="16" />
+                  <line x1="11" y1="8" x2="11" y2="16" />
+                  <line x1="15" y1="8" x2="15" y2="16" />
+                  <line x1="18" y1="8" x2="18" y2="16" />
                 </svg>
-                <span>Filter</span>
               </button>
             </div>
 
-            {error ? (
-              <div className="empty-state">
-                <div>
-                  <strong>Couldn't load products</strong>
-                  <span>{error}</span>
+            {loading ? (
+              <p className="pos-empty">Loading products...</p>
+            ) : loadError ? (
+              <p className="pos-empty">{loadError}</p>
+            ) : filtered.length === 0 ? (
+              <p className="pos-empty">No products found.</p>
+            ) : (
+              <div className="pos-grid">
+                {filtered.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="pos-product"
+                    disabled={p.stock_quantity <= 0}
+                    onClick={() => addToCart(p)}
+                  >
+                    <div className="pos-product-name">{p.name}</div>
+                    <div className="pos-product-cat">{p.category}</div>
+                    <div className="pos-product-price">KES {Number(p.selling_price).toLocaleString()}</div>
+                    <div
+                      className={`pos-product-stock ${
+                        p.stock_status === 'Out of Stock' ? 'pos-out' : p.stock_status === 'Low Stock' ? 'pos-low' : ''
+                      }`}
+                    >
+                      {p.stock_quantity} in stock
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Cart */}
+          <aside className="pos-cart">
+            {complete ? (
+              <div className="pos-done">
+                <div className="pos-done-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
                 </div>
+                <h3>Sale complete</h3>
+                <p>
+                  {complete.items} item{complete.items === 1 ? '' : 's'} · KES {complete.total.toLocaleString()}
+                </p>
+                <button className="pos-charge" onClick={() => setComplete(null)}>New sale</button>
               </div>
             ) : (
               <>
-                <div className="metrics-card">
-                  <div className="metric metric-main">
-                    <span className="metric-label">Total Sales</span>
-                    <span className="metric-value">KES {totals.totalRevenue.toLocaleString()}</span>
-                    <span className="metric-note">Revenue generated</span>
-                  </div>
-
-                  <div className="metric">
-                    <span className="metric-label">Gross Profit</span>
-                    <span className="metric-value highlight">KES {totals.totalProfit.toLocaleString()}</span>
-                    <span className="metric-note">After product costs</span>
-                  </div>
-
-                  <div className="metric">
-                    <span className="metric-label">Avg Sell-Through</span>
-                    <span className="metric-value">{totals.avgSellThrough.toFixed(1)}%</span>
-                    <span className="metric-note">Inventory movement</span>
-                  </div>
+                <div className="pos-cart-head">
+                  <h2>Cart ({itemCount})</h2>
+                  {cart.length > 0 && (
+                    <button className="pos-clear" onClick={clearCart}>Clear</button>
+                  )}
                 </div>
 
-                {inventory.length > 0 && (
-                  <div className="spotlight-scroll">
-                    {topSeller && (
-                      <div className="spotlight-card">
-                        <div className="spotlight-top">
-                          <span className="spotlight-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="m3 17 6-6 4 4 8-9" />
-                              <path d="M17 6h4v4" />
-                            </svg>
-                          </span>
-                          <span className="spotlight-badge">TOP SELLER</span>
-                        </div>
-                        <p className="spotlight-name">{topSeller.name}</p>
-                        <span className="spotlight-metric">{topSeller.unitsSold} units sold</span>
-                      </div>
-                    )}
-
-                    {mostProfitable && (
-                      <div className="spotlight-card">
-                        <div className="spotlight-top">
-                          <span className="spotlight-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 2v20" />
-                              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7" />
-                            </svg>
-                          </span>
-                          <span className="spotlight-badge">MOST PROFITABLE</span>
-                        </div>
-                        <p className="spotlight-name">{mostProfitable.name}</p>
-                        <span className="spotlight-metric">KES {mostProfitable.grossProfit.toLocaleString()}</span>
-                      </div>
-                    )}
-
-                    {bestMargin && (
-                      <div className="spotlight-card">
-                        <div className="spotlight-top">
-                          <span className="spotlight-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M4 19V5" />
-                              <path d="M4 19h16" />
-                              <path d="m7 15 4-5 3 3 5-7" />
-                            </svg>
-                          </span>
-                          <span className="spotlight-badge">BEST MARGIN</span>
-                        </div>
-                        <p className="spotlight-name">{bestMargin.name}</p>
-                        <span className="spotlight-metric">{bestMargin.profitMargin.toFixed(1)}% margin</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="search-row">
-                  <div className="search-box">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m20 20-4-4" />
-                    </svg>
-
-                    <input
-                      className="search-input"
-                      placeholder="Search products..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-
-                    {search && (
-                      <button className="search-clear" onClick={() => setSearch('')} aria-label="Clear search">
-                        ×
-                      </button>
-                    )}
-                  </div>
-
-                  <button className="qr-btn" aria-label="Scan product">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 8V5a1 1 0 0 1 1-1h3" />
-    <path d="M16 4h3a1 1 0 0 1 1 1v3" />
-    <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
-    <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
-    <path d="M7 12h10" />
-  </svg>
-</button>
-                </div>
-
-                <div className="category-scroll">
-                  {categories.map((c) => (
-                    <button
-                      key={c}
-                      className={`cat-chip ${category === c ? 'active' : ''}`}
-                      onClick={() => setCategory(c)}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="product-list-heading">
-                  <div>
-                    <strong>Products</strong>
-                    <span>{filtered.length} showing</span>
-                  </div>
-                </div>
-
-                {filtered.length === 0 ? (
-                  <div className="empty-state">
-                    <div>
-                      <strong>{inventory.length === 0 ? 'No products yet' : 'No matching products'}</strong>
-                      <span>
-                        {inventory.length === 0
-                          ? 'Add a product below or import a spreadsheet.'
-                          : 'Try changing your search or category filter.'}
-                      </span>
-                    </div>
-                  </div>
+                {cart.length === 0 ? (
+                  <p className="pos-cart-empty">Tap a product to add it to the cart.</p>
                 ) : (
-                  <div className="product-grid">
-                    {filtered.map((item) => (
-                      <div className="product-card" key={item.id}>
-                        <div className="product-card-top">
+                  <div className="pos-lines">
+                    {cart.map((l) => (
+                      <div key={l.product.id} className="pos-line">
+                        <div className="pos-line-top">
                           <div>
-                            <p className="product-name">{item.name}</p>
-
-                            <div className="product-meta-row">
-                              <span className="product-category">{item.category}</span>
-                              <span className={`tier-badge ${tierClass(item.performanceTier)}`}>
-                                {item.performanceTier}
-                              </span>
-                            </div>
+                            <div className="pos-line-name">{l.product.name}</div>
+                            <div className="pos-line-sub">KES {Number(l.product.selling_price).toLocaleString()} each</div>
                           </div>
-
-                          <div className="product-card-badges">
-                            <span className="margin-badge">{item.profitMargin.toFixed(1)}% Margin</span>
-                            <span className={`stock-badge ${stockClass(item.stockStatus)}`}>
-                              {item.stockStatus}
-                            </span>
+                          <div className="pos-line-total">
+                            KES {(Number(l.product.selling_price) * l.qty).toLocaleString()}
                           </div>
                         </div>
-
-                        <div className="product-divider" />
-
-                        <div className="stats-row">
-                          <div className="stat">
-                            <span className="stat-label">Cost</span>
-                            <span className="stat-value">KES {item.costPrice}</span>
+                        <div className="pos-line-bottom">
+                          <div className="pos-stepper">
+                            <button type="button" disabled={l.qty <= 1} onClick={() => changeQty(l.product.id, -1)}>−</button>
+                            <span className="pos-qty">{l.qty}</span>
+                            <button
+                              type="button"
+                              disabled={l.qty >= l.product.stock_quantity}
+                              onClick={() => changeQty(l.product.id, 1)}
+                            >
+                              +
+                            </button>
                           </div>
-
-                          <div className="stat">
-                            <span className="stat-label">Price</span>
-                            <span className="stat-value">KES {item.sellingPrice}</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">In Stock</span>
-                            <span className="stat-value">{item.stockQuantity} pcs</span>
-                          </div>
+                          <button className="pos-remove" onClick={() => removeLine(l.product.id)}>Remove</button>
                         </div>
-
-                        <div className="stats-row">
-                          <div className="stat">
-                            <span className="stat-label">Units Sold</span>
-                            <span className="stat-value">{item.unitsSold}</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">Sell-Through</span>
-                            <span className="stat-value">{item.sellThroughRate.toFixed(1)}%</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">Profit</span>
-                            <span className="stat-value bold">KES {item.grossProfit.toLocaleString()}</span>
-                          </div>
-                        </div>
-
-                        <button
-                          className="sell-btn"
-                          disabled={item.stockQuantity === 0}
-                          onClick={() => openSell(item)}
-                        >
-                          {item.stockQuantity === 0 ? 'Out of Stock' : 'Record Sale'}
-                        </button>
                       </div>
                     ))}
                   </div>
                 )}
+
+                <span className="pos-label">Payment method</span>
+                <div className="pos-chips">
+                  {CHANNELS.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      className={`pos-chip ${channel === c.key ? 'active' : ''}`}
+                      onClick={() => setChannel(c.key)}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pos-total">
+                  <span>Total</span>
+                  <strong>KES {total.toLocaleString()}</strong>
+                </div>
+
+                {error && <p className="pos-error">{error}</p>}
+
+                <button
+                  className="pos-charge"
+                  onClick={checkout}
+                  disabled={cart.length === 0 || submitting}
+                >
+                  {submitting ? 'Recording...' : `Charge KES ${total.toLocaleString()}`}
+                </button>
               </>
             )}
+          </aside>
 
-            <button className="fab" onClick={() => setAddOpen(true)}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              Add Product
-            </button>
-          </main>
         </div>
-      </div>
+      </main>
 
-      {/* Sell modal */}
-      {sellItem && (
-        <div className="modal-overlay" onClick={() => setSellItem(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <p className="modal-title">Record Sale — {sellItem.name}</p>
-            <p className="modal-subtext">{sellItem.stockQuantity} units in stock</p>
-
-            <p className="field-label">Quantity</p>
-            <div className="stepper-row">
-              <button className="stepper-btn" onClick={() => setSellQty(Math.max(1, sellQty - 1))} disabled={sellQty <= 1}>−</button>
-              <span className="stepper-value">{sellQty}</span>
-              <button className="stepper-btn" onClick={() => setSellQty(Math.min(sellItem.stockQuantity, sellQty + 1))} disabled={sellQty >= sellItem.stockQuantity}>+</button>
-            </div>
-
-            <p className="field-label">Payment Channel</p>
-            <div className="channel-row">
-              {['mpesa', 'cash', 'card'].map((c) => (
-                <button
-                  key={c}
-                  className={`channel-chip ${channel === c ? 'active' : ''}`}
-                  onClick={() => setChannel(c)}
-                >
-                  {c === 'mpesa' ? 'M-Pesa' : c === 'cash' ? 'Cash' : 'Card'}
-                </button>
-              ))}
-            </div>
-
-            <p className="modal-total">Total: KES {(sellItem.sellingPrice * sellQty).toLocaleString()}</p>
-
-            <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setSellItem(null)}>Cancel</button>
-              <button className="modal-btn confirm" onClick={confirmSale} disabled={selling}>
-                {selling ? 'Recording...' : 'Confirm Sale'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-{/* Add product modal */}
-{addOpen && (
-  <div className="modal-overlay" onClick={() => setAddOpen(false)}>
-    <div className="modal-card product-entry-modal" onClick={(e) => e.stopPropagation()}>
-      <div className="product-entry-header">
-        <div className="product-entry-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v18" />
-            <path d="M3 12h18" />
-            <rect x="4" y="4" width="16" height="16" rx="3" />
-          </svg>
-        </div>
-
-        <div>
-          <p className="modal-title">Add Product</p>
-          <p className="product-entry-subtitle">Enter product details manually</p>
-        </div>
-      </div>
-
-      <div className="product-entry-section">
-        <span className="entry-section-label">PRODUCT DETAILS</span>
-
-        <div className="entry-field">
-          <label>Product Name</label>
-          <input
-            className="modal-input"
-            placeholder="e.g. Premium T-Shirt"
-            value={newProduct.name}
-            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-          />
-        </div>
-
-        <div className="entry-field">
-          <label>Category</label>
-          <input
-            className="modal-input"
-            placeholder="e.g. Clothing"
-            value={newProduct.category}
-            onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-          />
-        </div>
-      </div>
-
-      <div className="product-entry-section">
-        <span className="entry-section-label">PRICING</span>
-
-        <div className="entry-grid">
-          <div className="entry-field">
-            <label>Cost Price</label>
-            <div className="price-input">
-              <span>KES</span>
-              <input
-                type="number"
-                placeholder="0"
-                value={newProduct.cost}
-                onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="entry-field">
-            <label>Selling Price</label>
-            <div className="price-input">
-              <span>KES</span>
-              <input
-                type="number"
-                placeholder="0"
-                value={newProduct.price}
-                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="product-entry-section">
-        <span className="entry-section-label">INVENTORY</span>
-
-        <div className="entry-field">
-          <label>Opening Stock</label>
-          <div className="stock-input">
-            <input
-              type="number"
-              placeholder="0"
-              value={newProduct.stock}
-              onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-            />
-            <span>units</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="entry-info">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v5" />
-          <path d="M12 8h.01" />
-        </svg>
-        <span>You can also scan a product barcode or QR code from the POS screen.</span>
-      </div>
-
-      <div className="modal-actions">
-        <button className="modal-btn cancel" onClick={() => setAddOpen(false)}>Cancel</button>
-        <button className="modal-btn confirm" onClick={addProduct} disabled={savingProduct}>
-          {savingProduct ? 'Saving...' : 'Add Product'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-
-      {/* Sort sheet */}
-      {sortOpen && (
-        <div className="modal-overlay" onClick={() => setSortOpen(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <p className="modal-title">Sort Products By</p>
-
-            {sortOptions.map((opt) => (
-              <div
-                key={opt.id}
-                className={`sort-option ${sort === opt.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSort(opt.id)
-                  setSortOpen(false)
-                }}
-              >
-                {opt.label}
-                {sort === opt.id && '✓'}
-              </div>
-            ))}
+      {/* Barcode scanner */}
+      {scannerOpen && (
+        <div className="pos-scan-overlay" onClick={() => setScannerOpen(false)}>
+          <div className="pos-scan-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Scan a barcode</h3>
+            <video ref={videoRef} className="pos-scan-video" playsInline muted />
+            <p className="pos-scan-msg">{scanMsg}</p>
+            <button className="pos-scan-close" onClick={() => setScannerOpen(false)}>Close</button>
           </div>
         </div>
       )}

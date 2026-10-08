@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+// PLAN: adjust this path to wherever you saved usePlan.js
+import usePlan from '../hooks/usePlan'
 
 const navIcons = {
   home: (
@@ -76,14 +78,24 @@ const navIcons = {
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
+
+  // PLAN: padlock shown on locked items
+  lock: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  ),
 }
 
+// PLAN: `feature` marks an item as plan-gated (must match a name in plans.py)
 const navItems = [
   { key: 'home', label: 'Home', to: '/?view=landing', icon: 'home' },
   { key: 'account', label: 'Account', to: '/account', icon: 'account' },
   { key: 'dashboard', label: 'Dashboard', to: '/dashboard', icon: 'dashboard' },
   { key: 'pos', label: 'POS', to: '/pos', icon: 'pos' },
-  { key: 'stock-movement', label: 'Stock Movement', to: '/stock-movement', icon: 'stock' },
+  { key: 'product-performance', label: 'Product performance', to: '/product-performance', icon: 'pos', feature: 'product_performance' },
+  { key: 'stock-movement', label: 'Stock Movement', to: '/stock-movement', icon: 'stock', feature: 'stock_movement' },
   { key: 'orders', label: 'Orders', to: '/orders', icon: 'orders' },
 ]
 
@@ -290,6 +302,156 @@ const styles = `
   width: 0;
 }
 
+/* ── LOCKED ITEM (plan-gated) ── */
+
+.sbx-link.locked {
+  color: #d4af37;
+}
+
+.sbx-link.locked .sbx-icon-slot {
+  background: rgba(212, 175, 55, 0.12);
+  color: #d4af37;
+}
+
+.sbx-link.locked:hover {
+  color: #e6c65a;
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.sbx-lock {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+
+  flex-shrink: 0;
+
+  color: #d4af37;
+}
+
+.sbx-desktop.collapsed .sbx-lock {
+  display: none;
+}
+
+/* Locked items render as buttons, so reset the button defaults */
+button.sbx-link {
+  width: 100%;
+
+  background: none;
+  border: none;
+
+  font-family: inherit;
+  text-align: left;
+
+  cursor: pointer;
+}
+
+/* ── UPGRADE POPUP ── */
+
+.sbx-modal-overlay {
+  position: fixed;
+  inset: 0;
+
+  z-index: 400;
+
+  background: rgba(0, 0, 0, 0.5);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+}
+
+.sbx-modal {
+  width: 100%;
+  max-width: 360px;
+
+  background: #ffffff;
+  border: 1.5px solid #d4af37;
+  border-radius: 14px;
+
+  padding: 28px 24px 22px;
+
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.sbx-modal-lock {
+  width: 48px;
+  height: 48px;
+
+  margin: 0 auto 14px;
+
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid #d4af37;
+  color: #b8941f;
+}
+
+.sbx-modal h3 {
+  margin: 0 0 8px;
+
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b0b0d;
+}
+
+.sbx-modal p {
+  margin: 0 0 20px;
+
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b6b73;
+}
+
+.sbx-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sbx-modal-primary {
+  display: block;
+
+  padding: 11px;
+
+  border-radius: 8px;
+
+  background: #d4af37;
+  color: #0b0b0d;
+
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.sbx-modal-primary:hover {
+  background: #e6c65a;
+}
+
+.sbx-modal-secondary {
+  padding: 10px;
+
+  border: none;
+  background: none;
+
+  color: #6b6b73;
+
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+
+  cursor: pointer;
+}
+
 /* ── SIDEBAR BOTTOM ── */
 
 .sbx-bottom {
@@ -461,26 +623,55 @@ const styles = `
 }
 `
 
-function SidebarBody({ current, collapsed, onNavigate }) {
+function SidebarBody({ current, collapsed, onNavigate, hasFeature, planLoading, onLockedClick }) {
   return (
     <>
       <nav className="sbx-nav">
-        {navItems.map((item) => (
-          <Link
-            key={item.key}
-            to={item.to}
-            className={`sbx-link ${current === item.key ? 'active' : ''}`}
-            onClick={onNavigate}
-          >
-            <span className="sbx-icon-slot">
-              {navIcons[item.icon]}
-            </span>
+        {navItems.map((item) => {
+          // PLAN: locked once the plan has loaded and lacks this feature
+          const locked = !!item.feature && !planLoading && !hasFeature(item.feature)
 
-            <span className="sbx-label">
-              {item.label}
-            </span>
-          </Link>
-        ))}
+          // PLAN: locked items open the upgrade popup instead of navigating
+          if (locked) {
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className="sbx-link locked"
+                onClick={() => onLockedClick(item)}
+              >
+                <span className="sbx-icon-slot">
+                  {navIcons[item.icon]}
+                </span>
+
+                <span className="sbx-label">
+                  {item.label}
+                </span>
+
+                <span className="sbx-lock">
+                  {navIcons.lock}
+                </span>
+              </button>
+            )
+          }
+
+          return (
+            <Link
+              key={item.key}
+              to={item.to}
+              className={`sbx-link ${current === item.key ? 'active' : ''}`}
+              onClick={onNavigate}
+            >
+              <span className="sbx-icon-slot">
+                {navIcons[item.icon]}
+              </span>
+
+              <span className="sbx-label">
+                {item.label}
+              </span>
+            </Link>
+          )
+        })}
       </nav>
 
       <div className="sbx-bottom">
@@ -511,6 +702,16 @@ function SidebarBody({ current, collapsed, onNavigate }) {
 function Sidebar({ current }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  // PLAN: the locked item the user tapped (null = popup closed)
+  const [upgradeFor, setUpgradeFor] = useState(null)
+  // PLAN: fetched once here, passed to both the desktop and mobile bodies
+  const { hasFeature, loading: planLoading } = usePlan()
+
+  // PLAN: close the mobile drawer, then show the upgrade popup
+  const handleLockedClick = (item) => {
+    setMobileOpen(false)
+    setUpgradeFor(item)
+  }
 
   return (
     <div className="sbx-root">
@@ -543,6 +744,9 @@ function Sidebar({ current }) {
         <SidebarBody
           current={current}
           collapsed={collapsed}
+          hasFeature={hasFeature}
+          planLoading={planLoading}
+          onLockedClick={handleLockedClick}
         />
       </aside>
 
@@ -589,9 +793,48 @@ function Sidebar({ current }) {
           current={current}
           collapsed={false}
           onNavigate={() => setMobileOpen(false)}
+          hasFeature={hasFeature}
+          planLoading={planLoading}
+          onLockedClick={handleLockedClick}
         />
 
       </aside>
+
+      {/* PLAN: upgrade popup shown when a locked item is tapped */}
+      {upgradeFor && (
+        <div className="sbx-modal-overlay" onClick={() => setUpgradeFor(null)}>
+          <div className="sbx-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="sbx-modal-lock">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            </div>
+
+            <h3>Upgrade to unlock {upgradeFor.label}</h3>
+            <p>
+              {upgradeFor.label} is available on a paid plan. Upgrade to start using it.
+            </p>
+
+            <div className="sbx-modal-actions">
+              <Link
+                to="/?view=landing#pricing"
+                className="sbx-modal-primary"
+                onClick={() => setUpgradeFor(null)}
+              >
+                View pricing
+              </Link>
+              <button
+                type="button"
+                className="sbx-modal-secondary"
+                onClick={() => setUpgradeFor(null)}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

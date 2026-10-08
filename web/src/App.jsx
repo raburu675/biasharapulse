@@ -7,6 +7,8 @@ import StockMovement from './pages/stockMovement'
 import Pos from './pages/pos'
 import Orders from './pages/orders'
 import Account from './pages/account'
+import Upgrade from './pages/upgrade'
+import ProductPerformance from './pages/productPerformance'
 import './App.css'
 
 function App() {
@@ -19,8 +21,10 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/stock-movement" element={<StockMovement />} />
         <Route path="/pos" element={<Pos />} />
+        <Route path="/product-performance" element={<ProductPerformance/>} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/upgrade" element={<Upgrade />} />
       </Routes>
     </BrowserRouter>
   )

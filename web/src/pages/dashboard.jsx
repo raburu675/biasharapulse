@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import axios from 'axios'
 import {
   BarChart,
@@ -14,6 +15,8 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import Sidebar from './sidebar'
+// PLAN: adjust this path if your hooks folder is elsewhere
+import usePlan from '../hooks/usePlan'
 import './styles/dashboard.css'
 
 // ── Config ─────────────────────────────────────
@@ -81,6 +84,10 @@ function Dashboard() {
   const [movementsLoading, setMovementsLoading] = useState(true)
   const [movementsError, setMovementsError] = useState(null)
 
+  // PLAN: Stock Audit Logs is locked when the plan lacks 'stock_movement'
+  const { hasFeature, loading: planLoading } = usePlan()
+  const stockLocked = !planLoading && !hasFeature('stock_movement')
+
   const fetchSummary = useCallback(async (p) => {
     setLoading(true)
     setError(null)
@@ -114,8 +121,10 @@ function Dashboard() {
   }, [])
 
   useEffect(() => {
+    // PLAN: skip the fetch while locked — the server would answer 403
+    if (planLoading || stockLocked) return
     fetchMovements()
-  }, [fetchMovements])
+  }, [fetchMovements, planLoading, stockLocked])
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
 
@@ -720,7 +729,16 @@ function Dashboard() {
           </div>
 
           {/* Stock Audit Logs — wired to /stock-movements/, colored by severity */}
-          <div className="chart-section audit-card">
+          <div
+            className="chart-section audit-card"
+            // PLAN: gold border + clipped overlay while locked
+            style={stockLocked ? {
+              position: 'relative',
+              overflow: 'hidden',
+              border: '1.5px solid #d4af37',
+              boxShadow: '0 0 0 3px rgba(212, 175, 55, 0.12)',
+            } : undefined}
+          >
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>
               <p className="chart-sub">Inventory Movement,Every row comes from StockMovement page — a restock, a waste/damage write-off, or a system-generated low-stock warning.</p>
@@ -738,7 +756,23 @@ function Dashboard() {
               ))}
             </div>
 
-            {movementsLoading ? (
+            {stockLocked ? (
+              // PLAN: grey placeholder rows behind the glass (not real data)
+              <div className="feed-list">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="feed-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, backgroundColor: BRAND.line }} />
+                      <div>
+                        <div style={{ width: 130, height: 10, borderRadius: 4, background: BRAND.line, marginBottom: 6 }} />
+                        <div style={{ width: 80, height: 8, borderRadius: 4, background: BRAND.line }} />
+                      </div>
+                    </div>
+                    <div style={{ width: 60, height: 10, borderRadius: 4, background: BRAND.line }} />
+                  </div>
+                ))}
+              </div>
+            ) : movementsLoading ? (
               <p className="chart-empty">Loading movements...</p>
             ) : movementsError ? (
               <p className="chart-empty">Couldn't load movements: {movementsError}</p>
@@ -777,6 +811,52 @@ function Dashboard() {
                   </div>
                 )
               })()
+            )}
+
+            {/* PLAN: glass overlay with gold padlock, covers the whole card */}
+            {stockLocked && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  background: 'rgba(255, 255, 255, 0.45)',
+                  backdropFilter: 'blur(5px)',
+                  WebkitBackdropFilter: 'blur(5px)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(212, 175, 55, 0.15)',
+                    border: '1px solid #d4af37',
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b8941f" strokeWidth="2.2">
+                    <rect x="4" y="11" width="16" height="10" rx="2" />
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                  </svg>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.ink }}>
+                  Stock Audit Logs is on the Paid plan
+                </span>
+                <Link
+                  to="/?view=landing#pricing"
+                  style={{ fontSize: 11.5, fontWeight: 700, color: '#9a7b1a', textDecoration: 'none' }}
+                >
+                  Unlock with Paid →
+                </Link>
+              </div>
             )}
           </div>
         </section>

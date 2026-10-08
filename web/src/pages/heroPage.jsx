@@ -35,15 +35,14 @@ function HeroPage({ onGetStarted }) {
           <div className="hero-headline-block">
             <span className="hero-tag">Inventory Management system + POS </span>
             <h1 className="hero-headline">
-               Struggling with stockouts, missing sales records or not knowing what's actually making you money?
+               Losing track of stock, sales going unrecorded, and profits unclear? BiasharaPulse gives you the tools to manage inventory, sales, expenses, and performance in one place.
             </h1>
           </div>
         </div>
       </div>
 
       <div className="hero-intro-body">        
-        <p className="hero-card-desc">
-          From stock counts to sales, everything about your business lives in one place.
+        <p className="hero-card-desc">          
           Know what's moving, what's running low, and what needs your attention — before
           it becomes a problem.
         </p>
