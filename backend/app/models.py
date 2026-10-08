@@ -1,15 +1,43 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+from .plans import PLANS
 
 
 class Business(models.Model):
+    # PLAN: allowed subscription tiers
+    SUBSCRIPTION_CHOICES = [
+        ('free', 'Free'),
+        ('paid', 'Paid'),
+    ]
+
     # Which user owns this business
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='businesses')
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # PLAN: set to 'paid' + paid_until by the M-Pesa success callback
+    subscription_tier = models.CharField(max_length=10, choices=SUBSCRIPTION_CHOICES, default='free')
+    # PLAN: M-Pesa STK is a one-off payment, so paid access expires on this date
+    paid_until = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return self.name
+
+    @property
+    def plan_key(self):
+        # PLAN: an expired paid plan falls back to free automatically
+        if self.subscription_tier == 'paid' and self.paid_until and self.paid_until > timezone.now():
+            return 'paid'
+        return 'free'
+
+    @property
+    def plan(self):
+        # PLAN: the limits/features dict for this business's effective tier
+        return PLANS[self.plan_key]
+
+    def has_feature(self, feature):
+        return feature in self.plan['features']
 
 
 class Product(models.Model):

@@ -18,7 +18,8 @@ from django.contrib import admin
 from django.urls import path
 from app.views import (
     dashboard_summary, pos_summary, stock_movements, create_sale,
-    order_list, update_order_status, import_products, import_template,create_order,
+    order_list, update_order_status, import_products, import_template, create_order,
+    business_plan,
 )
 
 urlpatterns = [
@@ -45,6 +46,9 @@ urlpatterns = [
     # NEW — Product spreadsheet import
     path('api/products/<int:business_id>/import/', import_products, name='import_products'),
     path('api/products/import-template/', import_template, name='import_template'),
+
+    # PLAN — features/limits/usage for the frontend to gate UI
+    path('api/business/<int:business_id>/plan/', business_plan, name='business_plan'),
 
 
 ]

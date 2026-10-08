@@ -10,6 +10,8 @@ from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Business, Product, SaleRecord, Expense, StockMovement, Order, OrderItem
+# PLAN: gating helpers (see plans.py)
+from .plans import require_feature, history_cutoff, sale_cap_response, monthly_sales_used
 
 
 TRUNC_FUNCS = {
@@ -17,6 +19,34 @@ TRUNC_FUNCS = {
     'weekly': TruncWeek,
     'monthly': TruncMonth,
 }
+
+
+@api_view(['GET'])
+def business_plan(request, business_id):
+    """
+    PLAN: tells the frontend what this business's plan allows, so it can
+    show/lock pages and display usage. Call once after login and again
+    after an upgrade payment succeeds.
+    """
+    try:
+        business = Business.objects.get(id=business_id)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+
+    plan = business.plan
+    return Response({
+        'plan': business.plan_key,
+        'paid_until': business.paid_until,
+        'features': sorted(plan['features']),
+        'limits': {
+            'history_days': plan['history_days'],
+            'max_users': plan['max_users'],
+            'monthly_sales_cap': plan['monthly_sales_cap'],
+        },
+        'usage': {
+            'monthly_sales': monthly_sales_used(business),
+        },
+    })
 
 
 @api_view(['GET'])
@@ -38,6 +68,12 @@ def dashboard_summary(request, business_id):
     sales = SaleRecord.objects.filter(business=business)
     expenses = Expense.objects.filter(business=business)
     products = Product.objects.filter(business=business)
+
+    # PLAN: free tier only sees the last 30 days of sales/expenses
+    cutoff = history_cutoff(business)
+    if cutoff:
+        sales = sales.filter(created_at__gte=cutoff)
+        expenses = expenses.filter(created_at__gte=cutoff)
 
     net_revenue = sales.aggregate(total=Sum('amount'))['total'] or Decimal('0')
     total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
@@ -134,6 +170,11 @@ def pos_summary(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
+    # PLAN GATE: POS is paid-only
+    denied = require_feature(business, 'pos')
+    if denied:
+        return denied
+
     products = Product.objects.filter(business=business)
 
     product_list = []
@@ -216,6 +257,11 @@ def stock_movements(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
+    # PLAN GATE: which plans get Stock Movement is set in plans.py
+    denied = require_feature(business, 'stock_movement')
+    if denied:
+        return denied
+
     if request.method == 'GET':
         movement_type = request.GET.get('type')
 
@@ -224,6 +270,11 @@ def stock_movements(request, business_id):
             .select_related('product', 'user')
             .order_by('-created_at')
         )
+
+        # PLAN: free tier only sees the last 30 days of the log
+        cutoff = history_cutoff(business)
+        if cutoff:
+            movements = movements.filter(created_at__gte=cutoff)
 
         if movement_type:
             movements = movements.filter(movement_type=movement_type)
@@ -320,6 +371,11 @@ def create_sale(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
+    # PLAN LIMIT: free tier has a monthly sale creation cap
+    capped = sale_cap_response(business)
+    if capped:
+        return capped
+
     product_id = request.data.get('product_id')
     quantity = request.data.get('quantity', 1)
     payment_channel = request.data.get('payment_channel')
@@ -367,6 +423,11 @@ def order_list(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
+    # PLAN GATE: Orders module is paid-only
+    denied = require_feature(business, 'orders')
+    if denied:
+        return denied
+
     orders = Order.objects.filter(business=business).prefetch_related('items').order_by('-created_at')
 
     order_data = []
@@ -404,6 +465,11 @@ def update_order_status(request, business_id, order_id):
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
+
+    # PLAN GATE: Orders module is paid-only
+    denied = require_feature(business, 'orders')
+    if denied:
+        return denied
 
     try:
         order = Order.objects.get(id=order_id, business=business)
@@ -535,6 +601,11 @@ def create_order(request, business_id):
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
+
+    # PLAN GATE: Orders module is paid-only
+    denied = require_feature(business, 'orders')
+    if denied:
+        return denied
 
     customer_name = request.data.get('customer_name')
     items = request.data.get('items', [])
