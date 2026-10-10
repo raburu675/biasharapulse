@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
+import { Link } from 'react-router-dom'
 import Sidebar from './sidebar'
+// PLAN: adjust this path if your hooks folder is elsewhere
+import usePlan from '../hooks/usePlan'
 import './styles/pos.css'
 
 // Keep in sync with API_BASE in your pages (swap to the Railway URL when deploying)
@@ -16,6 +19,10 @@ const SCAN_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'
 
 function Pos() {
   const businessId = localStorage.getItem('businessId') || 1
+
+  // PLAN: barcode scanning is a Growth-and-above feature
+  const { hasFeature, loading: planLoading } = usePlan()
+  const [showScanUpgrade, setShowScanUpgrade] = useState(false)
 
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -142,6 +149,11 @@ function Pos() {
     if (e.key !== 'Enter') return
     const p = findByCode(query)
     if (p) {
+      // PLAN: barcode lookups are part of the scanning feature
+      if (!hasFeature('qr_scanning')) {
+        setShowScanUpgrade(true)
+        return
+      }
       addToCart(p)
       setQuery('')
     }
@@ -194,6 +206,12 @@ function Pos() {
   }, [scannerOpen])
 
   const openScanner = () => {
+    if (planLoading) return
+    // PLAN: plans below Growth get the upgrade popup instead of the scanner
+    if (!hasFeature('qr_scanning')) {
+      setShowScanUpgrade(true)
+      return
+    }
     setScanMsg('')
     setScannerOpen(true)
   }
@@ -370,6 +388,42 @@ function Pos() {
             <video ref={videoRef} className="pos-scan-video" playsInline muted />
             <p className="pos-scan-msg">{scanMsg}</p>
             <button className="pos-scan-close" onClick={() => setScannerOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* PLAN: shown when a plan below Growth taps the scanner */}
+      {showScanUpgrade && (
+        <div className="pos-upgrade-overlay" onClick={() => setShowScanUpgrade(false)}>
+          <div className="pos-upgrade-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pos-upgrade-lock">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            </div>
+
+            <h3>Barcode scanning is a Growth feature</h3>
+            <p>
+              Scan products with your camera from Biashara Growth onwards. Upgrade to start using it.
+            </p>
+
+            <div className="pos-upgrade-actions">
+              <Link
+                to="/?view=landing#pricing"
+                className="pos-upgrade-primary"
+                onClick={() => setShowScanUpgrade(false)}
+              >
+                View pricing
+              </Link>
+              <button
+                type="button"
+                className="pos-upgrade-secondary"
+                onClick={() => setShowScanUpgrade(false)}
+              >
+                Maybe later
+              </button>
+            </div>
           </div>
         </div>
       )}

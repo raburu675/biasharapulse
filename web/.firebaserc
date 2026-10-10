@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "biasharapulse-web"
-  }
+    "default": "biasharapulse-web",
+    "testing": "biasharapulse-mvp"
+  },
+  "targets": {},
+  "etags": {}
 }

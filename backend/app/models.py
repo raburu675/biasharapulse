@@ -7,8 +7,11 @@ from .plans import PLANS
 class Business(models.Model):
     # PLAN: allowed subscription tiers
     SUBSCRIPTION_CHOICES = [
-        ('free', 'Free'),
-        ('paid', 'Paid'),
+        ('starter', 'Starter'),
+        ('lite', 'Biashara Lite'),
+        ('growth', 'Biashara Growth'),
+        ('pro', 'Biashara Pro'),
+        ('multi_branch', 'Pro Multi-Branch'),
     ]
 
     # Which user owns this business
@@ -16,8 +19,8 @@ class Business(models.Model):
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # PLAN: set to 'paid' + paid_until by the M-Pesa success callback
-    subscription_tier = models.CharField(max_length=10, choices=SUBSCRIPTION_CHOICES, default='free')
+    # PLAN: set to the purchased tier + paid_until by the M-Pesa success callback
+    subscription_tier = models.CharField(max_length=20, choices=SUBSCRIPTION_CHOICES, default='starter')
     # PLAN: M-Pesa STK is a one-off payment, so paid access expires on this date
     paid_until = models.DateTimeField(null=True, blank=True)
 
@@ -26,10 +29,11 @@ class Business(models.Model):
 
     @property
     def plan_key(self):
-        # PLAN: an expired paid plan falls back to free automatically
-        if self.subscription_tier == 'paid' and self.paid_until and self.paid_until > timezone.now():
-            return 'paid'
-        return 'free'
+        # PLAN: paid tiers only count until paid_until; anything else is Starter
+        if self.subscription_tier in PLANS and self.subscription_tier != 'starter':
+            if self.paid_until and self.paid_until > timezone.now():
+                return self.subscription_tier
+        return 'starter'
 
     @property
     def plan(self):
@@ -49,6 +53,8 @@ class Product(models.Model):
     reorder_point = models.PositiveIntegerField(default=5)  # alert when stock drops to this
     price = models.DecimalField(max_digits=10, decimal_places=2)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # PLAN: barcode for scanning; only sent to plans with the qr_scanning feature
+    barcode = models.CharField(max_length=64, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

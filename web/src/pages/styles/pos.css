@@ -431,3 +431,87 @@
     padding: 56px 16px 24px;
   }
 }
+
+/* ── Upgrade popup (scanner locked below Growth) ── */
+
+.pos-upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.pos-upgrade-modal {
+  width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border: 1.5px solid #d4af37;
+  border-radius: 14px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.pos-upgrade-lock {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid #d4af37;
+  color: #b8941f;
+}
+
+.pos-upgrade-modal h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b0b0d;
+}
+
+.pos-upgrade-modal p {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b6b73;
+}
+
+.pos-upgrade-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pos-upgrade-primary {
+  display: block;
+  padding: 11px;
+  border-radius: 8px;
+  background: #d4af37;
+  color: #0b0b0d;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pos-upgrade-primary:hover {
+  background: #e6c65a;
+}
+
+.pos-upgrade-secondary {
+  padding: 10px;
+  border: none;
+  background: none;
+  color: #6b6b73;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}

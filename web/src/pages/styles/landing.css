@@ -85,20 +85,22 @@ h1, h2, h3, h4, h5, h6 {
   text-decoration: none;
 }
 
-.brand-biashara {
+.landing-nav .brand .brand-biashara {
   font-size: 14px;
-  font-weight: 700;
   color: #FFFFFF;
   letter-spacing: -0.01em;
+  -webkit-text-fill-color: #FFFFFF;
 }
 
 .brand-pulse {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(90deg, #C4173F 0%, #FFFFFF 52%, #12A056 100%);
+  display: inline-block;
+  background-image: linear-gradient(90deg, #C4173F 0%, #12A056 100%);
   -webkit-background-clip: text;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: transparent;
 }
 
@@ -207,7 +209,7 @@ h1, h2, h3, h4, h5, h6 {
 .landing-top {
   position: relative;
   overflow: hidden;
-  padding-top: 64px;
+  padding-top: 46px;
 }
 
 .landing-wave-bg {
@@ -222,7 +224,7 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   z-index: 2;
   text-align: center;
-  padding: 88px 20px 120px;
+  padding: 70px 20px 120px;
   max-width: 720px;
   margin: 0 auto;
 }
@@ -231,7 +233,7 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: 8px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
   background-color: rgba(255, 255, 255, 0.08);
@@ -240,6 +242,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 20px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   letter-spacing: 0.01em;
+  font-family: "Cormorant", serif;
 }
 
 .hero h1 {
@@ -257,6 +260,7 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 540px;
   margin: 0 auto 32px;
   line-height: 1.6;
+  font-family: "Cormorant", serif;
 }
 
 .hero-cta-group {
@@ -265,6 +269,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
+  font-family: "Cormorant", serif;
 }
 
 .cta-primary {
@@ -276,6 +281,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
+  font-family: "Cormorant", serif;
   transition: background-color 0.18s var(--ease), transform 0.18s var(--ease);
   box-shadow: 0 8px 20px -4px rgba(122, 12, 41, 0.45);
 }
@@ -305,7 +311,7 @@ h1, h2, h3, h4, h5, h6 {
 /* ── FEATURES ── */
 .features-intro {
   text-align: center;
-  padding: 72px 20px 16px;
+  padding: 40px 20px 16px;
   max-width: 600px;
   margin: 0 auto;
 }
@@ -313,7 +319,7 @@ h1, h2, h3, h4, h5, h6 {
 .features-tag,
 .pricing-tag {
   display: inline-block;
-  font-size: 10.5px;
+  font-size: 8px;
   font-weight: 700;
   color: var(--emerald-main);
   background-color: var(--emerald-light);
@@ -321,21 +327,24 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 20px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border: 1px solid rgba(15, 122, 68, 0.14);
+  font-family: "Cormorant", serif;
 }
 
 .features-intro h2, .values h2, .pricing-header h2 {
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--text-main);
   margin-bottom: 10px;
   letter-spacing: -0.02em;
+  font-family: "Cormorant", serif;
 }
 
 .features-intro p, .pricing-header p {
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: 8px;
+  font-family: "Cormorant", serif;
 }
 
 .features {
@@ -354,6 +363,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 24px;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+
 }
 
 .feature:hover {
@@ -368,8 +378,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  border-radius: 11px;
-  background: var(--burgundy-light);
+  border-radius: 11px;  
   margin-bottom: 14px;
 }
 
@@ -378,17 +387,19 @@ h1, h2, h3, h4, h5, h6 {
 .feature:nth-child(4) .feature-icon { background: var(--burgundy-light); }
 
 .feature h3 {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-main);
   margin-bottom: 6px;
   letter-spacing: -0.01em;
+  font-family: "Cormorant", serif;
 }
 
 .feature p {
-  font-size: 12.5px;
+  font-size: 8px;
   color: var(--text-muted);
   line-height: 1.55;
+  font-family: "Cormorant", serif;
 }
 /* ── PREMIUM PRODUCT SHOWCASE ── */
 .showcase {
@@ -400,6 +411,7 @@ h1, h2, h3, h4, h5, h6 {
     radial-gradient(circle at 92% 75%, rgba(15, 122, 68, 0.055), transparent 30%),
     #FAFAF9;
   border-top: 1px solid #E7E5E2;
+  font-family: "Cormorant", serif;
 }
 
 .showcase-intro {
@@ -607,6 +619,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #F5F4F1;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
+  font-family: "Cormorant", serif;
 }
 
 .pricing-header {
@@ -677,14 +690,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .pricing-card-header h3 {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 800;
   margin-bottom: 5px;
   letter-spacing: -0.01em;
 }
 
 .pricing-card-header p {
-  font-size: 11.5px;
+  font-size: 9.5px;
   color: var(--text-muted);
   min-height: 30px;
   line-height: 1.4;
@@ -776,6 +789,7 @@ h1, h2, h3, h4, h5, h6 {
 .how-it-works {
   position: relative;
   padding: 115px 24px 125px;
+  font-family: "Cormorant", serif;
   overflow: hidden;
   color: #FFF;
   max-width: none;
@@ -817,7 +831,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .how-intro p {
   color: rgba(255,255,255,.56);
-  font-size: 14px;
+  font-size: 10px;
   line-height: 1.75;
 }
 
@@ -924,6 +938,7 @@ h1, h2, h3, h4, h5, h6 {
   max-width: none;
   margin: 0;
   text-align: center;
+  font-family: "Cormorant", serif;
   background:
     radial-gradient(circle at 10% 20%, rgba(122,12,41,.055), transparent 25%),
     #F3F1ED;
@@ -1031,6 +1046,7 @@ h1, h2, h3, h4, h5, h6 {
     radial-gradient(circle at 8% 20%, rgba(122,12,41,.23), transparent 28%),
     radial-gradient(circle at 92% 80%, rgba(15,122,68,.18), transparent 30%),
     #09090A;
+  font-family: "Cormorant", serif;
 }
 
 .developer-section::before {
@@ -1119,6 +1135,7 @@ h1, h2, h3, h4, h5, h6 {
 .landing-footer {
   background: var(--ink-black);
   padding: 60px 24px 0;
+  font-family: "Cormorant", serif;
 }
 
 .footer-top {
@@ -1145,7 +1162,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .footer-logo-biashara {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: #FFFFFF;
 }

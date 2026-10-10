@@ -3,6 +3,7 @@ import { Link, useSearchParams, useNavigate} from "react-router-dom";
 import HeroPage from "./heroPage";
 import "./styles/landing.css";
 import "./styles/splash.css";
+import axios from "axios";
 
 
 function Landing() {
@@ -15,6 +16,30 @@ function Landing() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const mobileScrollRefs = useRef([]);
+
+
+  const API_BASE = "http://127.0.0.1:8000";
+  // const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
+
+  // Dev only: switch this business to the chosen plan, then open the app
+  // Called by each pricing button, e.g. selectPlan("growth")
+  // `tier` is the plan the user clicked: starter, lite, growth, pro or multi_branch
+  const selectPlan = async (tier) => {
+    // Which business to change. Read the saved id, or fall back to 1 (your test business)
+    const businessId = localStorage.getItem("businessId") || 1;
+    // Ask the backend to switch this business to the chosen tier.
+    try {        
+      await axios.post(
+        `${API_BASE}/api/business/${businessId}/select-plan/`, { tier }  // the data sent to the server: { tier: "growth" }
+      );
+      // The dashboard loads fresh and asks for the plan again, so it shows the new plan.
+      navigate("/dashboard");
+    } catch (err) {
+      // Reached if the request fails: backend off, wrong URL, or the server refused
+      // (for example DEBUG is False and the endpoint is disabled)
+      alert("Could not switch plan. Is the backend running?");
+    }
+  };
 
 
 const showcaseTabs = [
@@ -134,10 +159,10 @@ const showcaseTabs = [
             </svg>
           </button>
 
-          <a href="#" className="brand">
+          <div className="brand">
             <span className="brand-biashara">Biashara</span>
             <span className="brand-pulse">Pulse</span>
-          </a>
+          </div>
 
           <div className="nav-dropdown-wrapper">
             <button
@@ -194,7 +219,8 @@ const showcaseTabs = [
           <span className="hero-pill">Developed for Kenyan SMEs 🇰🇪</span>
           <h1>Run your business, not your spreadsheets</h1>
           <p>
-            Stop wasting time digging through spreadsheets, receipts, and scattered records just to figure out how your business is doing. BiasharaPulse brings your sales, expenses, inventory, and daily operations together in one simple platform. See what’s selling, know what’s running low, track where your money is going, and stay on top of your business in real time
+            Stop wasting time digging through spreadsheets, receipts, and scattered records 
+            just to figure out how your business is doing. BiasharaPulse brings your sales, expenses, inventory, and daily operations together in one simple platform. See what’s selling, know what’s running low, track where your money is going, and stay on top of your business in real time
           </p>
           <div className="hero-cta-group">
             <button className="cta-primary" onClick={() => navigate("/dashboard")}>
@@ -380,7 +406,7 @@ const showcaseTabs = [
           {/* <li>✓ First 100 Orders Free</li>
           <li>✓ Every feature included in this tier for new vendors testing the app</li>  */}
         </ul>
-        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+        <button className="pricing-btn secondary" onClick={() => selectPlan("starter")}>
           Select starter
         </button>
       </div>
@@ -406,7 +432,7 @@ const showcaseTabs = [
           <li>✓ Sales & Expense Logging</li>                    
           <li>✓ Unlimited History</li>
         </ul>
-        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+        <button className="pricing-btn secondary" onClick={() => selectPlan("lite")}>
           Select Lite
         </button>
       </div>
@@ -419,7 +445,7 @@ const showcaseTabs = [
         <p>For active retail shops that need faster imports and stock entry log.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">2,500</span>
+          <span className="price">2,499</span>
           <span className="period">/ month</span>
         </div>
       </div>
@@ -429,9 +455,9 @@ const showcaseTabs = [
           <li>✓ Stock Movement Log</li>       
           <li>✓ Full Product performance page</li>                 
           <li>✓ QR Code Product Scanning</li>
-          <li>✓ Get detailed business reports generated to your email</li>                          
+          <li>✓ Get detailed Monthly business reports</li>                          
         </ul>
-        <button className="pricing-btn primary" onClick={() => setStage("dashboard")}>
+        <button className="pricing-btn primary" onClick={() => selectPlan("growth")}>
           Start free 14 day trial
         </button>
       </div>
@@ -443,7 +469,7 @@ const showcaseTabs = [
         <p>For shops that need full product performance insight and a team.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">4,999</span>
+          <span className="price">5,999</span>
           <span className="period">/ month</span>
         </div>
       </div>
@@ -453,7 +479,7 @@ const showcaseTabs = [
           <li>✓ Upto 3 shop branches</li>                
           <li>✓ Owner & Staff Accounts</li>          
         </ul>
-        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
+        <button className="pricing-btn secondary" 	onClick={() => selectPlan("pro")}>
           Start Pro
         </button>
       </div>
@@ -465,7 +491,7 @@ const showcaseTabs = [
         <p>For businesses running multiple locations with a team.</p>
         <div className="pricing-amount">
           <span className="currency">KES</span>
-          <span className="price">7,999</span>
+          <span className="price">8,999</span>
           <span className="period">/ month</span>
         </div>
       </div>
@@ -474,8 +500,8 @@ const showcaseTabs = [
           <li>✓ Everything in Pro</li>           
           <li>✓ Up to 5 Shop Branches</li>
         </ul>
-        <button className="pricing-btn secondary" onClick={() => setStage("dashboard")}>
-          Upgrade to Pro
+        <button className="pricing-btn secondary" onClick={() => selectPlan("multi_branch")}>
+          Upgrade
         </button>
       </div>
     </div>

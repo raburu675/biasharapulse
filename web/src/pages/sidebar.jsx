@@ -88,15 +88,15 @@ const navIcons = {
   ),
 }
 
-// PLAN: `feature` marks an item as plan-gated (must match a name in plans.py)
+// PLAN: `feature` must match a name in plans.py; `requires` is the plan that unlocks it (shown in the popup)
 const navItems = [
   { key: 'home', label: 'Home', to: '/?view=landing', icon: 'home' },
   { key: 'account', label: 'Account', to: '/account', icon: 'account' },
   { key: 'dashboard', label: 'Dashboard', to: '/dashboard', icon: 'dashboard' },
-  { key: 'pos', label: 'POS', to: '/pos', icon: 'pos' },
-  { key: 'product-performance', label: 'Product performance', to: '/product-performance', icon: 'pos', feature: 'product_performance' },
-  { key: 'stock-movement', label: 'Stock Movement', to: '/stock-movement', icon: 'stock', feature: 'stock_movement' },
-  { key: 'orders', label: 'Orders', to: '/orders', icon: 'orders' },
+  { key: 'pos', label: 'POS', to: '/pos', icon: 'pos', feature: 'pos', requires: 'Starter' },
+  { key: 'product-performance', label: 'Product performance', to: '/pos', icon: 'pos', feature: 'product_performance', requires: 'Biashara Growth' },
+  { key: 'stock-movement', label: 'Stock Movement', to: '/stock-movement', icon: 'stock', feature: 'stock_movement', requires: 'Biashara Growth' },
+  { key: 'orders', label: 'Orders', to: '/orders', icon: 'orders', feature: 'orders', requires: 'Starter' },
 ]
 
 const styles = `
@@ -813,7 +813,7 @@ function Sidebar({ current }) {
 
             <h3>Upgrade to unlock {upgradeFor.label}</h3>
             <p>
-              {upgradeFor.label} is available on a paid plan. Upgrade to start using it.
+              {upgradeFor.label} is included from {upgradeFor.requires} onwards. Upgrade to start using it.
             </p>
 
             <div className="sbx-modal-actions">

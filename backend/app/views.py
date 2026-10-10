@@ -7,11 +7,14 @@ from decimal import Decimal
 from collections import defaultdict
 from django.db.models import Sum, Count
 from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
+from datetime import timedelta
+from django.conf import settings
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Business, Product, SaleRecord, Expense, StockMovement, Order, OrderItem
 # PLAN: gating helpers (see plans.py)
-from .plans import require_feature, history_cutoff, sale_cap_response, monthly_sales_used
+from .plans import PLANS, require_feature, history_cutoff, sale_cap_response, sales_used
 
 
 TRUNC_FUNCS = {
@@ -41,12 +44,40 @@ def business_plan(request, business_id):
         'limits': {
             'history_days': plan['history_days'],
             'max_users': plan['max_users'],
-            'monthly_sales_cap': plan['monthly_sales_cap'],
+            'max_branches': plan['max_branches'],
+            'total_sales_cap': plan['total_sales_cap'],
         },
         'usage': {
-            'monthly_sales': monthly_sales_used(business),
+            'sales_used': sales_used(business),
         },
     })
+
+
+@api_view(['POST'])
+def select_plan(request, business_id):
+    """
+    DEV ONLY: switches a business to the chosen tier without payment, so each
+    pricing button can unlock its plan while testing. Disabled when DEBUG is
+    False. Replace with the M-Pesa success callback once payments exist.
+    """
+    if not settings.DEBUG:
+        return Response({'error': 'Plan switching is disabled'}, status=403)
+
+    try:
+        business = Business.objects.get(id=business_id)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+
+    tier = request.data.get('tier')
+    if tier not in PLANS:
+        return Response({'error': f'tier must be one of {list(PLANS)}'}, status=400)
+
+    business.subscription_tier = tier
+    # Starter has no expiry; paid tiers last 30 days
+    business.paid_until = None if tier == 'starter' else timezone.now() + timedelta(days=30)
+    business.save(update_fields=['subscription_tier', 'paid_until'])
+
+    return Response({'plan': business.plan_key, 'paid_until': business.paid_until})
 
 
 @api_view(['GET'])
@@ -69,7 +100,7 @@ def dashboard_summary(request, business_id):
     expenses = Expense.objects.filter(business=business)
     products = Product.objects.filter(business=business)
 
-    # PLAN: free tier only sees the last 30 days of sales/expenses
+    # PLAN: Starter only sees the last 30 days of sales/expenses
     cutoff = history_cutoff(business)
     if cutoff:
         sales = sales.filter(created_at__gte=cutoff)
@@ -170,10 +201,33 @@ def pos_summary(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: POS is paid-only
+    # PLAN GATE: pos feature (see plans.py)
     denied = require_feature(business, 'pos')
     if denied:
         return denied
+    
+    # PLAN: Product performance analytics start at Growth. Lower plans only get
+    # what the POS screen needs (no cost, profit or sales analytics).
+    can_scan = business.has_feature('qr_scanning')
+    if not business.has_feature('product_performance'):
+        lean = []
+        for p in Product.objects.filter(business=business):
+            if p.stock_count <= 0:
+                stock_status = 'Out of Stock'
+            elif p.stock_count <= p.reorder_point:
+                stock_status = 'Low Stock'
+            else:
+                stock_status = 'In Stock'
+            lean.append({
+                'id': p.id,
+                'name': p.name,
+                'category': p.category,
+                'barcode': p.barcode if can_scan else None,
+                'selling_price': p.price,
+                'stock_quantity': p.stock_count,
+                'stock_status': stock_status,
+            })
+        return Response({'products': lean, 'analytics_locked': True})
 
     products = Product.objects.filter(business=business)
 
@@ -209,6 +263,7 @@ def pos_summary(request, business_id):
             'name': p.name,
             'category': p.category,
             'cost_price': p.cost_price,
+            'barcode': p.barcode if can_scan else None,
             'selling_price': p.price,
             'stock_quantity': p.stock_count,
             'units_sold': units_sold,
@@ -271,7 +326,7 @@ def stock_movements(request, business_id):
             .order_by('-created_at')
         )
 
-        # PLAN: free tier only sees the last 30 days of the log
+        # PLAN: Starter only sees the last 30 days of the log
         cutoff = history_cutoff(business)
         if cutoff:
             movements = movements.filter(created_at__gte=cutoff)
@@ -371,7 +426,7 @@ def create_sale(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN LIMIT: free tier has a monthly sale creation cap
+    # PLAN LIMIT: Starter is limited to its first 100 sales (one-time, not monthly)
     capped = sale_cap_response(business)
     if capped:
         return capped
@@ -423,7 +478,7 @@ def order_list(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: Orders module is paid-only
+    # PLAN GATE: orders feature (see plans.py)
     denied = require_feature(business, 'orders')
     if denied:
         return denied
@@ -466,7 +521,7 @@ def update_order_status(request, business_id, order_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: Orders module is paid-only
+    # PLAN GATE: orders feature (see plans.py)
     denied = require_feature(business, 'orders')
     if denied:
         return denied
@@ -480,6 +535,12 @@ def update_order_status(request, business_id, order_id):
     valid_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
     if new_status not in valid_statuses:
         return Response({'error': f'status must be one of {valid_statuses}'}, status=400)
+
+    # PLAN LIMIT: delivering an order creates sales, so it counts toward the Starter allowance
+    if new_status == 'delivered' and order.status != 'delivered':
+        capped = sale_cap_response(business)
+        if capped:
+            return capped
 
     order.status = new_status
     order.save()
@@ -602,7 +663,7 @@ def create_order(request, business_id):
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: Orders module is paid-only
+    # PLAN GATE: orders feature (see plans.py)
     denied = require_feature(business, 'orders')
     if denied:
         return denied

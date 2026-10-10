@@ -19,7 +19,7 @@ from django.urls import path
 from app.views import (
     dashboard_summary, pos_summary, stock_movements, create_sale,
     order_list, update_order_status, import_products, import_template, create_order,
-    business_plan,
+    business_plan, select_plan,
 )
 
 urlpatterns = [
@@ -49,6 +49,9 @@ urlpatterns = [
 
     # PLAN — features/limits/usage for the frontend to gate UI
     path('api/business/<int:business_id>/plan/', business_plan, name='business_plan'),
+
+    # PLAN (dev only) — pricing buttons switch the business's tier without payment
+    path('api/business/<int:business_id>/select-plan/', select_plan, name='select_plan'),
 
 
 ]

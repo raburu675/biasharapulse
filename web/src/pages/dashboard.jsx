@@ -15,9 +15,12 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import Sidebar from './sidebar'
+// Adjust this path to wherever your LoadingScreen component lives
+import LoadingScreen from './LoadingScreen'
 // PLAN: adjust this path if your hooks folder is elsewhere
 import usePlan from '../hooks/usePlan'
 import './styles/dashboard.css'
+
 
 // ── Config ─────────────────────────────────────
 // const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
@@ -88,6 +91,20 @@ function Dashboard() {
   const { hasFeature, loading: planLoading } = usePlan()
   const stockLocked = !planLoading && !hasFeature('stock_movement')
 
+  // Branded loading screen: held for at least 3 seconds, once per browser session
+  const [minLoadDone, setMinLoadDone] = useState(
+    () => sessionStorage.getItem('dashboardSplashSeen') === '1'
+  )
+
+  useEffect(() => {
+    if (minLoadDone) return
+    const timer = setTimeout(() => {
+      sessionStorage.setItem('dashboardSplashSeen', '1')
+      setMinLoadDone(true)
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [minLoadDone])
+
   const fetchSummary = useCallback(async (p) => {
     setLoading(true)
     setError(null)
@@ -153,6 +170,10 @@ function Dashboard() {
     setImportResult(null)
   }
 
+  // First load: branded loading screen (at least 3 seconds)
+  if (!minLoadDone || (loading && !summary)) return <LoadingScreen label="Loading dashboard..." />
+
+  // Later reloads (period toggle, import): keep the layout and show a simple message
   if (loading) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Loading dashboard...</p></main></div>
   if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
 
@@ -848,13 +869,13 @@ function Dashboard() {
                   </svg>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.ink }}>
-                  Stock Audit Logs is on the Paid plan
+                  Stock Audit Logs is included from Biashara Growth
                 </span>
                 <Link
                   to="/?view=landing#pricing"
                   style={{ fontSize: 11.5, fontWeight: 700, color: '#9a7b1a', textDecoration: 'none' }}
                 >
-                  Unlock with Paid →
+                  View pricing →
                 </Link>
               </div>
             )}
