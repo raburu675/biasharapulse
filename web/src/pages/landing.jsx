@@ -1,6 +1,5 @@
 import { useState, useEffect,useRef } from "react";
 import { Link, useSearchParams, useNavigate} from "react-router-dom";
-import HeroPage from "./heroPage";
 import "./styles/landing.css";
 import "./styles/splash.css";
 import axios from "axios";
@@ -93,7 +92,7 @@ const showcaseTabs = [
     if (skipToLanding) return;
 
     const fadeTimer = setTimeout(() => setFadeOut(true), 6200);
-    const advanceTimer = setTimeout(() => setStage("hero"), 7000);
+    const advanceTimer = setTimeout(() => setStage("landing"), 7000);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(advanceTimer);
@@ -126,6 +125,7 @@ const showcaseTabs = [
           <span className="splash-biashara">Biashara</span>
           <span className="splash-pulse">Pulse</span>
         </h1>
+        <p className="splash-tagline">the heart of your business</p>
         <div className="splash-loader">
           <svg viewBox="0 0 150 34" preserveAspectRatio="none">
             <path d="M0,17 L35,17 L45,4 L55,30 L65,17 L150,17" />
@@ -135,13 +135,6 @@ const showcaseTabs = [
     );
   }
 
-  if (stage === "hero") {
-    return (
-      <div className="stage-fade-in">
-        <HeroPage onGetStarted={() => setStage("landing")} />
-      </div>
-    );
-  }
 
   return (
     <div className="landing">
@@ -162,6 +155,14 @@ const showcaseTabs = [
           <div className="brand">
             <span className="brand-biashara">Biashara</span>
             <span className="brand-pulse">Pulse</span>
+          </div>
+
+          <div className="nav-links">
+            <a href="#features">Features</a>
+            <a href="#showcase">Product</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#values">Values</a>
           </div>
 
           <div className="nav-dropdown-wrapper">

@@ -94,3 +94,18 @@
 @keyframes stageFadeIn {
   to { opacity: 1; }
 }
+.splash-tagline {
+  margin-top: 10px;
+  font-family: "Cormorant", serif;
+  font-size: 18px;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 0;
+  animation: splashTaglineIn 1s ease 0.8s forwards;
+}
+
+@keyframes splashTaglineIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
