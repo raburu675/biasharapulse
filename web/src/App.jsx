@@ -9,6 +9,8 @@ import Orders from './pages/orders'
 import Account from './pages/account'
 import Upgrade from './pages/upgrade'
 import ProductPerformance from './pages/productPerformance'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
 import './App.css'
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/account" element={<Account />} />
         <Route path="/upgrade" element={<Upgrade />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
       </Routes>
     </BrowserRouter>
   )

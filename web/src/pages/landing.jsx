@@ -15,6 +15,7 @@ function Landing() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const mobileScrollRefs = useRef([]);
+  const accountRef = useRef(null);
 
 
   const API_BASE = "http://127.0.0.1:8000";
@@ -118,6 +119,45 @@ const showcaseTabs = [
     return () => clearTimeout(retry);
   }, [stage]);
 
+  // Smooth-scroll every in-page link (href="#something") to its section
+useEffect(() => {
+  const onClick = (e) => {
+    const link = e.target.closest('a[href^="#"]');
+    if (!link) return;
+
+    e.preventDefault();
+    const id = link.getAttribute("href").slice(1);
+
+    if (!id) {
+      window.scrollTo({ top: 0, behavior: "smooth" });  // href="#" goes to the top
+      return;
+    }
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  document.addEventListener("click", onClick);
+  return () => document.removeEventListener("click", onClick);
+}, []);
+  
+
+// Close the account menu on an outside click or Escape
+useEffect(() => {
+  if (!accountOpen) return;
+
+  const onOutside = (e) => {
+    if (accountRef.current && !accountRef.current.contains(e.target)) setAccountOpen(false);
+  };
+  const onEscape = (e) => {
+    if (e.key === "Escape") setAccountOpen(false);
+  };
+
+  document.addEventListener("mousedown", onOutside);
+  document.addEventListener("keydown", onEscape);
+  return () => {
+    document.removeEventListener("mousedown", onOutside);
+    document.removeEventListener("keydown", onEscape);
+  };
+}, [accountOpen]);
   if (stage === "splash") {
     return (
       <div className={`splash ${fadeOut ? "splash-fade-out" : ""}`}>
@@ -162,28 +202,39 @@ const showcaseTabs = [
             <a href="#showcase">Product</a>
             <a href="#pricing">Pricing</a>
             <a href="#how-it-works">How It Works</a>
-            <a href="#values">Values</a>
+            <a href="#values">What we offer</a>
           </div>
 
-          <div className="nav-dropdown-wrapper">
-            <button
-              className="btn-account-trigger"
-              aria-label="Account Menu"
-              onClick={() => setAccountOpen(!accountOpen)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
-            {accountOpen && (
-              <div className="nav-dropdown">
-                <Link to="/login" onClick={() => setAccountOpen(false)}>Sign in</Link>
-                <Link to="/signup" className="highlight" onClick={() => setAccountOpen(false)}>Create Account</Link>
-              </div>
-            )}
+          <div className="nav-dropdown-wrapper" ref={accountRef}>
+          <button
+            className="btn-account-trigger"
+            aria-label="Account menu"
+            aria-expanded={accountOpen}
+            onClick={() => setAccountOpen(!accountOpen)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </button>
+
+          <div className={`account-menu ${accountOpen ? "open" : ""}`}>
+            <div className="account-menu-head">
+              <strong>Welcome to BiasharaPulse</strong>
+              <span>Sign in to manage your shop, or create a free account.</span>
+            </div>
+            <Link to="/login" className="account-menu-btn ghost" onClick={() => setAccountOpen(false)}>
+              Sign in
+            </Link>
+            <Link to="/signup" className="account-menu-btn solid" onClick={() => setAccountOpen(false)}>
+              Create New account
+            </Link>
           </div>
         </div>
+        </div>
+
+
+        
 
         {mobileNavOpen && (
         <div className="mobile-menu-drawer">
@@ -191,12 +242,7 @@ const showcaseTabs = [
           <a href="#showcase" onClick={() => setMobileNavOpen(false)}>Product</a>
           <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
           <a href="#how-it-works" onClick={() => setMobileNavOpen(false)}>How It Works</a>
-          <a href="#values" onClick={() => setMobileNavOpen(false)}>Values</a>          
-
-          {/* <div className="mobile-drawer-divider"></div>
-
-          <Link to="/login" onClick={() => setMobileNavOpen(false)}>Sign In</Link>
-          <Link to="/signup" onClick={() => setMobileNavOpen(false)}>Sign Up</Link> */}
+          <a href="#values" onClick={() => setMobileNavOpen(false)}>What we offer</a>          
         </div>
       )}
       </nav>
@@ -379,7 +425,7 @@ const showcaseTabs = [
   <div className="pricing-header">
     <span className="pricing-tag">Transparent SME Pricing</span>
     <h2>Plans built to fit every stage of your biashara</h2>
-    <p>Test free with your first 75 orders. Upgrade seamlessly as your shop scales.</p>
+    <p>Test free for the first month. Upgrade seamlessly as your shop scales.</p>
   </div>
 
   <div className="pricing-grid">
@@ -395,7 +441,7 @@ const showcaseTabs = [
       </div>
       <div className="pricing-card-body">
         <ul className="pricing-features">
-          <li>✓ First 100 Orders </li>
+          <li>✓ First 1 month free </li>
           <li>✓ 1 Branch</li>
           <li>✓ 1 User</li>
           <li>✓ Order Tracking</li>
@@ -477,7 +523,7 @@ const showcaseTabs = [
       <div className="pricing-card-body">
         <ul className="pricing-features">
           <li>✓ Everything in Growth</li>                         
-          <li>✓ Upto 3 shop branches</li>                
+          <li>✓ Upto 5 shop branches</li>                
           <li>✓ Owner & Staff Accounts</li>          
         </ul>
         <button className="pricing-btn secondary" 	onClick={() => selectPlan("pro")}>
@@ -499,7 +545,7 @@ const showcaseTabs = [
       <div className="pricing-card-body">
         <ul className="pricing-features">
           <li>✓ Everything in Pro</li>           
-          <li>✓ Up to 5 Shop Branches</li>
+          <li>✓ Up to 8 Shop Branches</li>
         </ul>
         <button className="pricing-btn secondary" onClick={() => selectPlan("multi_branch")}>
           Upgrade
@@ -539,27 +585,72 @@ const showcaseTabs = [
   <button className="how-cta" onClick={() => setStage("dashboard")}>Start Free Now</button>
 </section>
 
-      <section id="values" className="values">
-        <h2>Built around how you actually run your shop</h2>
-        <div className="value-grid">
-          <div className="value-stamp">
-            <span className="stamp-mark">Built with operators</span>
-            <p>We shape every feature around what Kenyan shop owners tell us they need, not what looks good in a demo.</p>
-          </div>
-          <div className="value-stamp">
-            <span className="stamp-mark">Your records, your business</span>
-            <p>Every transaction stays encrypted and walled off — nobody outside your shop ever sees your numbers.</p>
-          </div>
-          <div className="value-stamp">
-            <span className="stamp-mark">No manual required</span>
-            <p>Open it and start selling. The interface explains itself, so there's no training day.</p>
-          </div>
-          <div className="value-stamp">
-            <span className="stamp-mark">A real free tier</span>
-            <p>The free version does actual work — it's not a stripped demo waiting behind a paywall.</p>
-          </div>
-        </div>
-      </section>
+      
+<section id="values" className="values">
+  <h2>Better tools for better business decisions</h2>
+  <p className="values-subtitle">
+    We believe every business deserves a clearer view of its performance,
+    better control of its operations, and the tools to grow with confidence.
+  </p>
+
+  <div className="value-grid">
+    <div className="value-stamp">
+      <span className="stamp-mark">01 / Clarity</span>
+      <h3>Know your numbers</h3>
+      <p>
+        Get a clearer picture of sales, expenses, profit, and business
+        performance without piecing together scattered spreadsheets.
+      </p>
+    </div>
+
+    <div className="value-stamp">
+      <span className="stamp-mark">02 / Control</span>
+      <h3>Stay ahead of stock</h3>
+      <p>
+        Track inventory movement, monitor low-stock products, and understand
+        what is selling so you can make more informed restocking decisions.
+      </p>
+    </div>
+
+    <div className="value-stamp">
+      <span className="stamp-mark">03 / Accuracy</span>
+      <h3>Keep better records</h3>
+      <p>
+        Bring sales, expenses, orders, and stock activity into one system
+        to make everyday record-keeping more consistent and manageable.
+      </p>
+    </div>
+
+    <div className="value-stamp">
+      <span className="stamp-mark">04 / Insight</span>
+      <h3>Turn data into direction</h3>
+      <p>
+        Go beyond recording transactions. Use product performance, margins,
+        and sales trends to understand what is working and where to improve.
+      </p>
+    </div>
+
+    <div className="value-stamp">
+      <span className="stamp-mark">05 / Simplicity</span>
+      <h3>Built for everyday work</h3>
+      <p>
+        Manage essential business operations through a practical,
+        straightforward interface designed to fit into your daily workflow,
+        not complicate it.
+      </p>
+    </div>
+
+    <div className="value-stamp">
+      <span className="stamp-mark">06 / Accessibility</span>
+      <h3>Tools within reach</h3>
+      <p>
+        Start with a free plan and explore the core workflow before
+        upgrading as your business needs more capacity and advanced features.
+      </p>
+    </div>
+  </div>
+</section>
+
 
       {/* <section id="developer" className="developer-section">
         <div className="developer-orbit developer-orbit-one"></div>
@@ -625,14 +716,14 @@ const showcaseTabs = [
 
           <div className="footer-col">
             <h5>Legal</h5>
-            <a href="#">Terms of service</a>
-            <a href="#">Privacy policy</a>
+            <Link to="/terms">Terms of Service</Link>
+            <Link to="/privacy">Privacy Policy</Link>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 BiasharaPulse. Engineered for Kenyan Businesses.</span>
-          <span className="footer-madein">Made in Nairobi 🇰🇪</span>
+          <span>© 2026 BiasharaPulse. Developed for Kenyan Businesses 🇰🇪.</span>
+          {/* <span className="footer-madein">Made in Nairobi </span> */}
         </div>
       </footer>
     </div>
