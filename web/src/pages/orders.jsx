@@ -1,12 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/orders.css'
 import LoadingScreen from './LoadingScreen'
-
-// const API_BASE = 'https://biasharapulse-production.up.railway.app'
-const API_BASE = 'http://127.0.0.1:8000' // local testing
-const BUSINESS_ID = 1 // replace with real business id (auth/context)
+// Shared axios instance: sends the token and handles 401s
+import { api } from '../hooks/usePlan'
 
 const STATUS_OPTIONS = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
 
@@ -17,6 +14,9 @@ const statusClass = (s) => {
 }
 
 function Orders() {
+  // Read on every render so it's fresh after login/signup
+  const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
+
   const [orders, setOrders] = useState([])
   const [products, setProducts] = useState([]) // for the product dropdown
   const [loading, setLoading] = useState(true)
@@ -39,24 +39,24 @@ function Orders() {
     setLoading(true)
     setError(null)
     try {
-      const res = await axios.get(`${API_BASE}/api/orders/${BUSINESS_ID}/`)
+      const res = await api.get(`/api/orders/${BUSINESS_ID}/`)
       setOrders(res.data.orders)
     } catch (err) {
-      setError(err.message)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [BUSINESS_ID])
 
   // Product list for the dropdown — same source as stock movement's dropdown
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/pos-summary/${BUSINESS_ID}/`)
+      const res = await api.get(`/pos-summary/${BUSINESS_ID}/`)
       setProducts(res.data.products.map((p) => ({ id: p.id, name: p.name, price: p.selling_price })))
     } catch {
       // non-fatal — form still usable, dropdown just stays empty
     }
-  }, [])
+  }, [BUSINESS_ID])
 
   useEffect(() => {
     fetchOrders()
@@ -91,7 +91,7 @@ function Orders() {
     if (!newOrder.customer_name || !newOrder.product_id || !newOrder.quantity) return
     setSaving(true)
     try {
-      await axios.post(`${API_BASE}/api/orders/${BUSINESS_ID}/create/`, {
+      await api.post(`/api/orders/${BUSINESS_ID}/create/`, {
         customer_name: newOrder.customer_name,
         customer_phone: newOrder.customer_phone,
         shipping_address: newOrder.shipping_address,
@@ -111,7 +111,7 @@ function Orders() {
 
   const advanceStatus = async (order, newStatus) => {
     try {
-      await axios.patch(`${API_BASE}/api/orders/${BUSINESS_ID}/${order.id}/status/`, { status: newStatus })
+      await api.patch(`/api/orders/${BUSINESS_ID}/${order.id}/status/`, { status: newStatus })
       fetchOrders()
     } catch (err) {
       alert(err.response?.data?.error || 'Could not update status')
@@ -127,14 +127,12 @@ function Orders() {
 
         <div className="ord-content-wrapper">
           <header className="sticky-navbar">
-            <div className="header-center">       
+            <div className="header-center">
               <span className="brand-biashara">Biashara</span>
-              <span className="brand-pulse">Pulse</span>                                               
+              <span className="brand-pulse">Pulse</span>
             </div>
 
             <div className="header-right">
-             
-
               <div className="dropdown-container">
                 <button
                   id="user-menu-btn"
@@ -158,7 +156,7 @@ function Orders() {
                 </button>
 
                 <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a href="/signin" className="dropdown-item">
+                  <a href="/login" className="dropdown-item">
                     Sign In
                   </a>
                   <a href="/signup" className="dropdown-item btn-signup">

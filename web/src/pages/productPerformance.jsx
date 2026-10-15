@@ -1,12 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/productPerfomance.css'
 import LoadingScreen from './LoadingScreen'
-
-// const API_BASE = 'https://biasharapulse-production.up.railway.app'
-const API_BASE = 'http://127.0.0.1:8000' // local testing
-const BUSINESS_ID = 1 // replace with real business id (auth/context)
+// Shared axios instance: sends the token and handles 401s
+import { api } from '../hooks/usePlan'
 
 const sortOptions = [
   { id: 'unitsSold', label: 'Highest Units Sold' },
@@ -20,6 +17,9 @@ const tierClass = (tier) => (tier === 'Star Performer' ? 'tier-star' : tier === 
 const stockClass = (status) => (status === 'Out of Stock' ? 'stock-out' : status === 'Low Stock' ? 'stock-low' : 'stock-ok')
 
 function ProductPerfomance() {
+  // Read on every render so it's fresh after login/signup
+  const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
+
   const [inventory, setInventory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -44,7 +44,14 @@ function ProductPerfomance() {
     setLoading(true)
     setError(null)
     try {
-      const res = await axios.get(`${API_BASE}/pos-summary/${BUSINESS_ID}/`)
+      const res = await api.get(`/pos-summary/${BUSINESS_ID}/`)
+
+      // Lower tiers get a reduced response with no analytics
+      if (res.data.analytics_locked) {
+        setError('Product performance is included from Biashara Growth onwards.')
+        return
+      }
+
       setInventory(res.data.products.map((p) => ({
         id: p.id,
         name: p.name,
@@ -61,11 +68,11 @@ function ProductPerfomance() {
         stockStatus: p.stock_status,
       })))
     } catch (err) {
-      setError(err.message)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [BUSINESS_ID])
 
   useEffect(() => {
     fetchInventory()
@@ -111,7 +118,7 @@ function ProductPerfomance() {
     if (!sellItem || sellItem.stockQuantity === 0) return
     setSelling(true)
     try {
-      await axios.post(`${API_BASE}/create-sale/${BUSINESS_ID}/`, {
+      await api.post(`/create-sale/${BUSINESS_ID}/`, {
         product_id: sellItem.id,
         quantity: sellQty,
         payment_channel: channel,
@@ -130,7 +137,7 @@ function ProductPerfomance() {
     if (!newProduct.name || !newProduct.cost || !newProduct.price || !newProduct.stock) return
     setSavingProduct(true)
     try {
-      await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/create/`, {
+      await api.post(`/api/products/${BUSINESS_ID}/create/`, {
         name: newProduct.name,
         category: newProduct.category || 'General',
         cost_price: Number(newProduct.cost),
@@ -152,7 +159,7 @@ function ProductPerfomance() {
   return (
     <div className="pos-root">
       <div className="pos-shell">
-        <Sidebar current="pos" />
+        <Sidebar current="product-performance" />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <header className="sticky-navbar">
@@ -185,7 +192,7 @@ function ProductPerfomance() {
                 </button>
 
                 <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a href="/signin" className="dropdown-item">Sign In</a>
+                  <a href="/login" className="dropdown-item">Sign In</a>
                   <a href="/signup" className="dropdown-item btn-signup">Sign Up</a>
                 </div>
               </div>
@@ -314,14 +321,14 @@ function ProductPerfomance() {
                   </div>
 
                   <button className="qr-btn" aria-label="Scan product">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 8V5a1 1 0 0 1 1-1h3" />
-    <path d="M16 4h3a1 1 0 0 1 1 1v3" />
-    <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
-    <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
-    <path d="M7 12h10" />
-  </svg>
-</button>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 8V5a1 1 0 0 1 1-1h3" />
+                      <path d="M16 4h3a1 1 0 0 1 1 1v3" />
+                      <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
+                      <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
+                      <path d="M7 12h10" />
+                    </svg>
+                  </button>
                 </div>
 
                 <div className="category-scroll">
@@ -477,118 +484,117 @@ function ProductPerfomance() {
           </div>
         </div>
       )}
-      
-{/* Add product modal */}
-{addOpen && (
-  <div className="modal-overlay" onClick={() => setAddOpen(false)}>
-    <div className="modal-card product-entry-modal" onClick={(e) => e.stopPropagation()}>
-      <div className="product-entry-header">
-        <div className="product-entry-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v18" />
-            <path d="M3 12h18" />
-            <rect x="4" y="4" width="16" height="16" rx="3" />
-          </svg>
-        </div>
 
-        <div>
-          <p className="modal-title">Add Product</p>
-          <p className="product-entry-subtitle">Enter product details manually</p>
-        </div>
-      </div>
+      {/* Add product modal */}
+      {addOpen && (
+        <div className="modal-overlay" onClick={() => setAddOpen(false)}>
+          <div className="modal-card product-entry-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="product-entry-header">
+              <div className="product-entry-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v18" />
+                  <path d="M3 12h18" />
+                  <rect x="4" y="4" width="16" height="16" rx="3" />
+                </svg>
+              </div>
 
-      <div className="product-entry-section">
-        <span className="entry-section-label">PRODUCT DETAILS</span>
+              <div>
+                <p className="modal-title">Add Product</p>
+                <p className="product-entry-subtitle">Enter product details manually</p>
+              </div>
+            </div>
 
-        <div className="entry-field">
-          <label>Product Name</label>
-          <input
-            className="modal-input"
-            placeholder="e.g. Premium T-Shirt"
-            value={newProduct.name}
-            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-          />
-        </div>
+            <div className="product-entry-section">
+              <span className="entry-section-label">PRODUCT DETAILS</span>
 
-        <div className="entry-field">
-          <label>Category</label>
-          <input
-            className="modal-input"
-            placeholder="e.g. Clothing"
-            value={newProduct.category}
-            onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-          />
-        </div>
-      </div>
+              <div className="entry-field">
+                <label>Product Name</label>
+                <input
+                  className="modal-input"
+                  placeholder="e.g. Premium T-Shirt"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                />
+              </div>
 
-      <div className="product-entry-section">
-        <span className="entry-section-label">PRICING</span>
+              <div className="entry-field">
+                <label>Category</label>
+                <input
+                  className="modal-input"
+                  placeholder="e.g. Clothing"
+                  value={newProduct.category}
+                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                />
+              </div>
+            </div>
 
-        <div className="entry-grid">
-          <div className="entry-field">
-            <label>Cost Price</label>
-            <div className="price-input">
-              <span>KES</span>
-              <input
-                type="number"
-                placeholder="0"
-                value={newProduct.cost}
-                onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })}
-              />
+            <div className="product-entry-section">
+              <span className="entry-section-label">PRICING</span>
+
+              <div className="entry-grid">
+                <div className="entry-field">
+                  <label>Cost Price</label>
+                  <div className="price-input">
+                    <span>KES</span>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={newProduct.cost}
+                      onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="entry-field">
+                  <label>Selling Price</label>
+                  <div className="price-input">
+                    <span>KES</span>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={newProduct.price}
+                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="product-entry-section">
+              <span className="entry-section-label">INVENTORY</span>
+
+              <div className="entry-field">
+                <label>Opening Stock</label>
+                <div className="stock-input">
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={newProduct.stock}
+                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                  />
+                  <span>units</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="entry-info">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5" />
+                <path d="M12 8h.01" />
+              </svg>
+              <span>You can also scan a product barcode or QR code from the POS screen.</span>
+            </div>
+
+            <div className="modal-actions">
+              <button className="modal-btn cancel" onClick={() => setAddOpen(false)}>Cancel</button>
+              <button className="modal-btn confirm" onClick={addProduct} disabled={savingProduct}>
+                {savingProduct ? 'Saving...' : 'Add Product'}
+              </button>
             </div>
           </div>
-
-          <div className="entry-field">
-            <label>Selling Price</label>
-            <div className="price-input">
-              <span>KES</span>
-              <input
-                type="number"
-                placeholder="0"
-                value={newProduct.price}
-                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-              />
-            </div>
-          </div>
         </div>
-      </div>
-
-      <div className="product-entry-section">
-        <span className="entry-section-label">INVENTORY</span>
-
-        <div className="entry-field">
-          <label>Opening Stock</label>
-          <div className="stock-input">
-            <input
-              type="number"
-              placeholder="0"
-              value={newProduct.stock}
-              onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-            />
-            <span>units</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="entry-info">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v5" />
-          <path d="M12 8h.01" />
-        </svg>
-        <span>You can also scan a product barcode or QR code from the POS screen.</span>
-      </div>
-
-      <div className="modal-actions">
-        <button className="modal-btn cancel" onClick={() => setAddOpen(false)}>Cancel</button>
-        <button className="modal-btn confirm" onClick={addProduct} disabled={savingProduct}>
-          {savingProduct ? 'Saving...' : 'Add Product'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+      )}
 
       {/* Sort sheet */}
       {sortOpen && (

@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
 import Sidebar from './sidebar'
 import './styles/stockMovement.css'
 import LoadingScreen from './LoadingScreen'
-
-// const API_BASE = 'https://biasharapulse-production.up.railway.app'
-const API_BASE = 'http://127.0.0.1:8000' // local testing
-const BUSINESS_ID = 1 // replace with real business id (auth/context)
+// Shared axios instance: sends the token and handles 401s
+import { api } from '../hooks/usePlan'
 
 function StockMovement() {
+  // Read on every render so it's fresh after login/signup
+  const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
+
   const [movements, setMovements] = useState([])
   const [products, setProducts] = useState([]) // for the "select product" dropdown
   const [loading, setLoading] = useState(true)
@@ -35,26 +35,26 @@ function StockMovement() {
     setError(null)
     try {
       const url = type === 'ALL'
-        ? `${API_BASE}/api/dashboard/${BUSINESS_ID}/stock-movements/`
-        : `${API_BASE}/api/dashboard/${BUSINESS_ID}/stock-movements/?type=${type}`
-      const res = await axios.get(url)
+        ? `/api/dashboard/${BUSINESS_ID}/stock-movements/`
+        : `/api/dashboard/${BUSINESS_ID}/stock-movements/?type=${type}`
+      const res = await api.get(url)
       setMovements(res.data.movements)
     } catch (err) {
-      setError(err.message)
+      setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [BUSINESS_ID])
 
   // Product list for the dropdown — reused from pos-summary
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/pos-summary/${BUSINESS_ID}/`)
+      const res = await api.get(`/pos-summary/${BUSINESS_ID}/`)
       setProducts(res.data.products.map((p) => ({ id: p.id, name: p.name, category: p.category })))
     } catch {
       // non-fatal — form still usable, dropdown just stays empty
     }
-  }, [])
+  }, [BUSINESS_ID])
 
   useEffect(() => {
     fetchMovements(filterType)
@@ -66,7 +66,7 @@ function StockMovement() {
     if (!formData.product_id || !formData.quantity_change) return
     setSubmitting(true)
     try {
-      await axios.post(`${API_BASE}/api/dashboard/${BUSINESS_ID}/stock-movements/`, {
+      await api.post(`/api/dashboard/${BUSINESS_ID}/stock-movements/`, {
         product_id: Number(formData.product_id),
         movement_type: formData.movement_type,
         quantity_change: Number(formData.quantity_change),
@@ -113,12 +113,12 @@ function StockMovement() {
 
         <div id="stock-movement-content-wrapper" className="stm-content-wrapper">
           <header className="sticky-navbar">
-            <div className="header-center">       
+            <div className="header-center">
               <span className="brand-biashara">Biashara</span>
-              <span className="brand-pulse">Pulse</span>                                               
+              <span className="brand-pulse">Pulse</span>
             </div>
 
-            <div className="header-right">            
+            <div className="header-right">
               <div className="dropdown-container">
                 <button
                   id="user-menu-btn"
@@ -142,7 +142,7 @@ function StockMovement() {
                 </button>
 
                 <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a href="/signin" className="dropdown-item">
+                  <a href="/login" className="dropdown-item">
                     Sign In
                   </a>
                   <a href="/signup" className="dropdown-item btn-signup">
