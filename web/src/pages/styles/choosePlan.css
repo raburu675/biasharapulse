@@ -1,0 +1,152 @@
+/* Uses the global :root tokens. Font family is inherited from the app. */
+
+.cp-splash,
+.cp-shell {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-main);
+  font-family: inherit;
+}
+
+/* ── Brand ── */
+.cp-brand { display: inline-flex; align-items: baseline; gap: 2px; }
+.cp-brand-sm { font-size: var(--fs-brand-sm); font-weight: 600; color: var(--text-main); }
+.cp-brand-lg { font-size: var(--fs-brand-lg); font-weight: 800; color: var(--burgundy-rich); }
+.cp-brand-small { margin-bottom: 18px; }
+
+/* ── Splash ── */
+.cp-splash {
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; text-align: center;
+}
+.cp-splash-inner {
+  max-width: 520px; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  animation: cp-rise 0.7s var(--ease) both;
+}
+.cp-splash-title {
+  margin: 8px 0 0; font-size: var(--fs-xl); font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.1; word-break: break-word;
+}
+.cp-splash-sub {
+  margin: 0; font-size: var(--fs-md); color: var(--text-muted); line-height: 1.5;
+}
+.cp-splash-btn { margin-top: 8px; padding: 14px 36px; }
+
+.cp-splash-bar {
+  width: 120px; height: 3px; margin-top: 12px;
+  border-radius: 999px; background: var(--border-subtle); overflow: hidden;
+}
+.cp-splash-bar span {
+  display: block; height: 100%; width: 100%;
+  background: var(--gold-accent); transform-origin: left;
+  animation-name: cp-fill; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+
+@keyframes cp-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cp-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ── Plans ── */
+.cp-shell { padding: 56px 20px 72px; animation: cp-rise 0.6s var(--ease) both; }
+
+.cp-head { text-align: center; max-width: 620px; margin: 0 auto 44px; }
+.cp-head h2 {
+  margin: 0 0 12px; font-size: var(--fs-xl); font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.1;
+}
+.cp-head p { margin: 0; font-size: var(--fs-md); color: var(--text-muted); line-height: 1.5; }
+
+.cp-error {
+  max-width: 620px; margin: 0 auto 24px; padding: 12px 16px;
+  border-radius: var(--radius-sm); background: var(--burgundy-light);
+  color: var(--burgundy-rich); border: 1px solid var(--burgundy-rich);
+  font-size: var(--fs-sm); text-align: center;
+}
+
+.cp-grid {
+  display: grid; gap: 18px; max-width: 1280px; margin: 0 auto;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.cp-card {
+  position: relative; display: flex; flex-direction: column;
+  padding: 28px 22px; border-radius: var(--radius-md);
+  background: var(--card-surface); border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.25s var(--ease), transform 0.25s var(--ease);
+}
+.cp-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+
+/* Starter = the recommended path */
+.cp-start { border: 2px solid var(--emerald-main); background: var(--emerald-light); }
+.cp-popular { border-color: var(--gold-accent); }
+
+.cp-badge {
+  position: absolute; top: -13px; left: 22px; padding: 4px 12px;
+  border-radius: 999px; color: #fff;
+  font-size: var(--fs-xs); font-weight: 600;
+}
+.cp-badge-start { background: var(--emerald-main); }
+.cp-badge-popular { background: var(--gold-accent); }
+
+.cp-card h3 { margin: 0 0 14px; font-size: var(--fs-lg); font-weight: 700; }
+.cp-price {
+  font-size: var(--fs-price); font-weight: 800; line-height: 1;
+  letter-spacing: -0.02em; color: var(--text-main);
+}
+.cp-cur {
+  margin-right: 6px; font-size: var(--fs-sm); font-weight: 600;
+  letter-spacing: 0; color: var(--text-muted);
+}
+.cp-note { margin: 8px 0 20px; font-size: var(--fs-xs); color: var(--text-faint); }
+.cp-start .cp-note { color: var(--text-muted); }
+
+.cp-card ul { margin: 0 0 24px; padding: 0; list-style: none; flex: 1; }
+.cp-card li {
+  position: relative; padding: 6px 0 6px 24px;
+  font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4;
+}
+.cp-card li::before {
+  content: '✓'; position: absolute; left: 0; top: 6px;
+  color: var(--emerald-main); font-weight: 700;
+}
+
+/* ── Buttons ── */
+.cp-btn {
+  padding: 13px 18px; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+  background: var(--burgundy-rich); color: #fff;
+  font-family: inherit; font-size: var(--fs-btn); font-weight: 600;
+  transition: background 0.2s var(--ease);
+}
+.cp-btn:hover:not(:disabled) { background: var(--burgundy-hover); }
+.cp-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Primary: free trial */
+.cp-btn-start { background: var(--emerald-main); }
+.cp-btn-start:hover:not(:disabled) { background: var(--emerald-hover); }
+
+/* Secondary: paid tiers */
+.cp-btn-ghost {
+  background: transparent; color: var(--burgundy-rich);
+  border: 1.5px solid var(--burgundy-rich);
+}
+.cp-btn-ghost:hover:not(:disabled) { background: var(--burgundy-light); }
+
+/* ── Skip ── */
+.cp-skip { margin-top: 32px; text-align: center; }
+.cp-skip button {
+  background: none; border: 0; cursor: pointer;
+  font-family: inherit; font-size: var(--fs-sm); color: var(--text-muted);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.cp-skip button:hover:not(:disabled) { color: var(--text-main); }
+
+@media (max-width: 600px) {
+  .cp-shell { padding: 40px 16px 56px; }
+}

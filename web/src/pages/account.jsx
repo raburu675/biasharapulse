@@ -36,6 +36,13 @@ function Account() {
       <Sidebar current="account" />
 
       <div className="acct-page">
+
+        {/* Mobile top strip — matches the dashboard navbar on phones */}
+        <div className="acct-topbar">
+          <span className="acct-topbar-dot" />
+          <span className="acct-topbar-title">Account</span>
+        </div>
+
         <div className="acct-header">
           <h1>Account</h1>
           <p>Manage your profile, business details, and security.</p>
@@ -125,7 +132,10 @@ function Account() {
           <div className="acct-save-bar">
             <span>You have unsaved changes</span>
             <div className="acct-save-actions">
-              <button className="acct-btn-secondary" onClick={() => { setForm(initialData); setDirty(false) }}>
+              <button
+                className="acct-btn-secondary"
+                onClick={() => { setForm(initialData); setDirty(false) }}
+              >
                 Discard
               </button>
               <button className="acct-btn-primary" onClick={handleSave}>

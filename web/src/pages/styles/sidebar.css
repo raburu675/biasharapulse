@@ -1,0 +1,497 @@
+/* sidebar.css */
+
+.sbx-root {
+  --black-rich: #0b0b0d;
+  --charcoal: #17171a;
+  --burgundy: #7a1230;
+  --burgundy-deep: #4A0618;
+  --burgundy-bright: #b3234f;
+  --kenya-green: #0a6847;
+  --off-white: #f5f3f1;
+  --border-dim: rgba(255, 255, 255, 0.08);
+  --text-dim: rgba(245, 243, 241, 0.5);
+
+  --gold: #B8902A;
+  --gold-deep: #8A6A12;
+  --gold-bright: #D4AF37;
+  --gold-light: #E3C26A;
+}
+
+/* ── DESKTOP SIDEBAR ── */
+
+.sbx-desktop {
+  width: 232px;
+  flex-shrink: 0;
+
+  background: linear-gradient(
+    180deg,
+    var(--black-rich) 0%,
+    var(--charcoal) 100%
+  );
+
+  display: flex;
+  flex-direction: column;
+
+  position: sticky;
+  top: 0;
+  height: 100vh;
+
+  transition: width 0.2s ease;
+
+  font-family: 'Inter', sans-serif;
+}
+
+.sbx-desktop.collapsed {
+  width: 76px;
+}
+
+/* ── SIDEBAR TOP ── */
+
+.sbx-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 22px 18px 18px;
+}
+
+.sbx-brand {
+  font-size: 15px;
+  font-weight: 800;
+
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sbx-brand .b1 { color: var(--burgundy-bright); }
+.sbx-brand .b2 { color: var(--kenya-green); }
+
+/* ── SIDEBAR COLLAPSE BUTTON ── */
+
+.sbx-collapse-btn {
+  width: 26px;
+  height: 26px;
+
+  border-radius: 7px;
+  border: 1px solid var(--border-dim);
+
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  flex-shrink: 0;
+
+  transition: transform 0.2s ease, background 0.15s ease;
+}
+
+.sbx-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--off-white);
+}
+
+.sbx-desktop.collapsed .sbx-collapse-btn {
+  transform: rotate(180deg);
+}
+
+/* ── NAVIGATION ── */
+
+.sbx-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  padding: 8px 12px;
+
+  flex: 1;
+}
+
+.sbx-link {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 10px 12px;
+
+  border-radius: 10px;
+
+  color: var(--text-dim);
+  text-decoration: none;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  white-space: nowrap;
+  overflow: hidden;
+
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sbx-link:hover {
+  color: var(--off-white);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sbx-link.active {
+  color: var(--off-white);
+
+  background: linear-gradient(
+    90deg,
+    rgba(122, 18, 48, 0.35),
+    rgba(122, 18, 48, 0.08)
+  );
+}
+
+.sbx-link.active::before {
+  content: '';
+
+  position: absolute;
+
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+
+  width: 3px;
+
+  border-radius: 3px;
+
+  background: linear-gradient(
+    180deg,
+    var(--burgundy-bright),
+    var(--kenya-green)
+  );
+}
+
+.sbx-icon-slot {
+  width: 30px;
+  height: 30px;
+
+  border-radius: 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  transition: background 0.15s ease;
+}
+
+.sbx-link.active .sbx-icon-slot {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sbx-label {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.sbx-desktop.collapsed .sbx-label {
+  opacity: 0;
+  width: 0;
+}
+
+/* ── LOCKED ITEM (plan-gated) ── */
+
+.sbx-link.locked { color: #d4af37; }
+
+.sbx-link.locked .sbx-icon-slot {
+  background: rgba(212, 175, 55, 0.12);
+  color: #d4af37;
+}
+
+.sbx-link.locked:hover {
+  color: #e6c65a;
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.sbx-lock {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: #d4af37;
+}
+
+.sbx-desktop.collapsed .sbx-lock { display: none; }
+
+button.sbx-link {
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ── UPGRADE POPUP ── */
+
+.sbx-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.sbx-modal {
+  width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border: 1.5px solid #d4af37;
+  border-radius: 14px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.sbx-modal-lock {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid #d4af37;
+  color: #b8941f;
+}
+
+.sbx-modal h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b0b0d;
+}
+
+.sbx-modal p {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b6b73;
+}
+
+.sbx-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sbx-modal-primary {
+  display: block;
+  padding: 11px;
+  border-radius: 8px;
+  background: #d4af37;
+  color: #0b0b0d;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.sbx-modal-primary:hover { background: #e6c65a; }
+
+.sbx-modal-secondary {
+  padding: 10px;
+  border: none;
+  background: none;
+  color: #6b6b73;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ── SIDEBAR BOTTOM ── */
+
+.sbx-bottom {
+  padding: 10px 12px 18px;
+  border-top: 1px solid var(--border-dim);
+}
+
+.sbx-footnote {
+  padding: 10px 12px 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sbx-desktop.collapsed .sbx-footnote { display: none; }
+
+/* ═══════════════════════════════════════════════════
+   MOBILE HAMBURGER — burgundy-to-black hero pill
+   ═══════════════════════════════════════════════════ */
+
+.sbx-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 6px;
+  left: 12px;
+
+  z-index: 100000;
+
+  width: 34px;
+  height: 28px;
+
+  padding: 0;
+
+  border-radius: 6px;
+
+  /* Gold hairline, same as the hero banner edge */
+  border: 1px solid rgba(184, 144, 42, 0.55);
+
+  /* Black first, burgundy glowing from the corner — hero-banner recipe */
+  background:
+    radial-gradient(ellipse 90% 140% at 100% 100%, rgba(122, 12, 41, 0.55), transparent 65%),
+    linear-gradient(180deg, #050505 0%, #0B0B0C 62%, #1A070C 100%);
+
+  color: #FFFFFF;
+
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 6px 16px rgba(74, 6, 24, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.sbx-mobile-toggle:hover {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 8px 20px rgba(74, 6, 24, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.sbx-mobile-toggle:active { transform: translateY(1px); }
+
+.sbx-mobile-toggle:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Small gold dot indicator */
+.sbx-mobile-toggle::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  opacity: 0.85;
+}
+
+/* ── MOBILE OVERLAY ── */
+/* Above every navbar (dashboard .main-header 99999,
+   account .acct-topbar 99998). */
+
+.sbx-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100000;
+}
+
+/* ── MOBILE DRAWER ── */
+
+@media (max-width: 860px) {
+
+  .sbx-desktop { display: none; }
+
+  .sbx-mobile-toggle { display: flex; }
+
+  .sbx-overlay.open { display: block; }
+
+  .sbx-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+
+    width: 240px;
+
+    /* Above the overlay and above every navbar */
+    z-index: 100001;
+
+    background: linear-gradient(
+      180deg,
+      var(--black-rich) 0%,
+      var(--charcoal) 100%
+    );
+
+    display: flex;
+    flex-direction: column;
+
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Gold seam on the right edge, matching the hero card */
+    border-right: 1px solid rgba(184, 144, 42, 0.25);
+  }
+
+  /* Gold hairline across the top edge of the drawer */
+  .sbx-drawer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--gold-bright),
+      var(--gold) 45%,
+      rgba(184, 144, 42, 0.2) 100%
+    );
+    pointer-events: none;
+  }
+
+  .sbx-drawer.open {
+    transform: translateX(0);
+  }
+}
+
+@media (min-width: 861px) {
+  .sbx-drawer { display: none; }
+}
+
+/* ── DRAWER CLOSE BUTTON ── */
+
+.sbx-drawer-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-dim);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sbx-drawer-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--off-white);
+}

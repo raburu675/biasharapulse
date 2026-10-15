@@ -23,17 +23,23 @@ class Business(models.Model):
     subscription_tier = models.CharField(max_length=20, choices=SUBSCRIPTION_CHOICES, default='starter')
     # PLAN: M-Pesa STK is a one-off payment, so paid access expires on this date
     paid_until = models.DateTimeField(null=True, blank=True)
+    trial_ends = models.DateTimeField(null=True, blank=True)   # ← new
 
     def __str__(self):
         return self.name
 
     @property
     def plan_key(self):
-        # PLAN: paid tiers only count until paid_until; anything else is Starter
         if self.subscription_tier in PLANS and self.subscription_tier != 'starter':
             if self.paid_until and self.paid_until > timezone.now():
                 return self.subscription_tier
-        return 'starter'
+
+        if self.subscription_tier == 'starter':
+            if self.trial_ends and self.trial_ends > timezone.now():
+                return 'starter'
+            return 'expired'
+
+        return 'expired'
 
     @property
     def plan(self):

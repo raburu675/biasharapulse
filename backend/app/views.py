@@ -5,16 +5,29 @@ import pandas as pd
 from django.http import FileResponse
 from decimal import Decimal
 from collections import defaultdict
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+
+from rest_framework.decorators import (
+    api_view, permission_classes, authentication_classes, throttle_classes,
+)
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authtoken.models import Token
+from rest_framework.throttling import AnonRateThrottle
+
 from .models import Business, Product, SaleRecord, Expense, StockMovement, Order, OrderItem
 # PLAN: gating helpers (see plans.py)
 from .plans import PLANS, require_feature, history_cutoff, sale_cap_response, sales_used
+# AUTH: expiring tokens (see authentication.py)
+from .authentication import fresh_token
 
 
 TRUNC_FUNCS = {
@@ -24,22 +37,28 @@ TRUNC_FUNCS = {
 }
 
 
+# ═══════════════════════════════════════════════════════════
+#  BUSINESS PLAN
+# ═══════════════════════════════════════════════════════════
+
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def business_plan(request, business_id):
     """
-    PLAN: tells the frontend what this business's plan allows, so it can
-    show/lock pages and display usage. Call once after login and again
-    after an upgrade payment succeeds.
+    Tells the frontend what this business's plan allows, so it can
+    show/lock pages and display usage.
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
     plan = business.plan
     return Response({
         'plan': business.plan_key,
+        'subscription_tier': business.subscription_tier,
         'paid_until': business.paid_until,
+        'trial_ends': business.trial_ends,
         'features': sorted(plan['features']),
         'limits': {
             'history_days': plan['history_days'],
@@ -54,42 +73,63 @@ def business_plan(request, business_id):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def select_plan(request, business_id):
     """
-    DEV ONLY: switches a business to the chosen tier without payment, so each
-    pricing button can unlock its plan while testing. Disabled when DEBUG is
-    False. Replace with the M-Pesa success callback once payments exist.
+    DEV ONLY: switches a business to the chosen tier without payment.
+    Disabled when DEBUG is False. Replace with the M-Pesa success callback
+    once payments exist.
     """
     if not settings.DEBUG:
         return Response({'error': 'Plan switching is disabled'}, status=403)
 
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
+
+    # Active paid plan → can't switch until it expires
+    if business.plan_key not in ('starter', 'expired'):
+        return Response({
+            'error': 'You already have a paid plan. You can pick a new plan once your current plan expires.',
+            'code': 'plan_active',
+            'plan': business.plan_key,
+            'paid_until': business.paid_until,
+        }, status=409)
 
     tier = request.data.get('tier')
     if tier not in PLANS:
         return Response({'error': f'tier must be one of {list(PLANS)}'}, status=400)
 
+    # Starter trial can only be selected once. After it expires, users
+    # must pick a paid tier.
+    if tier == 'starter' and business.trial_ends and business.trial_ends <= timezone.now():
+        return Response({'error': 'Starter trial already used. Choose a paid plan.'}, status=400)
+
     business.subscription_tier = tier
-    # Starter has no expiry; paid tiers last 30 days
     business.paid_until = None if tier == 'starter' else timezone.now() + timedelta(days=30)
     business.save(update_fields=['subscription_tier', 'paid_until'])
 
-    return Response({'plan': business.plan_key, 'paid_until': business.paid_until})
+    return Response({
+        'plan': business.plan_key,
+        'paid_until': business.paid_until,
+        'trial_ends': business.trial_ends,
+    })
 
+
+# ═══════════════════════════════════════════════════════════
+#  DASHBOARD
+# ═══════════════════════════════════════════════════════════
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def dashboard_summary(request, business_id):
     """
-    Executive dashboard data for one business: revenue, expenses, profit,
-    payment/category breakdowns, period trends, and recent sales.
-    Accepts ?period=daily|weekly|monthly (defaults to monthly) to control
-    the granularity of the sales/expense/margin chart.
+    Executive dashboard data for one business.
+    Accepts ?period=daily|weekly|monthly (defaults to monthly).
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
@@ -100,7 +140,7 @@ def dashboard_summary(request, business_id):
     expenses = Expense.objects.filter(business=business)
     products = Product.objects.filter(business=business)
 
-    # PLAN: Starter only sees the last 30 days of sales/expenses
+    # PLAN: Starter only sees the last 30 days; expired sees no history
     cutoff = history_cutoff(business)
     if cutoff:
         sales = sales.filter(created_at__gte=cutoff)
@@ -189,25 +229,28 @@ def dashboard_summary(request, business_id):
     })
 
 
+# ═══════════════════════════════════════════════════════════
+#  POS / PRODUCT PERFORMANCE
+# ═══════════════════════════════════════════════════════════
+
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def pos_summary(request, business_id):
     """
     Per-product analytics: cost, price, stock, units sold, profit margin,
-    sell-through rate, and performance tier for every product this business
-    has.
+    sell-through rate, and performance tier for every product.
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: pos feature (see plans.py)
+    # PLAN GATE: pos feature
     denied = require_feature(business, 'pos')
     if denied:
         return denied
-    
-    # PLAN: Product performance analytics start at Growth. Lower plans only get
-    # what the POS screen needs (no cost, profit or sales analytics).
+
+    # PLAN: Product performance analytics start at Growth.
     can_scan = business.has_feature('qr_scanning')
     if not business.has_feature('product_performance'):
         lean = []
@@ -300,19 +343,23 @@ def pos_summary(request, business_id):
     })
 
 
+# ═══════════════════════════════════════════════════════════
+#  STOCK MOVEMENTS
+# ═══════════════════════════════════════════════════════════
+
 @api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def stock_movements(request, business_id):
     """
-    One view for everything StockMovement-related, split by HTTP method:
-      GET  -> return the recent stock movement log (read)
-      POST -> create a new Stock In / Waste-Damage adjustment (write)
+    GET  -> return the recent stock movement log
+    POST -> create a new Stock In / Waste-Damage adjustment
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: which plans get Stock Movement is set in plans.py
+    # PLAN GATE: stock_movement feature
     denied = require_feature(business, 'stock_movement')
     if denied:
         return denied
@@ -326,7 +373,6 @@ def stock_movements(request, business_id):
             .order_by('-created_at')
         )
 
-        # PLAN: Starter only sees the last 30 days of the log
         cutoff = history_cutoff(business)
         if cutoff:
             movements = movements.filter(created_at__gte=cutoff)
@@ -391,9 +437,7 @@ def stock_movements(request, business_id):
         note=note,
     )
 
-    # Low-stock-alert check for manual adjustments only lives here — this
-    # path (stock_in/waste_damage) doesn't go through SaleRecord at all,
-    # so the model-level check on SaleRecord.save() doesn't cover it.
+    # Low-stock-alert check for manual adjustments only lives here.
     if product.stock_count <= product.reorder_point:
         StockMovement.objects.create(
             business=business,
@@ -414,19 +458,28 @@ def stock_movements(request, business_id):
     }, status=201)
 
 
+# ═══════════════════════════════════════════════════════════
+#  SALES
+# ═══════════════════════════════════════════════════════════
+
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_sale(request, business_id):
     """
     Records a sale. Stock decrement, amount calculation, and the low-stock
-    alert now all happen inside SaleRecord.save() itself — this view just
-    validates input and creates the record.
+    alert all happen inside SaleRecord.save().
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN LIMIT: Starter is limited to its first 100 sales (one-time, not monthly)
+    # PLAN GATE: pos feature (expired plans can't record sales)
+    denied = require_feature(business, 'pos')
+    if denied:
+        return denied
+
+    # PLAN LIMIT: Starter is limited to its first 100 sales
     capped = sale_cap_response(business)
     if capped:
         return capped
@@ -467,18 +520,22 @@ def create_sale(request, business_id):
     }, status=201)
 
 
+# ═══════════════════════════════════════════════════════════
+#  ORDERS
+# ═══════════════════════════════════════════════════════════
+
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def order_list(request, business_id):
     """
-    Returns all orders for a business, newest first, with their line items
-    and computed total.
+    Returns all orders for a business, newest first, with line items and total.
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: orders feature (see plans.py)
+    # PLAN GATE: orders feature
     denied = require_feature(business, 'orders')
     if denied:
         return denied
@@ -510,18 +567,18 @@ def order_list(request, business_id):
 
 
 @api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def update_order_status(request, business_id, order_id):
     """
     Updates an order's status. Advancing to 'delivered' triggers
-    Order.save() to create SaleRecords for each line item — which now
-    handles stock decrement AND the low-stock alert automatically.
+    Order.save() to create SaleRecords for each line item.
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
-    # PLAN GATE: orders feature (see plans.py)
+    # PLAN GATE: orders feature
     denied = require_feature(business, 'orders')
     if denied:
         return denied
@@ -536,7 +593,7 @@ def update_order_status(request, business_id, order_id):
     if new_status not in valid_statuses:
         return Response({'error': f'status must be one of {valid_statuses}'}, status=400)
 
-    # PLAN LIMIT: delivering an order creates sales, so it counts toward the Starter allowance
+    # PLAN LIMIT: delivering counts toward the Starter sale allowance
     if new_status == 'delivered' and order.status != 'delivered':
         capped = sale_cap_response(business)
         if capped:
@@ -552,6 +609,62 @@ def update_order_status(request, business_id, order_id):
     })
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_order(request, business_id):
+    """
+    Creates a customer order with real Product-backed line items.
+    """
+    try:
+        business = Business.objects.get(id=business_id, owner=request.user)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=404)
+
+    # PLAN GATE: orders feature
+    denied = require_feature(business, 'orders')
+    if denied:
+        return denied
+
+    customer_name = request.data.get('customer_name')
+    items = request.data.get('items', [])
+
+    if not customer_name or not items:
+        return Response({'error': 'customer_name and items are required'}, status=400)
+
+    order = Order.objects.create(
+        business=business,
+        customer_name=customer_name,
+        customer_phone=request.data.get('customer_phone', ''),
+        shipping_address=request.data.get('shipping_address', ''),
+        payment_method=request.data.get('payment_method', 'mpesa'),
+        source=request.data.get('source', 'website'),
+        courier=request.data.get('courier', ''),
+        tracking_number=request.data.get('tracking_number', ''),
+        status='pending',
+    )
+
+    for item in items:
+        try:
+            product = Product.objects.get(id=item['product_id'], business=business)
+        except Product.DoesNotExist:
+            continue
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=item.get('quantity', 1),
+        )
+
+    return Response({
+        'id': order.id,
+        'order_number': order.order_number,
+        'total_amount': order.total_amount,
+    }, status=201)
+
+
+# ═══════════════════════════════════════════════════════════
+#  PRODUCT IMPORT
+# ═══════════════════════════════════════════════════════════
+
 COLUMN_ALIASES = {
     'product name': 'name',
     'selling price (kes)': 'price',
@@ -562,14 +675,13 @@ COLUMN_ALIASES = {
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def import_products(request, business_id):
     """
     Bulk create/update Products from an uploaded spreadsheet (.xlsx or .csv).
-    Matches existing products by name (case-insensitive); creates new ones
-    if no match is found.
     """
     try:
-        business = Business.objects.get(id=business_id)
+        business = Business.objects.get(id=business_id, owner=request.user)
     except Business.DoesNotExist:
         return Response({'error': 'Business not found'}, status=404)
 
@@ -623,6 +735,7 @@ def import_products(request, business_id):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def import_template(request):
     """
     Generates the blank product import template on the fly and streams it
@@ -650,55 +763,155 @@ def import_template(request):
     return FileResponse(buffer, as_attachment=True, filename='product_import_template.xlsx')
 
 
-@api_view(['POST'])
-def create_order(request, business_id):
+# ═══════════════════════════════════════════════════════════
+#  AUTH
+# ═══════════════════════════════════════════════════════════
+
+class SignupThrottle(AnonRateThrottle):
+    """Limits sign-ups per IP so one person can't farm free trials."""
+    scope = 'signup'
+
+    def get_rate(self):
+        return '100/hour' if settings.DEBUG else '5/hour'
+
+
+def canonical_email(email):
     """
-    Creates a customer order with real Product-backed line items.
-    total_amount is a computed property on Order (sum of line item
-    totals) — never assigned or saved directly.
-    order_number is left blank here; Order.save() auto-generates it.
+    Collapses tricks that point to the same inbox:
+    a.b+x@gmail.com -> ab@gmail.com, name+x@other.com -> name@other.com
     """
-    try:
-        business = Business.objects.get(id=business_id)
-    except Business.DoesNotExist:
-        return Response({'error': 'Business not found'}, status=404)
+    local, _, domain = email.lower().strip().partition('@')
+    local = local.split('+')[0]
+    if domain in ('gmail.com', 'googlemail.com'):
+        local = local.replace('.', '')
+        domain = 'gmail.com'
+    return f'{local}@{domain}'
 
-    # PLAN GATE: orders feature (see plans.py)
-    denied = require_feature(business, 'orders')
-    if denied:
-        return denied
 
-    customer_name = request.data.get('customer_name')
-    items = request.data.get('items', [])
+def email_taken(email):
+    # DEBUG: exact match only, so you can test with a+1@gmail.com, a+2@gmail.com
+    if settings.DEBUG:
+        return User.objects.filter(email__iexact=email).exists()
 
-    if not customer_name or not items:
-        return Response({'error': 'customer_name and items are required'}, status=400)
+    target = canonical_email(email)
+    domain = target.split('@')[1]
+    domain_q = Q(email__iendswith='@gmail.com') | Q(email__iendswith='@googlemail.com') \
+        if domain == 'gmail.com' else Q(email__iendswith='@' + domain)
 
-    order = Order.objects.create(
-        business=business,
-        customer_name=customer_name,
-        customer_phone=request.data.get('customer_phone', ''),
-        shipping_address=request.data.get('shipping_address', ''),
-        payment_method=request.data.get('payment_method', 'mpesa'),
-        source=request.data.get('source', 'website'),
-        courier=request.data.get('courier', ''),
-        tracking_number=request.data.get('tracking_number', ''),
-        status='pending',
+    return any(
+        canonical_email(e) == target
+        for e in User.objects.filter(domain_q).values_list('email', flat=True)
     )
 
-    for item in items:
-        try:
-            product = Product.objects.get(id=item['product_id'], business=business)
-        except Product.DoesNotExist:
-            continue
-        OrderItem.objects.create(
-            order=order,
-            product=product,
-            quantity=item.get('quantity', 1),
+
+@api_view(['POST'])
+@authentication_classes([])   # public: a stale token must not block signup
+@permission_classes([AllowAny])
+@throttle_classes([SignupThrottle])
+def signup(request):
+    """
+    Creates a User and their first Business in one shot, then returns a token.
+    Public — no auth required.
+    """
+    username = (request.data.get('username') or '').strip()
+    email = (request.data.get('email') or '').strip().lower()
+    password = request.data.get('password') or ''
+    business_name = (request.data.get('business_name') or '').strip()
+
+    if not username or not password:
+        return Response({'error': 'username and password are required'}, status=400)
+
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({'error': 'Enter a valid email address'}, status=400)
+
+    if len(password) < 8:
+        return Response({'error': 'Password must be at least 8 characters'}, status=400)
+
+    if User.objects.filter(username__iexact=username).exists():
+        return Response({'error': 'That username is already taken'}, status=400)
+
+    if email_taken(email):
+        return Response({'error': 'That email is already registered'}, status=400)
+
+    user = User.objects.create_user(username=username, email=email, password=password)
+
+    # Every user gets a business on day one, with a 30-day Starter trial
+    business = Business.objects.create(
+        owner=user,
+        name=business_name or f"{username}'s Business",
+        trial_ends=timezone.now() + timedelta(days=30),
+    )
+
+    token = fresh_token(user)
+    login(request, user)
+
+    return Response({
+        'token': token.key,
+        'businessId': business.id,
+        'username': user.username,
+        'business_name': business.name,
+    }, status=201)
+
+
+@api_view(['POST'])
+@authentication_classes([])   # public: a stale token must not block login
+@permission_classes([AllowAny])
+def login_view(request):
+    """
+    Verifies credentials, returns the same payload shape as signup.
+    Public — no auth required.
+    """
+    username = (request.data.get('username') or '').strip()
+    password = request.data.get('password') or ''
+
+    user = authenticate(request, username=username, password=password)
+    if user is None:
+        return Response({'error': 'Invalid username or password'}, status=401)
+
+    login(request, user)
+    token = fresh_token(user)
+
+    business = user.businesses.first()
+    if business is None:
+        business = Business.objects.create(
+            owner=user,
+            name=f"{user.username}'s Business",
+            trial_ends=timezone.now() + timedelta(days=30),
         )
 
     return Response({
-        'id': order.id,
-        'order_number': order.order_number,
-        'total_amount': order.total_amount,
-    }, status=201)
+        'token': token.key,
+        'businessId': business.id,
+        'username': user.username,
+        'business_name': business.name,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    """
+    Deletes the current token so it can't be reused, and clears the session.
+    """
+    Token.objects.filter(user=request.user).delete()
+    logout(request)
+    return Response({'ok': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def me(request):
+    """
+    Returns the current user's info + their businesses.
+    """
+    businesses = list(request.user.businesses.values('id', 'name', 'subscription_tier'))
+    return Response({
+        'username': request.user.username,
+        'email': request.user.email,
+        'businesses': businesses,
+    })

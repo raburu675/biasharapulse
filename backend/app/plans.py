@@ -50,7 +50,15 @@ PLANS = {
         'total_sales_cap': None,
     },
 }
+EXPIRED_PLAN = {
+    'features': {'dashboard'},
+    'history_days': 0,        # 0 = no history visible (None = unlimited)
+    'max_users': 0,
+    'max_branches': 0,
+    'total_sales_cap': 0,     # 0 = no sales allowed (None = unlimited)
+}
 
+PLANS['expired'] = EXPIRED_PLAN
 
 # Feature gate. Called at the top of a view with a feature name, e.g. 'orders'.
 # If the business's plan includes it, returns None and the view carries on.
@@ -71,7 +79,9 @@ def require_feature(business, feature):
 def history_cutoff(business):
     """Oldest date this plan may see, or None for unlimited history."""
     days = business.plan['history_days']
-    return timezone.now() - timedelta(days=days) if days else None
+    if days is None:
+        return None
+    return timezone.now() - timedelta(days=days)
 
 
 # Counts every sale this business has ever recorded: POS sales, plus the sales
@@ -81,10 +91,17 @@ def sales_used(business):
 
 
 # Sales allowance check. Called before a sale is recorded (POS) or an order is delivered.
-# If the plan has a cap (Starter: 100) and the business has reached it, returns a 403
+# If the plan has a cap (Starter: 100, expired: 0) and the business has reached it, returns a 403
 def sale_cap_response(business):
     cap = business.plan['total_sales_cap']
-    if cap and sales_used(business) >= cap:
+    if cap is None:
+        return None
+    if sales_used(business) >= cap:
+        if business.plan_key == 'expired':
+            return Response({
+                'error': 'Your plan has expired. Choose a plan to keep recording sales.',
+                'code': 'plan_expired',
+            }, status=403)
         return Response({
             'error': f"You've used all {cap} sales included in Starter. Upgrade to Biashara Lite or above to keep recording sales.",
             'code': 'limit_reached',

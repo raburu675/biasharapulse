@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
 import {
   BarChart,
   Bar,
@@ -15,19 +14,14 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import Sidebar from './sidebar'
-// Adjust this path to wherever your LoadingScreen component lives
 import LoadingScreen from './LoadingScreen'
-// PLAN: adjust this path if your hooks folder is elsewhere
-import usePlan from '../hooks/usePlan'
+import usePlan, { SubscriptionExpiredModal } from '../hooks/usePlan'
+import { api } from '../hooks/usePlan'
 import './styles/dashboard.css'
 
 
-// ── Config ─────────────────────────────────────
-// const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
-const API_BASE = 'http://127.0.0.1:8000' // local testing
-const BUSINESS_ID = 1 // replace with real business id (auth/context)
 
-// ── Brand color system — matches landing.css tokens ─────────────────────
+// ── Brand color system ─────────────────────────
 const BRAND = {
   burgundy: '#7A0C29',
   burgundyHover: '#5C0A20',
@@ -52,8 +46,6 @@ const PERIOD_OPTIONS = [
   { key: 'monthly', label: 'Monthly' },
 ]
 
-// Formats a period's raw date string into a chart-friendly label,
-// depending on the selected granularity
 const formatPeriodLabel = (period, dateStr) => {
   const d = new Date(dateStr)
   if (period === 'daily') return d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })
@@ -61,8 +53,6 @@ const formatPeriodLabel = (period, dateStr) => {
   return d.toLocaleDateString('en-KE', { month: 'short', year: '2-digit' })
 }
 
-// Stock movement rows: amber for a low-stock alert, red if it left the
-// product at zero, green for a normal, healthy stock-in/waste-damage entry
 const getMovementColor = (m) => {
   if (m.type === 'Low Stock Alert') return BRAND.amber
   if (m.currentStock === 0) return BRAND.red
@@ -70,6 +60,8 @@ const getMovementColor = (m) => {
 }
 
 function Dashboard() {
+  // businessId comes from localStorage (set at login/signup)
+  const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
   const [activeMovementTab, setActiveMovementTab] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [period, setPeriod] = useState('monthly')
@@ -87,11 +79,17 @@ function Dashboard() {
   const [movementsLoading, setMovementsLoading] = useState(true)
   const [movementsError, setMovementsError] = useState(null)
 
-  // PLAN: Stock Audit Logs is locked when the plan lacks 'stock_movement'
-  const { hasFeature, loading: planLoading } = usePlan()
+  // PLAN: gating + expiry state
+  const { hasFeature, loading: planLoading, isExpired, plan } = usePlan()
   const stockLocked = !planLoading && !hasFeature('stock_movement')
 
-  // Branded loading screen: held for at least 3 seconds, once per browser session
+  // Expiry modal
+  const [expiredOpen, setExpiredOpen] = useState(false)
+  useEffect(() => {
+    if (!planLoading && isExpired) setExpiredOpen(true)
+  }, [planLoading, isExpired])
+
+  // Branded splash: held for at least 3 seconds, once per session
   const [minLoadDone, setMinLoadDone] = useState(
     () => sessionStorage.getItem('dashboardSplashSeen') === '1'
   )
@@ -105,11 +103,13 @@ function Dashboard() {
     return () => clearTimeout(timer)
   }, [minLoadDone])
 
+  // ── Fetch summary (guarded when not signed in) ──
   const fetchSummary = useCallback(async (p) => {
+    if (!BUSINESS_ID) return
     setLoading(true)
     setError(null)
     try {
-      const res = await axios.get(`${API_BASE}/api/dashboard/${BUSINESS_ID}/summary/?period=${p}`)
+      const res = await api.get(`/api/dashboard/${BUSINESS_ID}/summary/?period=${p}`)
       setSummary(res.data)
     } catch (err) {
       setError(err.message)
@@ -122,13 +122,13 @@ function Dashboard() {
     fetchSummary(period)
   }, [period, fetchSummary])
 
-  // Pulls the recent stock movement log — same endpoint the Stock Movement
-  // page uses. Fetched once; the 3 tab chips filter client-side below.
+  // ── Fetch movements (guarded, skipped while locked) ──
   const fetchMovements = useCallback(async () => {
+    if (!BUSINESS_ID) return
     setMovementsLoading(true)
     setMovementsError(null)
     try {
-      const res = await axios.get(`${API_BASE}/api/dashboard/${BUSINESS_ID}/stock-movements/`)
+      const res = await api.get(`/api/dashboard/${BUSINESS_ID}/stock-movements/`)
       setMovements(res.data.movements)
     } catch (err) {
       setMovementsError(err.message)
@@ -138,15 +138,15 @@ function Dashboard() {
   }, [])
 
   useEffect(() => {
-    // PLAN: skip the fetch while locked — the server would answer 403
     if (planLoading || stockLocked) return
     fetchMovements()
   }, [fetchMovements, planLoading, stockLocked])
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
 
+  // ── Import products ──
   const handleImport = async () => {
-    if (!file) return
+    if (!file || !BUSINESS_ID) return
     setImporting(true)
     setImportResult(null)
 
@@ -154,7 +154,7 @@ function Dashboard() {
     formData.append('file', file)
 
     try {
-      const res = await axios.post(`${API_BASE}/api/products/${BUSINESS_ID}/import/`, formData)
+      const res = await api.post(`/api/products/${BUSINESS_ID}/import/`, formData)
       setImportResult(res.data)
       fetchSummary(period)
     } catch (err) {
@@ -170,14 +170,26 @@ function Dashboard() {
     setImportResult(null)
   }
 
-  // First load: branded loading screen (at least 3 seconds)
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await api.post('/api/auth/logout/')
+    } catch {
+      /* ignore — we're logging out anyway */
+    }
+    localStorage.clear()
+    window.location.href = '/login'
+  }
+
+  // First load: branded splash
   if (!minLoadDone || (loading && !summary)) return <LoadingScreen label="Loading dashboard..." />
 
-  // Later reloads (period toggle, import): keep the layout and show a simple message
+  // Later reloads
   if (loading) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Loading dashboard...</p></main></div>
   if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
+  if (!summary) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>No data yet.</p></main></div>
 
-  // ── Reshape API response into what the charts expect ──
+  // ── Reshape API response ──
   const periodMap = {}
   summary.period_sales.forEach((r) => {
     const label = formatPeriodLabel(period, r.period)
@@ -219,299 +231,313 @@ function Dashboard() {
       <main className="main">
         {/* Header */}
         <header className="main-header">
-          <div className="header-center">            
-              <span className="brand-biashara">Biashara</span>
-              <span className="brand-pulse">Pulse</span>                                     
-          </div>
-
-          <div className="header-right">        
-            <div className="dropdown-container">
-              <button
-                id="user-menu-btn"
-                className="profile-btn"
-                onClick={toggleMenu}
-                aria-label="Toggle Menu"
-                aria-expanded={isMenuOpen}
+          <div className="header-right">
+            <button
+              id="user-menu-btn"
+              className="profile-btn"
+              onClick={toggleMenu}
+              aria-label="Toggle Menu"
+              aria-expanded={isMenuOpen}
+            >
+              <svg
+                className="user-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  className="user-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </button>
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </button>
 
-              <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                <a href="/signin" className="dropdown-item">
-                  Sign In
-                </a>
-                <a href="/signup" className="dropdown-item btn-signup">
-                  Sign Up
-                </a>
-              </div>
+            <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
+              {localStorage.getItem('token') ? (
+                <>
+                  <div className="dropdown-item dropdown-user">
+                    Signed in as <strong>{localStorage.getItem('username')}</strong>
+                  </div>
+                  <Link to="/account" className="dropdown-item">
+                    Account settings
+                  </Link>
+                  <button
+                    type="button"
+                    className="dropdown-item dropdown-signout"
+                    onClick={handleLogout}
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link to="/login" className="dropdown-item">Sign In</Link>
+                  <Link to="/signup" className="dropdown-item btn-signup">Sign Up</Link>
+                </>
+              )}
             </div>
           </div>
         </header>
 
-        {/* Toolbar — replaces the old unused search bar. Import is the only
-            real action here, so it gets full visual weight instead of
-            competing with a search field that did nothing. */}
+        {/* Add products prompt */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            margin: '4px 0 20px',
-            flexWrap: 'wrap',
-            gap: 12,
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
+            margin: '4px 0 24px',
+            gap: 20,
+            width: '100%',
           }}
         >
-          <div>
-            <h2 style={{ fontSize: 14, fontWeight: 800, color: BRAND.ink, letterSpacing: '-0.01em', margin: 0 }}>
-              Overview
-            </h2>
-            <p style={{ fontSize: 10.5, color: BRAND.inkSoft, margin: '2px 0 0' }}>
-              Snapshot of sales, stock, and cash flow
-            </p>
-          </div>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 10,
+              width: '100%',
+              padding: '16px 18px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div>
+              <h3
+                style={{
+                  fontSize: 16,
+                  fontWeight: 750,
+                  color: BRAND.ink,
+                  margin: 0,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                Add your products
+              </h3>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: BRAND.inkSoft,
+                  margin: '4px 0 0',
+                  lineHeight: 1.6,
+                }}
+              >
+                Import your product list to get started with inventory tracking.
+              </p>
+            </div>
 
-          <button className="import-btn" onClick={() => setShowImport(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 16V4" />
-              <path d="m7 9 5-5 5 5" />
-              <path d="M5 20h14" />
-            </svg>
-            Import Products
-          </button>
-      </div>
-
-       {/* Import modal */}
-      
-  {showImport && (
-  <div className="import-modal-overlay" onClick={closeImportModal}>
-    <div className="import-modal" onClick={(e) => e.stopPropagation()}>
-
-      <div className="import-modal-header">
-        <div className="import-modal-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 3v12" />
-            <path d="m7 10 5 5 5-5" />
-            <path d="M5 21h14" />
-          </svg>
-        </div>
-
-        <div>
-          <h3 className="import-modal-title">Import Products</h3>
-          <p className="import-modal-subtitle">
-            Add multiple products to your inventory at once.
-          </p>
-        </div>
-
-        <button className="import-modal-close" onClick={closeImportModal}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="import-template-row">
-        <div>
-          <strong>Don't have the template?</strong>
-          <span>Use our ready-made spreadsheet.</span>
-        </div>
-
-        <a
-          href={`${API_BASE}/api/products/import-template/`}
-          className="import-template-link"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M12 3v12" />
-            <path d="m7 10 5 5 5-5" />
-            <path d="M5 21h14" />
-          </svg>
-          Download Template
-        </a>
-      </div>
-
-      <div
-        className={`import-dropzone ${file ? 'has-file' : ''}`}
-        onDragOver={(e) => {
-          e.preventDefault()
-          e.currentTarget.classList.add('dragging')
-        }}
-        onDragLeave={(e) => {
-          e.currentTarget.classList.remove('dragging')
-        }}
-        onDrop={(e) => {
-          e.preventDefault()
-          e.currentTarget.classList.remove('dragging')
-
-          const droppedFile = e.dataTransfer.files[0]
-
-          if (
-            droppedFile &&
-            (
-              droppedFile.name.endsWith('.xlsx') ||
-              droppedFile.name.endsWith('.csv')
-            )
-          ) {
-            setFile(droppedFile)
-          }
-        }}
-        onClick={() => document.getElementById('product-import-file').click()}
-      >
-
-        {!file ? (
-          <>
-            <div className="import-upload-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button className="import-btn" onClick={() => setShowImport(true)}>
+              <svg
+                width="12"
+                height="8"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
                 <path d="M12 16V4" />
                 <path d="m7 9 5-5 5 5" />
                 <path d="M5 20h14" />
               </svg>
-            </div>
-
-            <strong>Drop your file here</strong>
-
-            <span>
-              or <b>browse from your computer</b>
-            </span>
-
-            <small>
-              XLSX or CSV · Maximum file size 10MB
-            </small>
-          </>
-        ) : (
-          <div className="import-selected-file">
-
-            <div className="import-file-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6" />
-                <path d="M8 13h8" />
-                <path d="M8 17h6" />
-              </svg>
-            </div>
-
-            <div className="import-file-info">
-              <strong>{file.name}</strong>
-              <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-            </div>
-
-            <button
-              type="button"
-              className="import-remove-file"
-              onClick={(e) => {
-                e.stopPropagation()
-                setFile(null)
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
+              Import Products
             </button>
+          </div>
+        </div>
 
+        {/* Import modal */}
+        {showImport && (
+          <div className="import-modal-overlay" onClick={closeImportModal}>
+            <div className="import-modal" onClick={(e) => e.stopPropagation()}>
+
+              <div className="import-modal-header">
+                <div className="import-modal-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                </div>
+
+                <div>
+                  <h3 className="import-modal-title">Import Products</h3>
+                  <p className="import-modal-subtitle">
+                    Add multiple products to your inventory at once.
+                  </p>
+                </div>
+
+                <button className="import-modal-close" onClick={closeImportModal}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="import-template-row">
+                <div>
+                  <strong>Don't have the template?</strong>
+                  <span>Use our ready-made spreadsheet.</span>
+                </div>
+
+                <a
+                  href={`http://127.0.0.1:8000/api/products/import-template/`}
+                  className="import-template-link"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                  Download Template
+                </a>
+              </div>
+
+              <div
+                className={`import-dropzone ${file ? 'has-file' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.add('dragging')
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove('dragging')
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove('dragging')
+                  const droppedFile = e.dataTransfer.files[0]
+                  if (
+                    droppedFile &&
+                    (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.csv'))
+                  ) {
+                    setFile(droppedFile)
+                  }
+                }}
+                onClick={() => document.getElementById('product-import-file').click()}
+              >
+                {!file ? (
+                  <>
+                    <div className="import-upload-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 16V4" />
+                        <path d="m7 9 5-5 5 5" />
+                        <path d="M5 20h14" />
+                      </svg>
+                    </div>
+                    <strong>Drop your file here</strong>
+                    <span>or <b>browse from your computer</b></span>
+                    <small>XLSX or CSV · Maximum file size 10MB</small>
+                  </>
+                ) : (
+                  <div className="import-selected-file">
+                    <div className="import-file-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <path d="M14 2v6h6" />
+                        <path d="M8 13h8" />
+                        <path d="M8 17h6" />
+                      </svg>
+                    </div>
+                    <div className="import-file-info">
+                      <strong>{file.name}</strong>
+                      <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="import-remove-file"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setFile(null)
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  id="product-import-file"
+                  type="file"
+                  accept=".xlsx,.csv"
+                  hidden
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </div>
+
+              <div className="import-info-row">
+                <div className="import-info-item">
+                  <span className="import-info-number">01</span>
+                  <div>
+                    <strong>Download</strong>
+                    <small>Use the template</small>
+                  </div>
+                </div>
+                <div className="import-info-line"></div>
+                <div className="import-info-item">
+                  <span className="import-info-number">02</span>
+                  <div>
+                    <strong>Fill in</strong>
+                    <small>Add your products</small>
+                  </div>
+                </div>
+                <div className="import-info-line"></div>
+                <div className="import-info-item">
+                  <span className="import-info-number">03</span>
+                  <div>
+                    <strong>Upload</strong>
+                    <small>Upload your data</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="import-modal-actions">
+                <button
+                  onClick={handleImport}
+                  disabled={!file || importing}
+                  className="import-btn-confirm"
+                >
+                  {importing ? (
+                    <>
+                      <span className="import-spinner"></span>
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      Upload Products
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M5 12h14" />
+                        <path d="m13 6 6 6-6 6" />
+                      </svg>
+                    </>
+                  )}
+                </button>
+
+                <button onClick={closeImportModal} className="import-btn-cancel">
+                  Cancel
+                </button>
+              </div>
+
+              {importResult?.error && (
+                <p className="import-error">{importResult.error}</p>
+              )}
+              {importResult?.created !== undefined && (
+                <p className="import-success">
+                  Created: {importResult.created}, Updated: {importResult.updated}
+                </p>
+              )}
+              {importResult?.errors?.length > 0 && (
+                <ul className="import-error-list">
+                  {importResult.errors.map((e, i) => (
+                    <li key={i}>Row {e.row}: {e.error}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
-
-        <input
-          id="product-import-file"
-          type="file"
-          accept=".xlsx,.csv"
-          hidden
-          onChange={(e) => setFile(e.target.files[0])}
-        />
-      </div>
-
-      <div className="import-info-row">
-        <div className="import-info-item">
-          <span className="import-info-number">01</span>
-          <div>
-            <strong>Download</strong>
-            <small>Use the template</small>
-          </div>
-        </div>
-
-        <div className="import-info-line"></div>
-
-        <div className="import-info-item">
-          <span className="import-info-number">02</span>
-          <div>
-            <strong>Fill in</strong>
-            <small>Add your products</small>
-          </div>
-        </div>
-
-        <div className="import-info-line"></div>
-
-        <div className="import-info-item">
-          <span className="import-info-number">03</span>
-          <div>
-            <strong>Upload</strong>
-            <small>Upload your data</small>
-          </div>
-        </div>
-      </div>
-
-      <div className="import-modal-actions">
-        <button
-          onClick={handleImport}
-          disabled={!file || importing}
-          className="import-btn-confirm"
-        >
-          {importing ? (
-            <>
-              <span className="import-spinner"></span>
-              Importing...
-            </>
-          ) : (
-            <>
-              Upload Products
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M5 12h14" />
-                <path d="m13 6 6 6-6 6" />
-              </svg>
-            </>
-          )}
-        </button>
-
-        <button
-          onClick={closeImportModal}
-          className="import-btn-cancel"
-        >
-          Cancel
-        </button>
-      </div>
-
-      {importResult?.error && (
-        <p className="import-error">{importResult.error}</p>
-      )}
-
-      {importResult?.created !== undefined && (
-        <p className="import-success">
-          Created: {importResult.created}, Updated: {importResult.updated}
-        </p>
-      )}
-
-      {importResult?.errors?.length > 0 && (
-        <ul className="import-error-list">
-          {importResult.errors.map((e, i) => (
-            <li key={i}>Row {e.row}: {e.error}</li>
-          ))}
-        </ul>
-      )}
-
-    </div>
-  </div>
-)}
 
         {/* Hero Banner */}
         <section className="hero-banner">
@@ -521,26 +547,20 @@ function Dashboard() {
               <div className="hero-banner-value">KES {Number(summary.net_revenue).toLocaleString()}</div>
             </div>
             <div className="hero-banner-icon">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21V3z" />
-    <line x1="8" y1="8" x2="16" y2="8" />
-    <line x1="8" y1="12" x2="16" y2="12" />
-    <line x1="8" y1="16" x2="13" y2="16" />
-  </svg>
-
-  {/* <span>
-    Generate Report
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  </span> */}
-</div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21V3z" />
+                <line x1="8" y1="8" x2="16" y2="8" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+                <line x1="8" y1="16" x2="13" y2="16" />
+              </svg>
+            </div>
           </div>
+
           <div className="hero-banner-divider" />
           <div className="hero-mini-grid">
             <div className="hero-mini">
               <span>Expenses</span>
-              <strong className="">KES {Number(summary.expenses).toLocaleString()}</strong>
+              <strong>KES {Number(summary.expenses).toLocaleString()}</strong>
             </div>
             <div className="hero-mini">
               <span>Net Profit</span>
@@ -559,26 +579,26 @@ function Dashboard() {
 
         {/* Period toggle */}
         <div style={{ display: 'flex', gap: 8, margin: '20px 0 4px' }}>
-        {PERIOD_OPTIONS.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => setPeriod(opt.key)}
-            style={{
-              padding: '7px 16px',
-              borderRadius: 20,
-              border: `1px solid ${period === opt.key ? '#2D030D' : BRAND.line}`,
-              background: period === opt.key ? '#2D030D' : '#fff',
-              color: period === opt.key ? '#fff' : BRAND.ink,
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setPeriod(opt.key)}
+              style={{
+                padding: '7px 13px',
+                borderRadius: 4,
+                border: `1px solid ${period === opt.key ? '#2D030D' : BRAND.line}`,
+                background: period === opt.key ? '#2D030D' : '#fff',
+                color: period === opt.key ? '#fff' : BRAND.ink,
+                fontSize: 8,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         {/* Analytics Grid */}
         <section className="analytics-grid">
@@ -675,7 +695,6 @@ function Dashboard() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-
                 <aside className="payment-legend-aside">
                   {paymentSplit.map((item) => (
                     <div key={item.name} className="legend-item">
@@ -749,10 +768,9 @@ function Dashboard() {
             )}
           </div>
 
-          {/* Stock Audit Logs — wired to /stock-movements/, colored by severity */}
+          {/* Stock Audit Logs */}
           <div
             className="chart-section audit-card"
-            // PLAN: gold border + clipped overlay while locked
             style={stockLocked ? {
               position: 'relative',
               overflow: 'hidden',
@@ -762,7 +780,7 @@ function Dashboard() {
           >
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>
-              <p className="chart-sub">Inventory Movement,Every row comes from StockMovement page — a restock, a waste/damage write-off, or a system-generated low-stock warning.</p>
+              <p className="chart-sub">Inventory Movement, Every row comes from StockMovement page — a restock, a waste/damage write-off, or a system-generated low-stock warning.</p>
             </div>
 
             <div className="tab-chips">
@@ -778,7 +796,6 @@ function Dashboard() {
             </div>
 
             {stockLocked ? (
-              // PLAN: grey placeholder rows behind the glass (not real data)
               <div className="feed-list">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="feed-item">
@@ -834,7 +851,6 @@ function Dashboard() {
               })()
             )}
 
-            {/* PLAN: glass overlay with gold padlock, covers the whole card */}
             {stockLocked && (
               <div
                 style={{
@@ -882,6 +898,13 @@ function Dashboard() {
           </div>
         </section>
       </main>
+
+      {/* Expiry modal */}
+      <SubscriptionExpiredModal
+        open={expiredOpen}
+        plan={plan}
+        onClose={() => setExpiredOpen(false)}
+      />
     </div>
   )
 }

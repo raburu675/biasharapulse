@@ -1,13 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import axios from 'axios'
 import { Link } from 'react-router-dom'
 import Sidebar from './sidebar'
-// PLAN: adjust this path if your hooks folder is elsewhere
-import usePlan from '../hooks/usePlan'
+// Shared axios instance: attaches the token and handles 401s
+import usePlan, { api } from '../hooks/usePlan'
 import './styles/pos.css'
-
-// Keep in sync with API_BASE in your pages (swap to the Railway URL when deploying)
-const API_BASE = 'http://127.0.0.1:8000'
 
 const CHANNELS = [
   { key: 'mpesa', label: 'M-Pesa' },
@@ -18,7 +14,8 @@ const CHANNELS = [
 const SCAN_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
 
 function Pos() {
-  const businessId = localStorage.getItem('businessId') || 1
+  // Read on every render so it's fresh after login/signup
+  const businessId = Number(localStorage.getItem('businessId')) || null
 
   // PLAN: barcode scanning is a Growth-and-above feature
   const { hasFeature, loading: planLoading } = usePlan()
@@ -43,7 +40,7 @@ function Pos() {
 
   const loadProducts = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/pos-summary/${businessId}/`)
+      const res = await api.get(`/pos-summary/${businessId}/`)
       setProducts(res.data.products)
       setLoadError('')
     } catch (err) {
@@ -102,7 +99,7 @@ function Pos() {
 
     try {
       for (const line of cart) {
-        await axios.post(`${API_BASE}/create-sale/${businessId}/`, {
+        await api.post(`/create-sale/${businessId}/`, {
           product_id: line.product.id,
           quantity: line.qty,
           payment_channel: channel,

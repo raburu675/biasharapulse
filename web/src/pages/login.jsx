@@ -3,24 +3,52 @@ import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import './styles/auth.css'
 
+// Keep in sync with API_BASE in your other pages
+const API_BASE = 'http://127.0.0.1:8000'
+
 function Login() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('') // username or email
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     try {
-      const res = await axios.post('/api/auth/login/', { email, password })
+      // The backend reads the "username" field; it also accepts an email address there
+      const res = await axios.post(`${API_BASE}/api/auth/login/`, {
+        username: identifier,
+        password,
+      })
+
+      // Save what the rest of the app needs (usePlan and the pages read businessId)
       localStorage.setItem('token', res.data.token)
-      // PLAN: needed by usePlan() to fetch this business's plan
-      localStorage.setItem('businessId', res.data.business_id)
+      localStorage.setItem('businessId', res.data.businessId)
+      // If the user picked a plan before signing up, apply it now
+      const pending = localStorage.getItem('pendingPlan')
+      if (pending) {
+        try {
+          await axios.post(
+            `${API_BASE}/api/business/${res.data.businessId}/select-plan/`,
+            { tier: pending },
+            { headers: { Authorization: `Token ${res.data.token}` } }
+          )
+        } catch {
+          /* ignore — they'll still land on Starter */
+        }
+        localStorage.removeItem('pendingPlan')
+      }
+      localStorage.setItem('username', res.data.username)
+
       navigate('/dashboard')
     } catch (err) {
-      setError('Incorrect email or password')
+      setError(err.response?.data?.error || 'Could not reach the server. Is the backend running?')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -74,13 +102,14 @@ function Login() {
           <form onSubmit={handleSubmit}>
 
             <div className="field">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="identifier">Username or email</label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                id="identifier"
+                type="text"
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="your username or you@example.com"
                 required
               />
             </div>
@@ -90,6 +119,7 @@ function Login() {
               <input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
@@ -97,8 +127,8 @@ function Login() {
               />
             </div>
 
-            <button className="auth-submit" type="submit">
-              Sign in
+            <button className="auth-submit" type="submit" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
 
           </form>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Landing from './pages/landing'
 import Login from './pages/login'
 import Signup from './pages/signup'
+import ChoosePlan from './pages/choosePlan'
 import Dashboard from './pages/dashboard'
 import StockMovement from './pages/stockMovement'
 import Pos from './pages/pos'
@@ -20,6 +21,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/choose-plan" element={<ChoosePlan />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/stock-movement" element={<StockMovement />} />
         <Route path="/pos" element={<Pos />} />

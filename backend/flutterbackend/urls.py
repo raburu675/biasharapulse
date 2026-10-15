@@ -19,11 +19,17 @@ from django.urls import path
 from app.views import (
     dashboard_summary, pos_summary, stock_movements, create_sale,
     order_list, update_order_status, import_products, import_template, create_order,
-    business_plan, select_plan,
+    business_plan, select_plan, signup, login_view, logout_view, me,  
 )
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # AUTH
+    path('api/auth/signup/', signup, name='signup'),
+    path('api/auth/login/',  login_view, name='login'),
+    path('api/auth/logout/', logout_view, name='logout'),
+    path('api/auth/me/',     me, name='me'),
 
     # Existing
     path('api/dashboard/<int:business_id>/summary/', dashboard_summary),

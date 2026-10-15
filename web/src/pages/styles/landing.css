@@ -1651,3 +1651,176 @@ h1, h2, h3, h4, h5, h6 {
   .footer-top { grid-template-columns: 1fr; gap: 28px; padding-bottom: 32px; }
   .footer-bottom { flex-direction: column; align-items: flex-start; }
 }
+/* ═══════════════════════════════════════════════════════════
+   AUTH PROMPT MODAL
+   Shown when a signed-out user taps a pricing button or
+   "Start Free Now". Matches the sidebar's upgrade popup.
+   ═══════════════════════════════════════════════════════════ */
+
+.landing-auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 8, 9, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: landingAuthFade 0.18s ease;
+}
+
+@keyframes landingAuthFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.landing-auth-modal {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  background: #ffffff;
+  border: 1.5px solid #d4af37;
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+  animation: landingAuthIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes landingAuthIn {
+  from { transform: translateY(10px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+.landing-auth-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid #d4af37;
+  color: #b8941f;
+}
+
+.landing-auth-modal h3 {
+  margin: 0 0 8px;
+  font-family: "Cormorant", serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b0b0d;
+  letter-spacing: -0.01em;
+}
+
+.landing-auth-modal p {
+  margin: 0 0 20px;
+  font-family: "EB Garamond", serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b6b73;
+}
+
+.landing-auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-auth-btn {
+  display: block;
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.landing-auth-btn.solid {
+  background: #d4af37;
+  color: #0b0b0d;
+}
+
+.landing-auth-btn.solid:hover {
+  background: #e6c65a;
+  transform: translateY(-1px);
+}
+
+.landing-auth-btn.ghost {
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  color: #0F172A;
+}
+
+.landing-auth-btn.ghost:hover {
+  background: #E2E8F0;
+}
+
+.landing-auth-cancel {
+  margin-top: 6px;
+  padding: 8px;
+  background: none;
+  border: none;
+  color: #6b6b73;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.landing-auth-cancel:hover {
+  color: #0F172A;
+}
+
+/* Phone tweaks — matches the small-phone token scale */
+@media (max-width: 640px) {
+  .landing-auth-modal {
+    max-width: 320px;
+    padding: 22px 20px 18px;
+  }
+
+  .landing-auth-icon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 12px;
+  }
+
+  .landing-auth-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .landing-auth-modal h3 {
+    font-size: 15px;
+  }
+
+  .landing-auth-modal p {
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+
+  .landing-auth-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .landing-auth-overlay,
+  .landing-auth-modal {
+    animation: none;
+  }
+
+  .landing-auth-btn,
+  .landing-auth-cancel {
+    transition: none;
+  }
+}
