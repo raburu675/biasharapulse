@@ -393,10 +393,13 @@ function Landing() {
 
         <section className="hero">
           <span className="hero-pill">Developed for Kenyan SMEs 🇰🇪</span>
-          <h1>Run your business, not your spreadsheets</h1>
+          <h1>You know your shop but do you know your numbers?</h1>
           <p>
-            Stop wasting time digging through spreadsheets, receipts, and scattered records
-            just to figure out how your business is doing. BiasharaPulse brings your sales, expenses, inventory, and daily operations together in one simple platform. See what's selling, know what's running low, track where your money is going, and stay on top of your business in real time
+            POS, inventory, orders, expenses, and profit analytics — in one tool
+            built for Kenyan SMEs. Ring up a sale at the counter, track an
+            order on the same screen, and see your real business insights.
+            BiasharaPulse replaces the notebook, the spreadsheet, and the app you
+            never open — with one dashboard you'll actually use.
           </p>
           <div className="hero-cta-group">
             <button className="cta-primary" onClick={handleStartFree}>

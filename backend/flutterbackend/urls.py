@@ -19,7 +19,7 @@ from django.urls import path
 from app.views import (
     dashboard_summary, pos_summary, stock_movements, create_sale,
     order_list, update_order_status, import_products, import_template, create_order,
-    business_plan, select_plan, signup, login_view, logout_view, me,  
+    business_plan, select_plan, signup, login_view, logout_view, me, product_performance
 )
 
 urlpatterns = [
@@ -39,6 +39,7 @@ urlpatterns = [
     # GET  -> read the stock movement log
     # POST -> create a Stock In / Waste-Damage adjustment
     path('api/dashboard/<int:business_id>/stock-movements/', stock_movements, name='stock_movements'),
+    path('api/business/<int:business_id>/product-performance/', product_performance, name='product_performance'),
 
     # NEW — matches product_service.dart's createSale()
     path('create-sale/<int:business_id>/', create_sale, name='create_sale'),

@@ -1,625 +1,434 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import Sidebar from './sidebar'
-import './styles/productPerfomance.css'
 import LoadingScreen from './LoadingScreen'
 // Shared axios instance: sends the token and handles 401s
 import { api } from '../hooks/usePlan'
+import './styles/productPerfomance.css' // the only stylesheet for this page
 
-const sortOptions = [
-  { id: 'unitsSold', label: 'Highest Units Sold' },
-  { id: 'sellThrough', label: 'Highest Sell-Through Rate' },
-  { id: 'margin', label: 'Highest Profit Margin' },
-  { id: 'revenue', label: 'Highest Revenue' },
-  { id: 'stock', label: 'Lowest Stock Quantity' },
+const PERIODS = [7, 30, 90]
+
+const SORTS = [
+  { id: 'cover', label: 'Least stock cover' },
+  { id: 'velocity', label: 'Fastest selling' },
+  { id: 'dead', label: 'Longest without a sale' },
+  { id: 'margin', label: 'Highest margin' },
+  { id: 'profit', label: 'Highest profit' },
+  { id: 'name', label: 'Name (A–Z)' },
 ]
 
-const tierClass = (tier) => (tier === 'Star Performer' ? 'tier-star' : tier === 'Steady' ? 'tier-steady' : 'tier-slow')
-const stockClass = (status) => (status === 'Out of Stock' ? 'stock-out' : status === 'Low Stock' ? 'stock-low' : 'stock-ok')
+const FILTERS = [
+  { id: 'all', label: 'All products' },
+  { id: 'restock', label: 'Restock' },
+  { id: 'dead', label: 'Dead stock' },
+  { id: 'protect', label: 'Protect' },
+  { id: 'reprice', label: 'Reprice' },
+  { id: 'promote', label: 'Promote' },
+  { id: 'review', label: 'Review' },
+]
 
-function ProductPerfomance() {
+// Margin vs volume groups
+const QUAD = {
+  protect: { label: 'Protect', cls: 'pp-q-protect' },
+  reprice: { label: 'Reprice', cls: 'pp-q-reprice' },
+  promote: { label: 'Promote', cls: 'pp-q-promote' },
+  review: { label: 'Review', cls: 'pp-q-review' },
+}
+
+const kes = (n) => `KES ${Math.round(Number(n) || 0).toLocaleString()}`
+const pct = (n) => `${(Number(n) || 0).toFixed(1)}%`
+
+const median = (arr) => {
+  if (!arr.length) return 0
+  const s = [...arr].sort((a, b) => a - b)
+  const m = Math.floor(s.length / 2)
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+}
+
+const lastSaleText = (days) => {
+  if (days === null) return 'Never'
+  if (days === 0) return 'Today'
+  return `${days}d ago`
+}
+
+function ProductPerformance() {
+  const navigate = useNavigate()
   // Read on every render so it's fresh after login/signup
   const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
+  const username = localStorage.getItem('username')
 
-  const [inventory, setInventory] = useState([])
+  const [rows, setRows] = useState([])
+  const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [locked, setLocked] = useState(false) // plan below Growth
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
-  const [sort, setSort] = useState('unitsSold')
-  const [sortOpen, setSortOpen] = useState(false)
-  const [sellItem, setSellItem] = useState(null)
-  const [sellQty, setSellQty] = useState(1)
-  const [channel, setChannel] = useState('mpesa')
-  const [selling, setSelling] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
-  const [savingProduct, setSavingProduct] = useState(false)
-  const [newProduct, setNewProduct] = useState({ name: '', category: '', cost: '', price: '', stock: '' })
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [filter, setFilter] = useState('all')
+  const [sort, setSort] = useState('cover')
 
-  const toggleMenu = () => setIsMenuOpen((prev) => !prev)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
 
-  // Pulls per-product analytics — cost, margin, sell-through, stock status
-  const fetchInventory = useCallback(async () => {
+  // Close the account menu on an outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const onOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [menuOpen])
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/api/auth/logout/')
+    } catch {
+      /* token may already be expired, still log out locally */
+    }
+    localStorage.removeItem('token')
+    localStorage.removeItem('businessId')
+    localStorage.removeItem('username')
+    navigate('/login')
+  }
+
+  const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setLocked(false)
     try {
-      const res = await api.get(`/pos-summary/${BUSINESS_ID}/`)
-
-      // Lower tiers get a reduced response with no analytics
-      if (res.data.analytics_locked) {
-        setError('Product performance is included from Biashara Growth onwards.')
-        return
-      }
-
-      setInventory(res.data.products.map((p) => ({
+      const res = await api.get(`/api/business/${BUSINESS_ID}/product-performance/?days=${days}`)
+      setRows(res.data.products.map((p) => ({
         id: p.id,
         name: p.name,
-        category: p.category,
-        costPrice: Number(p.cost_price),
-        sellingPrice: Number(p.selling_price),
-        stockQuantity: p.stock_quantity,
-        unitsSold: p.units_sold,
-        totalRevenue: Number(p.total_revenue),
-        grossProfit: Number(p.gross_profit),
-        profitMargin: Number(p.profit_margin),
-        sellThroughRate: Number(p.sell_through_rate),
-        performanceTier: p.performance_tier,
+        category: p.category || 'General',
+        cost: Number(p.cost_price),
+        price: Number(p.selling_price),
+        stock: p.stock_quantity,
         stockStatus: p.stock_status,
+        unitsPeriod: p.units_period,
+        unitsTotal: p.units_total,
+        profit: Number(p.gross_profit),
+        margin: Number(p.profit_margin),
+        sellThrough: Number(p.sell_through_rate),
+        velocity: Number(p.velocity),
+        cover: p.days_of_cover === null ? null : Number(p.days_of_cover),
+        sinceSale: p.days_since_last_sale,
       })))
     } catch (err) {
-      setError(err.response?.data?.error || err.message)
+      if (err.response?.data?.code === 'upgrade_required') setLocked(true)
+      else setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
-  }, [BUSINESS_ID])
+  }, [BUSINESS_ID, days])
 
   useEffect(() => {
-    fetchInventory()
-  }, [fetchInventory])
+    fetchData()
+  }, [fetchData])
 
-  const categories = useMemo(() => ['All', ...new Set(inventory.map((i) => i.category))], [inventory])
+  // Add insights to every product: stock state, margin/volume group, advice
+  const products = useMemo(() => {
+    const volMedian = median(rows.filter((r) => r.unitsPeriod > 0).map((r) => r.unitsPeriod))
+    const marginMedian = median(rows.map((r) => r.margin))
 
-  const totals = useMemo(() => {
-    const totalRevenue = inventory.reduce((s, i) => s + i.totalRevenue, 0)
-    const totalProfit = inventory.reduce((s, i) => s + i.grossProfit, 0)
-    const avgSellThrough = inventory.length
-      ? inventory.reduce((s, i) => s + i.sellThroughRate, 0) / inventory.length
-      : 0
-    return { totalRevenue, totalProfit, avgSellThrough }
-  }, [inventory])
+    return rows.map((r) => {
+      const selling = r.unitsPeriod > 0
+      const dead = r.stock > 0 && !selling
+      const tied = r.stock * r.cost
 
-  const topSeller = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.unitsSold - a.unitsSold)[0] : null, [inventory])
-  const mostProfitable = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.grossProfit - a.grossProfit)[0] : null, [inventory])
-  const bestMargin = useMemo(() => inventory.length ? [...inventory].sort((a, b) => b.profitMargin - a.profitMargin)[0] : null, [inventory])
+      let stockState = 'ok'
+      if (r.stock <= 0) stockState = 'out'
+      else if (!selling) stockState = 'idle'
+      else if (r.cover <= 7) stockState = 'critical'
+      else if (r.cover <= 14) stockState = 'soon'
+      else if (r.cover > 60) stockState = 'over'
 
-  const filtered = useMemo(() => {
-    let list = inventory.filter(
-      (i) => (category === 'All' || i.category === category) && i.name.toLowerCase().includes(search.toLowerCase())
-    )
+      const highVol = selling && r.unitsPeriod >= volMedian
+      const highMargin = r.margin >= marginMedian
+      const quad = highVol ? (highMargin ? 'protect' : 'reprice') : (highMargin ? 'promote' : 'review')
+
+      const needsRestock = (stockState === 'out' && selling) || stockState === 'critical' || stockState === 'soon'
+
+      // One clear piece of advice per product, most urgent first
+      let insight = { tone: 'info', text: 'Stock and sales are balanced. No action needed.' }
+      if (stockState === 'out' && selling) {
+        insight = { tone: 'danger', text: `Out of stock while selling ${r.velocity}/day. Restock now.` }
+      } else if (stockState === 'critical') {
+        insight = { tone: 'danger', text: `About ${r.cover} days of stock left at the current pace. Reorder now.` }
+      } else if (stockState === 'soon') {
+        insight = { tone: 'warn', text: `About ${r.cover} days of stock left. Plan a reorder soon.` }
+      } else if (dead) {
+        insight = {
+          tone: 'warn',
+          text: `No sales in ${days} days, with ${kes(tied)} tied up in stock. Consider a discount or stop reordering.`,
+        }
+      } else if (quad === 'reprice') {
+        insight = { tone: 'warn', text: `Sells well but margin is only ${pct(r.margin)}. Consider raising the price.` }
+      } else if (quad === 'promote') {
+        insight = { tone: 'info', text: `Healthy ${pct(r.margin)} margin but slow sales. Worth promoting.` }
+      } else if (quad === 'review') {
+        insight = { tone: 'info', text: 'Slow sales and a low margin. Review whether to keep stocking it.' }
+      } else if (stockState === 'over') {
+        insight = { tone: 'info', text: `${r.cover} days of stock on hand. Avoid reordering for now.` }
+      } else if (quad === 'protect') {
+        insight = { tone: 'good', text: 'Top performer. Keep it well stocked.' }
+      }
+
+      return { ...r, dead, tied, stockState, quad, needsRestock, insight }
+    })
+  }, [rows, days])
+
+  // Headline counts that double as shortcuts to filters
+  const summary = useMemo(() => {
+    const dead = products.filter((p) => p.dead)
+    return {
+      restock: products.filter((p) => p.needsRestock).length,
+      dead: dead.length,
+      deadCapital: dead.reduce((s, p) => s + p.tied, 0),
+      reprice: products.filter((p) => p.quad === 'reprice').length,
+    }
+  }, [products])
+
+  const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category))], [products])
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const match = {
+      all: () => true,
+      restock: (p) => p.needsRestock,
+      dead: (p) => p.dead,
+      protect: (p) => p.quad === 'protect',
+      reprice: (p) => p.quad === 'reprice',
+      promote: (p) => p.quad === 'promote',
+      review: (p) => p.quad === 'review',
+    }
     const sorters = {
-      margin: (a, b) => b.profitMargin - a.profitMargin,
-      unitsSold: (a, b) => b.unitsSold - a.unitsSold,
-      stock: (a, b) => a.stockQuantity - b.stockQuantity,
-      sellThrough: (a, b) => b.sellThroughRate - a.sellThroughRate,
-      revenue: (a, b) => b.totalRevenue - a.totalRevenue,
+      cover: (a, b) => (a.cover ?? Infinity) - (b.cover ?? Infinity),
+      velocity: (a, b) => b.velocity - a.velocity,
+      dead: (a, b) => (b.sinceSale ?? 9999) - (a.sinceSale ?? 9999),
+      margin: (a, b) => b.margin - a.margin,
+      profit: (a, b) => b.profit - a.profit,
+      name: (a, b) => a.name.localeCompare(b.name),
     }
-    return [...list].sort(sorters[sort])
-  }, [inventory, search, category, sort])
+    return products
+      .filter((p) => (category === 'All' || p.category === category) && match[filter](p) && (!q || p.name.toLowerCase().includes(q)))
+      .sort(sorters[sort])
+  }, [products, search, category, filter, sort])
 
-  const openSell = (item) => {
-    setSellItem(item)
-    setSellQty(1)
-    setChannel('mpesa')
+  const filtersActive = search || category !== 'All' || filter !== 'all'
+  const clearFilters = () => {
+    setSearch('')
+    setCategory('All')
+    setFilter('all')
   }
 
-  // Posts to create_sale — backend calculates amount and decrements stock
-  const confirmSale = async () => {
-    if (!sellItem || sellItem.stockQuantity === 0) return
-    setSelling(true)
-    try {
-      await api.post(`/create-sale/${BUSINESS_ID}/`, {
-        product_id: sellItem.id,
-        quantity: sellQty,
-        payment_channel: channel,
-      })
-      setSellItem(null)
-      fetchInventory()
-    } catch (err) {
-      alert(err.response?.data?.error || 'Could not record sale')
-    } finally {
-      setSelling(false)
-    }
+  // Full screen loader only on the first load, not when switching period
+  if (loading && rows.length === 0 && !error && !locked) {
+    return <LoadingScreen label="Loading product performance..." />
   }
-
-  // Posts to create_product — one-off addition outside the bulk import
-  const addProduct = async () => {
-    if (!newProduct.name || !newProduct.cost || !newProduct.price || !newProduct.stock) return
-    setSavingProduct(true)
-    try {
-      await api.post(`/api/products/${BUSINESS_ID}/create/`, {
-        name: newProduct.name,
-        category: newProduct.category || 'General',
-        cost_price: Number(newProduct.cost),
-        price: Number(newProduct.price),
-        stock_count: Number(newProduct.stock),
-      })
-      setNewProduct({ name: '', category: '', cost: '', price: '', stock: '' })
-      setAddOpen(false)
-      fetchInventory()
-    } catch (err) {
-      alert(err.response?.data?.error || 'Could not add product')
-    } finally {
-      setSavingProduct(false)
-    }
-  }
-
-  if (loading) return <LoadingScreen label="Loading products..." />
 
   return (
-    <div className="pos-root">
-      <div className="pos-shell">
+    <div className="pp-root">
+      <div className="pp-shell">
         <Sidebar current="product-performance" />
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <header className="sticky-navbar">
-            <div className="header-center">
-              <span className="brand-biashara">Biashara</span>
-              <span className="brand-pulse">Pulse</span>
+        <div className="pp-content">
+          {/* Top bar */}
+          <header className="pp-nav">
+            <div className="pp-nav-brand">
+              <span className="pp-brand-1">Biashara</span>
+              <span className="pp-brand-2">Pulse</span>
             </div>
 
-            <div className="header-right">
-              <div className="dropdown-container">
-                <button
-                  id="user-menu-btn"
-                  className="profile-btn"
-                  onClick={toggleMenu}
-                  aria-label="Toggle Menu"
-                  aria-expanded={isMenuOpen}
-                >
-                  <svg
-                    className="user-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </button>
+            <div className="pp-menu-wrap" ref={menuRef}>
+              <button
+                className="pp-avatar"
+                onClick={() => setMenuOpen((p) => !p)}
+                aria-label="Account menu"
+                aria-expanded={menuOpen}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
 
-                <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a href="/login" className="dropdown-item">Sign In</a>
-                  <a href="/signup" className="dropdown-item btn-signup">Sign Up</a>
+              <div className={`pp-menu ${menuOpen ? 'open' : ''}`}>
+                <div className="pp-menu-head">
+                  <span>Logged in as</span>
+                  <strong>{username || 'your account'}</strong>
                 </div>
+                <Link to="/dashboard" className="pp-menu-item" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+                <Link to="/account" className="pp-menu-item" onClick={() => setMenuOpen(false)}>My account</Link>
+                <button type="button" className="pp-menu-item" onClick={handleLogout}>Log out</button>
               </div>
             </div>
           </header>
 
-          <main className="pos-main">
-            <div className="pos-page-header">
+          <main className="pp-main">
+            {/* Page header */}
+            <div className="pp-head">
               <div>
-                <span className="page-eyebrow">PRODUCT ANALYTICS</span>
-                <h1 className="pos-title">Product Performance</h1>
-                <p className="pos-subtitle">Cost, margin, and sell-through across your inventory</p>
+                <span className="pp-eyebrow">Product analytics</span>
+                <h1>Product Performance</h1>
+                <p>What to restock, promote, reprice or drop, based on how each product sells.</p>
               </div>
 
-              <button className="insight-filter-btn" aria-label="Filter insights" onClick={() => setSortOpen(true)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 5h16" />
-                  <path d="M7 12h10" />
-                  <path d="M10 19h4" />
-                </svg>
-                <span>Filter</span>
-              </button>
+              {!locked && (
+                <div className="pp-periods" role="group" aria-label="Period">
+                  {PERIODS.map((d) => (
+                    <button key={d} className={days === d ? 'active' : ''} onClick={() => setDays(d)}>
+                      {d} days
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {error ? (
-              <div className="empty-state">
-                <div>
-                  <strong>Couldn't load products</strong>
-                  <span>{error}</span>
-                </div>
+            {locked && (
+              <div className="pp-state">
+                <strong>Product performance is a Growth feature</strong>
+                <p>See velocity, stock cover and dead stock for every product from Biashara Growth onwards.</p>
+                <Link to="/?view=landing#pricing" className="pp-btn">View pricing</Link>
               </div>
-            ) : (
+            )}
+
+            {error && (
+              <div className="pp-state">
+                <strong>Couldn't load products</strong>
+                <p>{error}</p>
+                <button className="pp-btn" onClick={fetchData}>Try again</button>
+              </div>
+            )}
+
+            {!locked && !error && products.length === 0 && (
+              <div className="pp-state">
+                <strong>No products yet</strong>
+                <p>Import a spreadsheet or add products, then record sales to see performance here.</p>
+              </div>
+            )}
+
+            {!locked && !error && products.length > 0 && (
               <>
-                <div className="metrics-card">
-                  <div className="metric metric-main">
-                    <span className="metric-label">Total Sales</span>
-                    <span className="metric-value">KES {totals.totalRevenue.toLocaleString()}</span>
-                    <span className="metric-note">Revenue generated</span>
-                  </div>
-
-                  <div className="metric">
-                    <span className="metric-label">Gross Profit</span>
-                    <span className="metric-value highlight">KES {totals.totalProfit.toLocaleString()}</span>
-                    <span className="metric-note">After product costs</span>
-                  </div>
-
-                  <div className="metric">
-                    <span className="metric-label">Avg Sell-Through</span>
-                    <span className="metric-value">{totals.avgSellThrough.toFixed(1)}%</span>
-                    <span className="metric-note">Inventory movement</span>
-                  </div>
-                </div>
-
-                {inventory.length > 0 && (
-                  <div className="spotlight-scroll">
-                    {topSeller && (
-                      <div className="spotlight-card">
-                        <div className="spotlight-top">
-                          <span className="spotlight-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="m3 17 6-6 4 4 8-9" />
-                              <path d="M17 6h4v4" />
-                            </svg>
-                          </span>
-                          <span className="spotlight-badge">TOP SELLER</span>
-                        </div>
-                        <p className="spotlight-name">{topSeller.name}</p>
-                        <span className="spotlight-metric">{topSeller.unitsSold} units sold</span>
-                      </div>
-                    )}
-
-                    {mostProfitable && (
-                      <div className="spotlight-card">
-                        <div className="spotlight-top">
-                          <span className="spotlight-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 2v20" />
-                              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7" />
-                            </svg>
-                          </span>
-                          <span className="spotlight-badge">MOST PROFITABLE</span>
-                        </div>
-                        <p className="spotlight-name">{mostProfitable.name}</p>
-                        <span className="spotlight-metric">KES {mostProfitable.grossProfit.toLocaleString()}</span>
-                      </div>
-                    )}
-
-                    {bestMargin && (
-                      <div className="spotlight-card">
-                        <div className="spotlight-top">
-                          <span className="spotlight-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M4 19V5" />
-                              <path d="M4 19h16" />
-                              <path d="m7 15 4-5 3 3 5-7" />
-                            </svg>
-                          </span>
-                          <span className="spotlight-badge">BEST MARGIN</span>
-                        </div>
-                        <p className="spotlight-name">{bestMargin.name}</p>
-                        <span className="spotlight-metric">{bestMargin.profitMargin.toFixed(1)}% margin</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="search-row">
-                  <div className="search-box">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m20 20-4-4" />
-                    </svg>
-
-                    <input
-                      className="search-input"
-                      placeholder="Search products..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-
-                    {search && (
-                      <button className="search-clear" onClick={() => setSearch('')} aria-label="Clear search">
-                        ×
-                      </button>
-                    )}
-                  </div>
-
-                  <button className="qr-btn" aria-label="Scan product">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 8V5a1 1 0 0 1 1-1h3" />
-                      <path d="M16 4h3a1 1 0 0 1 1 1v3" />
-                      <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
-                      <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
-                      <path d="M7 12h10" />
-                    </svg>
+                {/* Action summary: each tile filters the list */}
+                <div className="pp-summary">
+                  <button className="pp-tile" onClick={() => setFilter('restock')}>
+                    <span className="pp-tile-label">Restock needed</span>
+                    <span className="pp-tile-value">{summary.restock}</span>
+                    <span className="pp-tile-note">Under 14 days of cover or out of stock</span>
+                  </button>
+                  <button className="pp-tile" onClick={() => setFilter('dead')}>
+                    <span className="pp-tile-label">Dead stock</span>
+                    <span className="pp-tile-value">{summary.dead}</span>
+                    <span className="pp-tile-note">No sales in {days} days</span>
+                  </button>
+                  <button className="pp-tile" onClick={() => setFilter('dead')}>
+                    <span className="pp-tile-label">Cash tied in dead stock</span>
+                    <span className="pp-tile-value">{kes(summary.deadCapital)}</span>
+                    <span className="pp-tile-note">At cost price</span>
+                  </button>
+                  <button className="pp-tile" onClick={() => setFilter('reprice')}>
+                    <span className="pp-tile-label">Reprice candidates</span>
+                    <span className="pp-tile-value">{summary.reprice}</span>
+                    <span className="pp-tile-note">High volume, low margin</span>
                   </button>
                 </div>
 
-                <div className="category-scroll">
-                  {categories.map((c) => (
-                    <button
-                      key={c}
-                      className={`cat-chip ${category === c ? 'active' : ''}`}
-                      onClick={() => setCategory(c)}
-                    >
-                      {c}
+                {/* Search, category and sort */}
+                <div className="pp-toolbar">
+                  <div className="pp-search">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m20 20-4-4" />
+                    </svg>
+                    <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                  </div>
+
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+                    {categories.map((c) => <option key={c} value={c}>{c === 'All' ? 'All categories' : c}</option>)}
+                  </select>
+
+                  <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort by">
+                    {SORTS.map((s) => <option key={s.id} value={s.id}>Sort: {s.label}</option>)}
+                  </select>
+                </div>
+
+                <div className="pp-chips">
+                  {FILTERS.map((f) => (
+                    <button key={f.id} className={`pp-chip ${filter === f.id ? 'active' : ''}`} onClick={() => setFilter(f.id)}>
+                      {f.label}
                     </button>
                   ))}
                 </div>
 
-                <div className="product-list-heading">
-                  <div>
-                    <strong>Products</strong>
-                    <span>{filtered.length} showing</span>
-                  </div>
+                <div className="pp-count">
+                  <span>Showing <strong>{visible.length}</strong> of {products.length} products</span>
+                  {filtersActive && <button onClick={clearFilters}>Clear filters</button>}
                 </div>
 
-                {filtered.length === 0 ? (
-                  <div className="empty-state">
-                    <div>
-                      <strong>{inventory.length === 0 ? 'No products yet' : 'No matching products'}</strong>
-                      <span>
-                        {inventory.length === 0
-                          ? 'Add a product below or import a spreadsheet.'
-                          : 'Try changing your search or category filter.'}
-                      </span>
-                    </div>
+                {visible.length === 0 ? (
+                  <div className="pp-state">
+                    <strong>No matching products</strong>
+                    <p>Try changing your search or filters.</p>
                   </div>
                 ) : (
-                  <div className="product-grid">
-                    {filtered.map((item) => (
-                      <div className="product-card" key={item.id}>
-                        <div className="product-card-top">
+                  <div className="pp-list">
+                    {visible.map((p) => (
+                      <article className="pp-card" key={p.id}>
+                        <div className="pp-card-head">
                           <div>
-                            <p className="product-name">{item.name}</p>
-
-                            <div className="product-meta-row">
-                              <span className="product-category">{item.category}</span>
-                              <span className={`tier-badge ${tierClass(item.performanceTier)}`}>
-                                {item.performanceTier}
-                              </span>
-                            </div>
+                            <h3>{p.name}</h3>
+                            <span className="pp-cat">{p.category}</span>
                           </div>
-
-                          <div className="product-card-badges">
-                            <span className="margin-badge">{item.profitMargin.toFixed(1)}% Margin</span>
-                            <span className={`stock-badge ${stockClass(item.stockStatus)}`}>
-                              {item.stockStatus}
-                            </span>
-                          </div>
+                          <span className={`pp-badge ${QUAD[p.quad].cls}`}>{QUAD[p.quad].label}</span>
                         </div>
 
-                        <div className="product-divider" />
+                        {/* The one thing to do about this product */}
+                        <div className={`pp-insight pp-tone-${p.insight.tone}`}>{p.insight.text}</div>
 
-                        <div className="stats-row">
-                          <div className="stat">
-                            <span className="stat-label">Cost</span>
-                            <span className="stat-value">KES {item.costPrice}</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">Price</span>
-                            <span className="stat-value">KES {item.sellingPrice}</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">In Stock</span>
-                            <span className="stat-value">{item.stockQuantity} pcs</span>
-                          </div>
+                        <span className="pp-label">Velocity and cover · last {days} days</span>
+                        <div className="pp-stats">
+                          <div><span>Units sold</span><strong>{p.unitsPeriod.toLocaleString()}</strong></div>
+                          <div><span>Per day</span><strong>{p.velocity}</strong></div>
+                          <div><span>Days of cover</span><strong>{p.cover === null ? '—' : `${p.cover}d`}</strong></div>
+                          <div><span>Last sale</span><strong>{lastSaleText(p.sinceSale)}</strong></div>
                         </div>
 
-                        <div className="stats-row">
-                          <div className="stat">
-                            <span className="stat-label">Units Sold</span>
-                            <span className="stat-value">{item.unitsSold}</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">Sell-Through</span>
-                            <span className="stat-value">{item.sellThroughRate.toFixed(1)}%</span>
-                          </div>
-
-                          <div className="stat">
-                            <span className="stat-label">Profit</span>
-                            <span className="stat-value bold">KES {item.grossProfit.toLocaleString()}</span>
-                          </div>
+                        <span className="pp-label">Pricing and stock</span>
+                        <div className="pp-stats">
+                          <div><span>Price</span><strong>{kes(p.price)}</strong></div>
+                          <div><span>Cost</span><strong>{kes(p.cost)}</strong></div>
+                          <div><span>Margin</span><strong>{pct(p.margin)}</strong></div>
+                          <div><span>In stock</span><strong>{p.stock} pcs</strong></div>
                         </div>
 
-                        <button
-                          className="sell-btn"
-                          disabled={item.stockQuantity === 0}
-                          onClick={() => openSell(item)}
-                        >
-                          {item.stockQuantity === 0 ? 'Out of Stock' : 'Record Sale'}
-                        </button>
-                      </div>
+                        <div className="pp-foot">
+                          <span className={`pp-pill pp-stock-${p.stockStatus.replace(/\s/g, '').toLowerCase()}`}>
+                            {p.stockStatus}
+                          </span>
+                          <span className="pp-foot-text">
+                            All time: {p.unitsTotal.toLocaleString()} sold · {kes(p.profit)} profit · {pct(p.sellThrough)} sell-through
+                          </span>
+                        </div>
+                      </article>
                     ))}
                   </div>
                 )}
+
+                <p className="pp-note">
+                  Groups compare each product with your median: <strong>Protect</strong> sells well with a good margin,
+                  <strong> Reprice</strong> sells well but earns little, <strong>Promote</strong> earns well but sells slowly,
+                  <strong> Review</strong> does neither. Days of cover is stock on hand divided by units sold per day.
+                </p>
               </>
             )}
-
-            <button className="fab" onClick={() => setAddOpen(true)}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              Add Product
-            </button>
           </main>
         </div>
       </div>
-
-      {/* Sell modal */}
-      {sellItem && (
-        <div className="modal-overlay" onClick={() => setSellItem(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <p className="modal-title">Record Sale — {sellItem.name}</p>
-            <p className="modal-subtext">{sellItem.stockQuantity} units in stock</p>
-
-            <p className="field-label">Quantity</p>
-            <div className="stepper-row">
-              <button className="stepper-btn" onClick={() => setSellQty(Math.max(1, sellQty - 1))} disabled={sellQty <= 1}>−</button>
-              <span className="stepper-value">{sellQty}</span>
-              <button className="stepper-btn" onClick={() => setSellQty(Math.min(sellItem.stockQuantity, sellQty + 1))} disabled={sellQty >= sellItem.stockQuantity}>+</button>
-            </div>
-
-            <p className="field-label">Payment Channel</p>
-            <div className="channel-row">
-              {['mpesa', 'cash', 'card'].map((c) => (
-                <button
-                  key={c}
-                  className={`channel-chip ${channel === c ? 'active' : ''}`}
-                  onClick={() => setChannel(c)}
-                >
-                  {c === 'mpesa' ? 'M-Pesa' : c === 'cash' ? 'Cash' : 'Card'}
-                </button>
-              ))}
-            </div>
-
-            <p className="modal-total">Total: KES {(sellItem.sellingPrice * sellQty).toLocaleString()}</p>
-
-            <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setSellItem(null)}>Cancel</button>
-              <button className="modal-btn confirm" onClick={confirmSale} disabled={selling}>
-                {selling ? 'Recording...' : 'Confirm Sale'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add product modal */}
-      {addOpen && (
-        <div className="modal-overlay" onClick={() => setAddOpen(false)}>
-          <div className="modal-card product-entry-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="product-entry-header">
-              <div className="product-entry-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v18" />
-                  <path d="M3 12h18" />
-                  <rect x="4" y="4" width="16" height="16" rx="3" />
-                </svg>
-              </div>
-
-              <div>
-                <p className="modal-title">Add Product</p>
-                <p className="product-entry-subtitle">Enter product details manually</p>
-              </div>
-            </div>
-
-            <div className="product-entry-section">
-              <span className="entry-section-label">PRODUCT DETAILS</span>
-
-              <div className="entry-field">
-                <label>Product Name</label>
-                <input
-                  className="modal-input"
-                  placeholder="e.g. Premium T-Shirt"
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                />
-              </div>
-
-              <div className="entry-field">
-                <label>Category</label>
-                <input
-                  className="modal-input"
-                  placeholder="e.g. Clothing"
-                  value={newProduct.category}
-                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="product-entry-section">
-              <span className="entry-section-label">PRICING</span>
-
-              <div className="entry-grid">
-                <div className="entry-field">
-                  <label>Cost Price</label>
-                  <div className="price-input">
-                    <span>KES</span>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={newProduct.cost}
-                      onChange={(e) => setNewProduct({ ...newProduct, cost: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="entry-field">
-                  <label>Selling Price</label>
-                  <div className="price-input">
-                    <span>KES</span>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={newProduct.price}
-                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="product-entry-section">
-              <span className="entry-section-label">INVENTORY</span>
-
-              <div className="entry-field">
-                <label>Opening Stock</label>
-                <div className="stock-input">
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={newProduct.stock}
-                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                  />
-                  <span>units</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="entry-info">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 11v5" />
-                <path d="M12 8h.01" />
-              </svg>
-              <span>You can also scan a product barcode or QR code from the POS screen.</span>
-            </div>
-
-            <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setAddOpen(false)}>Cancel</button>
-              <button className="modal-btn confirm" onClick={addProduct} disabled={savingProduct}>
-                {savingProduct ? 'Saving...' : 'Add Product'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sort sheet */}
-      {sortOpen && (
-        <div className="modal-overlay" onClick={() => setSortOpen(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <p className="modal-title">Sort Products By</p>
-
-            {sortOptions.map((opt) => (
-              <div
-                key={opt.id}
-                className={`sort-option ${sort === opt.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSort(opt.id)
-                  setSortOpen(false)
-                }}
-              >
-                {opt.label}
-                {sort === opt.id && '✓'}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-export default ProductPerfomance
+export default ProductPerformance
