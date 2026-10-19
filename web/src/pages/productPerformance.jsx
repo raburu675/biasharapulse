@@ -1,16 +1,16 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import Sidebar from './sidebar'
 import LoadingScreen from './LoadingScreen'
-// Shared axios instance: sends the token and handles 401s
 import { api } from '../hooks/usePlan'
-import './styles/productPerfomance.css' // the only stylesheet for this page
+import './styles/productPerfomance.css'
 
 const PERIODS = [7, 30, 90]
 
 const SORTS = [
-  { id: 'cover', label: 'Least stock cover' },
-  { id: 'velocity', label: 'Fastest selling' },
+  { id: 'cover', label: 'Running out first' },
+  { id: 'units', label: 'Most units sold' },
+  { id: 'revenue', label: 'Highest revenue' },
   { id: 'dead', label: 'Longest without a sale' },
   { id: 'margin', label: 'Highest margin' },
   { id: 'profit', label: 'Highest profit' },
@@ -27,8 +27,7 @@ const FILTERS = [
   { id: 'review', label: 'Review' },
 ]
 
-// Margin vs volume groups
-const QUAD = {
+const GROUPS = {
   protect: { label: 'Protect', cls: 'pp-q-protect' },
   reprice: { label: 'Reprice', cls: 'pp-q-reprice' },
   promote: { label: 'Promote', cls: 'pp-q-promote' },
@@ -38,60 +37,42 @@ const QUAD = {
 const kes = (n) => `KES ${Math.round(Number(n) || 0).toLocaleString()}`
 const pct = (n) => `${(Number(n) || 0).toFixed(1)}%`
 
-const median = (arr) => {
-  if (!arr.length) return 0
-  const s = [...arr].sort((a, b) => a - b)
-  const m = Math.floor(s.length / 2)
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
-}
-
 const lastSaleText = (days) => {
   if (days === null) return 'Never'
   if (days === 0) return 'Today'
-  return `${days}d ago`
+  if (days === 1) return 'Yesterday'
+  return `${days} days ago`
+}
+
+const adviceText = (p, days) => {
+  switch (p.insight.code) {
+    case 'out_selling': return `Out of stock after selling ${p.unitsPeriod} units in ${days} days. Restock now.`
+    case 'critical': return 'Stock covers about a week or less of sales. Reorder now.'
+    case 'soon': return 'Stock covers under two weeks of sales. Plan a reorder soon.'
+    case 'dead': return `No sales in ${days} days, with ${kes(p.stockValue)} tied up in stock. Consider a discount or stop reordering.`
+    case 'reprice': return `Sells well but margin is only ${pct(p.margin)}. Consider raising the price.`
+    case 'promote': return `Healthy ${pct(p.margin)} margin but slow sales. Worth promoting.`
+    case 'review': return 'Slow sales and a low margin. Review whether to keep stocking it.'
+    case 'over': return 'Over two months of stock on hand. Avoid reordering for now.'
+    case 'protect': return 'Top performer. Keep it well stocked.'
+    default: return 'Stock and sales are balanced. No action needed.'
+  }
 }
 
 function ProductPerformance() {
-  const navigate = useNavigate()
-  // Read on every render so it's fresh after login/signup
   const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
-  const username = localStorage.getItem('username')
 
-  const [rows, setRows] = useState([])
+  const [products, setProducts] = useState([])
+  const [summary, setSummary] = useState({ restock: 0, dead: 0, dead_capital: 0, reprice: 0 })
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [locked, setLocked] = useState(false) // plan below Growth
+  const [locked, setLocked] = useState(false)
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState('cover')
-
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  // Close the account menu on an outside click
-  useEffect(() => {
-    if (!menuOpen) return
-    const onOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onOutside)
-    return () => document.removeEventListener('mousedown', onOutside)
-  }, [menuOpen])
-
-  const handleLogout = async () => {
-    try {
-      await api.post('/api/auth/logout/')
-    } catch {
-      /* token may already be expired, still log out locally */
-    }
-    localStorage.removeItem('token')
-    localStorage.removeItem('businessId')
-    localStorage.removeItem('username')
-    navigate('/login')
-  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -99,22 +80,33 @@ function ProductPerformance() {
     setLocked(false)
     try {
       const res = await api.get(`/api/business/${BUSINESS_ID}/product-performance/?days=${days}`)
-      setRows(res.data.products.map((p) => ({
+      setSummary(res.data.summary)
+      setProducts(res.data.products.map((p) => ({
         id: p.id,
         name: p.name,
         category: p.category || 'General',
         cost: Number(p.cost_price),
         price: Number(p.selling_price),
         stock: p.stock_quantity,
+        reorder: p.reorder_point,
         stockStatus: p.stock_status,
         unitsPeriod: p.units_period,
+        revenuePeriod: Number(p.revenue_period),
         unitsTotal: p.units_total,
         profit: Number(p.gross_profit),
         margin: Number(p.profit_margin),
         sellThrough: Number(p.sell_through_rate),
-        velocity: Number(p.velocity),
         cover: p.days_of_cover === null ? null : Number(p.days_of_cover),
         sinceSale: p.days_since_last_sale,
+        unitProfit: Number(p.profit_per_unit),
+        stockValue: Number(p.stock_value),
+        potential: Number(p.potential_profit),
+        share: Number(p.profit_share),
+        rank: p.profit_rank,
+        group: p.group,
+        dead: p.is_dead,
+        needsRestock: p.needs_restock,
+        insight: p.insight,
       })))
     } catch (err) {
       if (err.response?.data?.code === 'upgrade_required') setLocked(true)
@@ -128,69 +120,6 @@ function ProductPerformance() {
     fetchData()
   }, [fetchData])
 
-  // Add insights to every product: stock state, margin/volume group, advice
-  const products = useMemo(() => {
-    const volMedian = median(rows.filter((r) => r.unitsPeriod > 0).map((r) => r.unitsPeriod))
-    const marginMedian = median(rows.map((r) => r.margin))
-
-    return rows.map((r) => {
-      const selling = r.unitsPeriod > 0
-      const dead = r.stock > 0 && !selling
-      const tied = r.stock * r.cost
-
-      let stockState = 'ok'
-      if (r.stock <= 0) stockState = 'out'
-      else if (!selling) stockState = 'idle'
-      else if (r.cover <= 7) stockState = 'critical'
-      else if (r.cover <= 14) stockState = 'soon'
-      else if (r.cover > 60) stockState = 'over'
-
-      const highVol = selling && r.unitsPeriod >= volMedian
-      const highMargin = r.margin >= marginMedian
-      const quad = highVol ? (highMargin ? 'protect' : 'reprice') : (highMargin ? 'promote' : 'review')
-
-      const needsRestock = (stockState === 'out' && selling) || stockState === 'critical' || stockState === 'soon'
-
-      // One clear piece of advice per product, most urgent first
-      let insight = { tone: 'info', text: 'Stock and sales are balanced. No action needed.' }
-      if (stockState === 'out' && selling) {
-        insight = { tone: 'danger', text: `Out of stock while selling ${r.velocity}/day. Restock now.` }
-      } else if (stockState === 'critical') {
-        insight = { tone: 'danger', text: `About ${r.cover} days of stock left at the current pace. Reorder now.` }
-      } else if (stockState === 'soon') {
-        insight = { tone: 'warn', text: `About ${r.cover} days of stock left. Plan a reorder soon.` }
-      } else if (dead) {
-        insight = {
-          tone: 'warn',
-          text: `No sales in ${days} days, with ${kes(tied)} tied up in stock. Consider a discount or stop reordering.`,
-        }
-      } else if (quad === 'reprice') {
-        insight = { tone: 'warn', text: `Sells well but margin is only ${pct(r.margin)}. Consider raising the price.` }
-      } else if (quad === 'promote') {
-        insight = { tone: 'info', text: `Healthy ${pct(r.margin)} margin but slow sales. Worth promoting.` }
-      } else if (quad === 'review') {
-        insight = { tone: 'info', text: 'Slow sales and a low margin. Review whether to keep stocking it.' }
-      } else if (stockState === 'over') {
-        insight = { tone: 'info', text: `${r.cover} days of stock on hand. Avoid reordering for now.` }
-      } else if (quad === 'protect') {
-        insight = { tone: 'good', text: 'Top performer. Keep it well stocked.' }
-      }
-
-      return { ...r, dead, tied, stockState, quad, needsRestock, insight }
-    })
-  }, [rows, days])
-
-  // Headline counts that double as shortcuts to filters
-  const summary = useMemo(() => {
-    const dead = products.filter((p) => p.dead)
-    return {
-      restock: products.filter((p) => p.needsRestock).length,
-      dead: dead.length,
-      deadCapital: dead.reduce((s, p) => s + p.tied, 0),
-      reprice: products.filter((p) => p.quad === 'reprice').length,
-    }
-  }, [products])
-
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category))], [products])
 
   const visible = useMemo(() => {
@@ -199,14 +128,15 @@ function ProductPerformance() {
       all: () => true,
       restock: (p) => p.needsRestock,
       dead: (p) => p.dead,
-      protect: (p) => p.quad === 'protect',
-      reprice: (p) => p.quad === 'reprice',
-      promote: (p) => p.quad === 'promote',
-      review: (p) => p.quad === 'review',
+      protect: (p) => p.group === 'protect',
+      reprice: (p) => p.group === 'reprice',
+      promote: (p) => p.group === 'promote',
+      review: (p) => p.group === 'review',
     }
     const sorters = {
       cover: (a, b) => (a.cover ?? Infinity) - (b.cover ?? Infinity),
-      velocity: (a, b) => b.velocity - a.velocity,
+      units: (a, b) => b.unitsPeriod - a.unitsPeriod,
+      revenue: (a, b) => b.revenuePeriod - a.revenuePeriod,
       dead: (a, b) => (b.sinceSale ?? 9999) - (a.sinceSale ?? 9999),
       margin: (a, b) => b.margin - a.margin,
       profit: (a, b) => b.profit - a.profit,
@@ -224,8 +154,7 @@ function ProductPerformance() {
     setFilter('all')
   }
 
-  // Full screen loader only on the first load, not when switching period
-  if (loading && rows.length === 0 && !error && !locked) {
+  if (loading && products.length === 0 && !error && !locked) {
     return <LoadingScreen label="Loading product performance..." />
   }
 
@@ -235,52 +164,23 @@ function ProductPerformance() {
         <Sidebar current="product-performance" />
 
         <div className="pp-content">
-          {/* Top bar */}
           <header className="pp-nav">
-            <div className="pp-nav-brand">
-              <span className="pp-brand-1">Biashara</span>
-              <span className="pp-brand-2">Pulse</span>
-            </div>
-
-            <div className="pp-menu-wrap" ref={menuRef}>
-              <button
-                className="pp-avatar"
-                onClick={() => setMenuOpen((p) => !p)}
-                aria-label="Account menu"
-                aria-expanded={menuOpen}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </button>
-
-              <div className={`pp-menu ${menuOpen ? 'open' : ''}`}>
-                <div className="pp-menu-head">
-                  <span>Logged in as</span>
-                  <strong>{username || 'your account'}</strong>
-                </div>
-                <Link to="/dashboard" className="pp-menu-item" onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                <Link to="/account" className="pp-menu-item" onClick={() => setMenuOpen(false)}>My account</Link>
-                <button type="button" className="pp-menu-item" onClick={handleLogout}>Log out</button>
-              </div>
-            </div>
+            <span className="header-dot" />
+            <span className="header-title">Product Performance</span>
           </header>
 
           <main className="pp-main">
-            {/* Page header */}
             <div className="pp-head">
-              <div>
-                <span className="pp-eyebrow">Product analytics</span>
+              <div className="pp-head-title">                
                 <h1>Product Performance</h1>
-                <p>What to restock, promote, reprice or drop, based on how each product sells.</p>
+                <p>What to restock, promote, reprice or drop — based on how each product sells.</p>
               </div>
 
               {!locked && (
                 <div className="pp-periods" role="group" aria-label="Period">
                   {PERIODS.map((d) => (
                     <button key={d} className={days === d ? 'active' : ''} onClick={() => setDays(d)}>
-                      {d} days
+                      {d}d
                     </button>
                   ))}
                 </div>
@@ -290,7 +190,7 @@ function ProductPerformance() {
             {locked && (
               <div className="pp-state">
                 <strong>Product performance is a Growth feature</strong>
-                <p>See velocity, stock cover and dead stock for every product from Biashara Growth onwards.</p>
+                <p>See sales, profit and stock insight for every product from Biashara Growth onwards.</p>
                 <Link to="/?view=landing#pricing" className="pp-btn">View pricing</Link>
               </div>
             )}
@@ -312,38 +212,40 @@ function ProductPerformance() {
 
             {!locked && !error && products.length > 0 && (
               <>
-                {/* Action summary: each tile filters the list */}
                 <div className="pp-summary">
-                  <button className="pp-tile" onClick={() => setFilter('restock')}>
+                  <button className="pp-tile pp-tile-danger" onClick={() => setFilter('restock')}>
                     <span className="pp-tile-label">Restock needed</span>
                     <span className="pp-tile-value">{summary.restock}</span>
-                    <span className="pp-tile-note">Under 14 days of cover or out of stock</span>
+                    <span className="pp-tile-note">Running low or out of stock</span>
                   </button>
-                  <button className="pp-tile" onClick={() => setFilter('dead')}>
+                  <button className="pp-tile pp-tile-gold" onClick={() => setFilter('dead')}>
                     <span className="pp-tile-label">Dead stock</span>
                     <span className="pp-tile-value">{summary.dead}</span>
                     <span className="pp-tile-note">No sales in {days} days</span>
                   </button>
-                  <button className="pp-tile" onClick={() => setFilter('dead')}>
-                    <span className="pp-tile-label">Cash tied in dead stock</span>
-                    <span className="pp-tile-value">{kes(summary.deadCapital)}</span>
-                    <span className="pp-tile-note">At cost price</span>
+                  <button className="pp-tile pp-tile-ink" onClick={() => setFilter('dead')}>
+                    <span className="pp-tile-label">Cash tied up</span>
+                    <span className="pp-tile-value">{kes(summary.dead_capital)}</span>
+                    <span className="pp-tile-note">Dead stock at cost price</span>
                   </button>
-                  <button className="pp-tile" onClick={() => setFilter('reprice')}>
+                  <button className="pp-tile pp-tile-burgundy" onClick={() => setFilter('reprice')}>
                     <span className="pp-tile-label">Reprice candidates</span>
                     <span className="pp-tile-value">{summary.reprice}</span>
                     <span className="pp-tile-note">High volume, low margin</span>
                   </button>
                 </div>
 
-                {/* Search, category and sort */}
                 <div className="pp-toolbar">
                   <div className="pp-search">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="11" cy="11" r="7" />
                       <path d="m20 20-4-4" />
                     </svg>
-                    <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                    <input
+                      placeholder="Search products..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
                   </div>
 
                   <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
@@ -357,7 +259,11 @@ function ProductPerformance() {
 
                 <div className="pp-chips">
                   {FILTERS.map((f) => (
-                    <button key={f.id} className={`pp-chip ${filter === f.id ? 'active' : ''}`} onClick={() => setFilter(f.id)}>
+                    <button
+                      key={f.id}
+                      className={`pp-chip ${filter === f.id ? 'active' : ''}`}
+                      onClick={() => setFilter(f.id)}
+                    >
                       {f.label}
                     </button>
                   ))}
@@ -378,36 +284,60 @@ function ProductPerformance() {
                     {visible.map((p) => (
                       <article className="pp-card" key={p.id}>
                         <div className="pp-card-head">
-                          <div>
+                          <div className="pp-card-title">
                             <h3>{p.name}</h3>
                             <span className="pp-cat">{p.category}</span>
                           </div>
-                          <span className={`pp-badge ${QUAD[p.quad].cls}`}>{QUAD[p.quad].label}</span>
+                          <span className={`pp-badge ${GROUPS[p.group].cls}`}>
+                            {GROUPS[p.group].label}
+                          </span>
                         </div>
 
-                        {/* The one thing to do about this product */}
-                        <div className={`pp-insight pp-tone-${p.insight.tone}`}>{p.insight.text}</div>
-
-                        <span className="pp-label">Velocity and cover · last {days} days</span>
-                        <div className="pp-stats">
-                          <div><span>Units sold</span><strong>{p.unitsPeriod.toLocaleString()}</strong></div>
-                          <div><span>Per day</span><strong>{p.velocity}</strong></div>
-                          <div><span>Days of cover</span><strong>{p.cover === null ? '—' : `${p.cover}d`}</strong></div>
-                          <div><span>Last sale</span><strong>{lastSaleText(p.sinceSale)}</strong></div>
+                        <div className={`pp-insight pp-tone-${p.insight.tone}`}>
+                          {adviceText(p, days)}
                         </div>
 
-                        <span className="pp-label">Pricing and stock</span>
-                        <div className="pp-stats">
-                          <div><span>Price</span><strong>{kes(p.price)}</strong></div>
-                          <div><span>Cost</span><strong>{kes(p.cost)}</strong></div>
-                          <div><span>Margin</span><strong>{pct(p.margin)}</strong></div>
-                          <div><span>In stock</span><strong>{p.stock} pcs</strong></div>
+                        <div className="pp-row">
+                          <span className="pp-row-label">Sales · last {days} days</span>
+                          <div className="pp-row-grid">
+                            <div><span>Units</span><strong>{p.unitsPeriod}</strong></div>
+                            <div><span>Revenue</span><strong>{kes(p.revenuePeriod)}</strong></div>
+                            <div><span>Last sale</span><strong>{lastSaleText(p.sinceSale)}</strong></div>
+                          </div>
+                        </div>
+
+                        <div className="pp-row">
+                          <span className="pp-row-label">Pricing</span>
+                          <div className="pp-row-grid">
+                            <div><span>Price</span><strong>{kes(p.price)}</strong></div>
+                            <div><span>Cost</span><strong>{kes(p.cost)}</strong></div>
+                            <div><span>Profit/unit</span><strong>{kes(p.unitProfit)}</strong></div>
+                            <div><span>Margin</span><strong>{pct(p.margin)}</strong></div>
+                          </div>
+                        </div>
+
+                        <div className="pp-row">
+                          <span className="pp-row-label">Stock</span>
+                          <div className="pp-row-grid">
+                            <div><span>In stock</span><strong>{p.stock}</strong></div>
+                            <div><span>Reorder at</span><strong>{p.reorder}</strong></div>
+                            <div><span>Value</span><strong>{kes(p.stockValue)}</strong></div>
+                            <div><span>Profit if sold</span><strong>{kes(p.potential)}</strong></div>
+                          </div>
                         </div>
 
                         <div className="pp-foot">
-                          <span className={`pp-pill pp-stock-${p.stockStatus.replace(/\s/g, '').toLowerCase()}`}>
-                            {p.stockStatus}
-                          </span>
+                          <div className="pp-foot-pills">
+                            <span className={`pp-pill pp-stock-${p.stockStatus.replace(/\s/g, '').toLowerCase()}`}>
+                              {p.stockStatus}
+                            </span>
+                            <span className="pp-pill pp-rank-pill">
+                              #{p.rank} of {products.length} by profit
+                            </span>
+                            <span className="pp-pill pp-share-pill">
+                              {pct(p.share)} of total profit
+                            </span>
+                          </div>
                           <span className="pp-foot-text">
                             All time: {p.unitsTotal.toLocaleString()} sold · {kes(p.profit)} profit · {pct(p.sellThrough)} sell-through
                           </span>
@@ -417,11 +347,35 @@ function ProductPerformance() {
                   </div>
                 )}
 
-                <p className="pp-note">
-                  Groups compare each product with your median: <strong>Protect</strong> sells well with a good margin,
-                  <strong> Reprice</strong> sells well but earns little, <strong>Promote</strong> earns well but sells slowly,
-                  <strong> Review</strong> does neither. Days of cover is stock on hand divided by units sold per day.
-                </p>
+                <div className="pp-note">
+                  <h4 className="pp-note-title">How to read this page</h4>
+
+                  <div className="pp-note-grid">
+                    <div>
+                      <span className="pp-note-tag pp-note-protect">Protect</span>
+                      <p>Sells well and earns a healthy margin. Keep it well stocked — it's carrying your profit.</p>
+                    </div>
+                    <div>
+                      <span className="pp-note-tag pp-note-reprice">Reprice</span>
+                      <p>Sells fast but the margin is thin. Consider raising the price or negotiating a better cost.</p>
+                    </div>
+                    <div>
+                      <span className="pp-note-tag pp-note-promote">Promote</span>
+                      <p>Healthy margin but moves slowly. Worth pushing with a discount, bundle or a spot on the counter.</p>
+                    </div>
+                    <div>
+                      <span className="pp-note-tag pp-note-review">Review</span>
+                      <p>Neither sells fast nor earns much. Consider dropping it, or test a different price point.</p>
+                    </div>
+                  </div>
+
+                  <div className="pp-note-extra">
+                    <span><strong>Share of profit</strong> — what portion of your total profit this product made.</span>
+                    <span><strong>Profit if sold out</strong> — the profit you'd earn if every unit currently in stock sold at full price.</span>
+                    <span><strong>Stock value</strong> — what the stock on hand is worth at cost price.</span>
+                    <span><strong>Days of cover</strong> — how many days the current stock lasts at the recent sales rate.</span>
+                  </div>
+                </div>
               </>
             )}
           </main>

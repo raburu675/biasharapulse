@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from statistics import median
 
 from rest_framework.decorators import (
     api_view, permission_classes, authentication_classes, throttle_classes,
@@ -342,12 +343,115 @@ def pos_summary(request, business_id):
         'best_margin': best_margin,
     })
 
+# @api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+# def product_performance(request, business_id):
+#     """
+#     Per-product performance over a period (?days=7|30|90): velocity,
+#     days of stock cover, last sale, margin and all-time totals.
+#     """
+#     try:
+#         business = Business.objects.get(id=business_id, owner=request.user)
+#     except Business.DoesNotExist:
+#         return Response({'error': 'Business not found'}, status=404)
+
+#     # PLAN GATE: Growth and above
+#     denied = require_feature(business, 'product_performance')
+#     if denied:
+#         return denied
+
+#     try:
+#         days = int(request.GET.get('days', 30))
+#     except ValueError:
+#         days = 30
+#     days = min(max(days, 1), 365)
+
+#     now = timezone.now()
+#     since = now - timedelta(days=days)
+#     sales = SaleRecord.objects.filter(business=business)
+
+#     # All-time totals and last sale date, per product
+#     totals = {
+#         r['product']: r
+#         for r in sales.values('product').annotate(
+#             units=Sum('quantity'), revenue=Sum('amount'), last=Max('created_at')
+#         )
+#     }
+#     # Totals inside the selected period
+#     recent = {
+#         r['product']: r
+#         for r in sales.filter(created_at__gte=since).values('product').annotate(
+#             units=Sum('quantity'), revenue=Sum('amount')
+#         )
+#     }
+
+#     data = []
+#     for p in Product.objects.filter(business=business):
+#         t = totals.get(p.id, {})
+#         r = recent.get(p.id, {})
+
+#         units_total = t.get('units') or 0
+#         revenue_total = t.get('revenue') or Decimal('0')
+#         units_period = r.get('units') or 0
+#         revenue_period = r.get('revenue') or Decimal('0')
+#         last_sale = t.get('last')
+
+#         price = Decimal(str(p.price))
+#         gross_profit = revenue_total - Decimal(units_total) * p.cost_price
+
+#         # Realised margin once there are sales, otherwise the unit margin
+#         if revenue_total > 0:
+#             margin = gross_profit / revenue_total * 100
+#         elif price > 0:
+#             margin = (price - p.cost_price) / price * 100
+#         else:
+#             margin = Decimal('0')
+
+#         handled = units_total + p.stock_count
+#         sell_through = (Decimal(units_total) / Decimal(handled) * 100) if handled > 0 else Decimal('0')
+
+#         velocity = units_period / days                      # units per day
+#         cover = round(p.stock_count / velocity, 1) if velocity > 0 else None
+
+#         if p.stock_count <= 0:
+#             stock_status = 'Out of Stock'
+#         elif p.stock_count <= p.reorder_point:
+#             stock_status = 'Low Stock'
+#         else:
+#             stock_status = 'In Stock'
+
+#         data.append({
+#             'id': p.id,
+#             'name': p.name,
+#             'category': p.category,
+#             'cost_price': p.cost_price,
+#             'selling_price': p.price,
+#             'stock_quantity': p.stock_count,
+#             'reorder_point': p.reorder_point,
+#             'stock_status': stock_status,
+#             'units_period': units_period,
+#             'revenue_period': revenue_period,
+#             'units_total': units_total,
+#             'revenue_total': revenue_total,
+#             'gross_profit': gross_profit,
+#             'profit_margin': round(margin, 1),
+#             'sell_through_rate': round(sell_through, 1),
+#             'velocity': round(velocity, 2),
+#             'days_of_cover': cover,
+#             'last_sale_at': last_sale,
+#             'days_since_last_sale': (now - last_sale).days if last_sale else None,
+#         })
+
+#     return Response({'days': days, 'products': data})
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def product_performance(request, business_id):
     """
-    Per-product performance over a period (?days=7|30|90): velocity,
-    days of stock cover, last sale, margin and all-time totals.
+    Per-product performance over a period (?days=7|30|90).
+    Returns finished numbers: sales, profit, stock value, profit share,
+    rank, margin/volume group, dead-stock and restock flags, advice code.
     """
     try:
         business = Business.objects.get(id=business_id, owner=request.user)
@@ -384,7 +488,8 @@ def product_performance(request, business_id):
         )
     }
 
-    data = []
+    # ── Pass 1: per-product numbers ──
+    items = []
     for p in Product.objects.filter(business=business):
         t = totals.get(p.id, {})
         r = recent.get(p.id, {})
@@ -396,21 +501,40 @@ def product_performance(request, business_id):
         last_sale = t.get('last')
 
         price = Decimal(str(p.price))
-        gross_profit = revenue_total - Decimal(units_total) * p.cost_price
+        cost = p.cost_price
+        gross_profit = revenue_total - Decimal(units_total) * cost
+        unit_profit = price - cost
 
         # Realised margin once there are sales, otherwise the unit margin
         if revenue_total > 0:
             margin = gross_profit / revenue_total * 100
         elif price > 0:
-            margin = (price - p.cost_price) / price * 100
+            margin = unit_profit / price * 100
         else:
             margin = Decimal('0')
 
         handled = units_total + p.stock_count
         sell_through = (Decimal(units_total) / Decimal(handled) * 100) if handled > 0 else Decimal('0')
 
-        velocity = units_period / days                      # units per day
+        velocity = units_period / days
         cover = round(p.stock_count / velocity, 1) if velocity > 0 else None
+
+        selling = units_period > 0
+        dead = p.stock_count > 0 and not selling
+
+        # Stock state, from days of cover
+        if p.stock_count <= 0:
+            stock_state = 'out'
+        elif not selling:
+            stock_state = 'idle'
+        elif cover <= 7:
+            stock_state = 'critical'
+        elif cover <= 14:
+            stock_state = 'soon'
+        elif cover > 60:
+            stock_state = 'over'
+        else:
+            stock_state = 'ok'
 
         if p.stock_count <= 0:
             stock_status = 'Out of Stock'
@@ -419,11 +543,11 @@ def product_performance(request, business_id):
         else:
             stock_status = 'In Stock'
 
-        data.append({
+        items.append({
             'id': p.id,
             'name': p.name,
             'category': p.category,
-            'cost_price': p.cost_price,
+            'cost_price': cost,
             'selling_price': p.price,
             'stock_quantity': p.stock_count,
             'reorder_point': p.reorder_point,
@@ -439,11 +563,74 @@ def product_performance(request, business_id):
             'days_of_cover': cover,
             'last_sale_at': last_sale,
             'days_since_last_sale': (now - last_sale).days if last_sale else None,
+            # derived
+            'profit_per_unit': unit_profit,
+            'stock_value': Decimal(p.stock_count) * cost,
+            'potential_profit': Decimal(p.stock_count) * unit_profit,
+            'is_dead': dead,
+            'stock_state': stock_state,
+            'needs_restock': (stock_state == 'out' and selling) or stock_state in ('critical', 'soon'),
+            '_selling': selling,
         })
 
-    return Response({'days': days, 'products': data})
+    # ── Pass 2: comparisons that need the whole catalogue ──
+    vol_median = median([i['units_period'] for i in items if i['_selling']] or [0])
+    margin_median = median([float(i['profit_margin']) for i in items] or [0])
 
+    total_profit = sum((max(i['gross_profit'], Decimal('0')) for i in items), Decimal('0'))
+    rank_of = {
+        i['id']: n + 1
+        for n, i in enumerate(sorted(items, key=lambda x: x['gross_profit'], reverse=True))
+    }
 
+    for i in items:
+        high_vol = i['_selling'] and i['units_period'] >= vol_median
+        high_margin = float(i['profit_margin']) >= margin_median
+        if high_vol:
+            group = 'protect' if high_margin else 'reprice'
+        else:
+            group = 'promote' if high_margin else 'review'
+
+        # One piece of advice per product, most urgent first
+        state = i['stock_state']
+        if state == 'out' and i['_selling']:
+            code, tone = 'out_selling', 'danger'
+        elif state == 'critical':
+            code, tone = 'critical', 'danger'
+        elif state == 'soon':
+            code, tone = 'soon', 'warn'
+        elif i['is_dead']:
+            code, tone = 'dead', 'warn'
+        elif group == 'reprice':
+            code, tone = 'reprice', 'warn'
+        elif group == 'promote':
+            code, tone = 'promote', 'info'
+        elif group == 'review':
+            code, tone = 'review', 'info'
+        elif state == 'over':
+            code, tone = 'over', 'info'
+        elif group == 'protect':
+            code, tone = 'protect', 'good'
+        else:
+            code, tone = 'balanced', 'info'
+
+        i['group'] = group
+        i['insight'] = {'code': code, 'tone': tone}
+        i['profit_share'] = round(
+            float(max(i['gross_profit'], Decimal('0')) / total_profit * 100) if total_profit > 0 else 0, 1
+        )
+        i['profit_rank'] = rank_of[i['id']]
+        del i['_selling']
+
+    dead_items = [i for i in items if i['is_dead']]
+    summary = {
+        'restock': sum(1 for i in items if i['needs_restock']),
+        'dead': len(dead_items),
+        'dead_capital': sum((i['stock_value'] for i in dead_items), Decimal('0')),
+        'reprice': sum(1 for i in items if i['group'] == 'reprice'),
+    }
+
+    return Response({'days': days, 'summary': summary, 'products': items})
 # ═══════════════════════════════════════════════════════════
 #  STOCK MOVEMENTS
 # ═══════════════════════════════════════════════════════════

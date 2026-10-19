@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework.authtoken',   
+    'rest_framework.authtoken',
     'app',
     'corsheaders',
 ]
@@ -65,13 +65,40 @@ TEMPLATES = [
 WSGI_APPLICATION = 'flutterbackend.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
+# ═══════════════════════════════════════════════════════════
+# DATABASE
+# ═══════════════════════════════════════════════════════════
+#
+# Only ONE of these blocks should be uncommented at a time.
+#
+# ── LOCAL (SQLite) — use when running on your laptop ──
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+#         conn_max_age=600,
+#     )
+# }
+#
+# ── RAILWAY (Postgres) — use when you move to Railway ──
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         conn_max_age=600,
+#         conn_health_checks=True,
+#     )
+# }
+#
+# ── RENDER (Postgres, free tier) — CURRENTLY ACTIVE ──
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         conn_max_age=600,
+#         conn_health_checks=True,
+#     )
+# }
 DATABASES = {
     'default': dj_database_url.config(
         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
         conn_max_age=600,
+        conn_health_checks=True,
     )
 }
 
@@ -94,13 +121,43 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
+# ═══════════════════════════════════════════════════════════
+# STATIC FILES
+# ═══════════════════════════════════════════════════════════
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# ── ORIGINAL (manifest version) — uncomment when you're ready
+#    to fail the build on missing static files (local, Railway, or
+#    any environment where you've verified every asset is present).
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# ── RENDER (non-manifest) — CURRENTLY ACTIVE
+#    Forgiving version for first-time deploys. Won't fail the build
+#    if a referenced static file is missing. Switch back to the
+#    manifest version once the deploy is stable.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+
+# ═══════════════════════════════════════════════════════════
+# CORS
+# ═══════════════════════════════════════════════════════════
+
+# ── ORIGINAL (allow all) — fine for local testing
+# CORS_ALLOW_ALL_ORIGINS = True
+
+# ── RENDER (specific origin) — CURRENTLY ACTIVE
+#    Replace the URL with your deployed frontend's actual hostname.
+#    Add more entries to the list if you have multiple frontends.
+CORS_ALLOWED_ORIGINS = [
+    'https://your-frontend-name.onrender.com',
+]
+
+
+# ═══════════════════════════════════════════════════════════
+# REST FRAMEWORK
+# ═══════════════════════════════════════════════════════════
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -108,6 +165,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',   # opt-in per view
+        'rest_framework.permissions.AllowAny',
     ],
 }

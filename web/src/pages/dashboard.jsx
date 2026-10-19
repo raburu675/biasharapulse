@@ -20,8 +20,6 @@ import { api } from '../hooks/usePlan'
 import './styles/dashboard.css'
 
 
-
-// ── Brand color system ─────────────────────────
 const BRAND = {
   burgundy: '#7A0C29',
   burgundyHover: '#5C0A20',
@@ -60,10 +58,9 @@ const getMovementColor = (m) => {
 }
 
 function Dashboard() {
-  // businessId comes from localStorage (set at login/signup)
   const BUSINESS_ID = Number(localStorage.getItem('businessId')) || null
+
   const [activeMovementTab, setActiveMovementTab] = useState(0)
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [period, setPeriod] = useState('monthly')
 
   const [summary, setSummary] = useState(null)
@@ -79,17 +76,14 @@ function Dashboard() {
   const [movementsLoading, setMovementsLoading] = useState(true)
   const [movementsError, setMovementsError] = useState(null)
 
-  // PLAN: gating + expiry state
   const { hasFeature, loading: planLoading, isExpired, plan } = usePlan()
   const stockLocked = !planLoading && !hasFeature('stock_movement')
 
-  // Expiry modal
   const [expiredOpen, setExpiredOpen] = useState(false)
   useEffect(() => {
     if (!planLoading && isExpired) setExpiredOpen(true)
   }, [planLoading, isExpired])
 
-  // Branded splash: held for at least 3 seconds, once per session
   const [minLoadDone, setMinLoadDone] = useState(
     () => sessionStorage.getItem('dashboardSplashSeen') === '1'
   )
@@ -103,7 +97,6 @@ function Dashboard() {
     return () => clearTimeout(timer)
   }, [minLoadDone])
 
-  // ── Fetch summary (guarded when not signed in) ──
   const fetchSummary = useCallback(async (p) => {
     if (!BUSINESS_ID) return
     setLoading(true)
@@ -122,7 +115,6 @@ function Dashboard() {
     fetchSummary(period)
   }, [period, fetchSummary])
 
-  // ── Fetch movements (guarded, skipped while locked) ──
   const fetchMovements = useCallback(async () => {
     if (!BUSINESS_ID) return
     setMovementsLoading(true)
@@ -142,9 +134,6 @@ function Dashboard() {
     fetchMovements()
   }, [fetchMovements, planLoading, stockLocked])
 
-  const toggleMenu = () => setIsMenuOpen((prev) => !prev)
-
-  // ── Import products ──
   const handleImport = async () => {
     if (!file || !BUSINESS_ID) return
     setImporting(true)
@@ -170,26 +159,12 @@ function Dashboard() {
     setImportResult(null)
   }
 
-  // Logout handler
-  const handleLogout = async () => {
-    try {
-      await api.post('/api/auth/logout/')
-    } catch {
-      /* ignore — we're logging out anyway */
-    }
-    localStorage.clear()
-    window.location.href = '/login'
-  }
-
-  // First load: branded splash
   if (!minLoadDone || (loading && !summary)) return <LoadingScreen label="Loading dashboard..." />
 
-  // Later reloads
   if (loading) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Loading dashboard...</p></main></div>
   if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
   if (!summary) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>No data yet.</p></main></div>
 
-  // ── Reshape API response ──
   const periodMap = {}
   summary.period_sales.forEach((r) => {
     const label = formatPeriodLabel(period, r.period)
@@ -229,123 +204,27 @@ function Dashboard() {
     <div className="app-shell">
       <Sidebar current="dashboard" />
       <main className="main">
-        {/* Header */}
         <header className="main-header">
-          <div className="header-right">
-            <button
-              id="user-menu-btn"
-              className="profile-btn"
-              onClick={toggleMenu}
-              aria-label="Toggle Menu"
-              aria-expanded={isMenuOpen}
-            >
-              <svg
-                className="user-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
-
-            <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-              {localStorage.getItem('token') ? (
-                <>
-                  <div className="dropdown-item dropdown-user">
-                    Signed in as <strong>{localStorage.getItem('username')}</strong>
-                  </div>
-                  <Link to="/account" className="dropdown-item">
-                    Account settings
-                  </Link>
-                  <button
-                    type="button"
-                    className="dropdown-item dropdown-signout"
-                    onClick={handleLogout}
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link to="/login" className="dropdown-item">Sign In</Link>
-                  <Link to="/signup" className="dropdown-item btn-signup">Sign Up</Link>
-                </>
-              )}
-            </div>
-          </div>
+          <span className="header-dot" />
+          <span className="header-title">Dashboard Overview</span>
         </header>
 
-        {/* Add products prompt */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            justifyContent: 'flex-start',
-            margin: '4px 0 24px',
-            gap: 20,
-            width: '100%',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 10,
-              width: '100%',
-              padding: '16px 18px',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div>
-              <h3
-                style={{
-                  fontSize: 16,
-                  fontWeight: 750,
-                  color: BRAND.ink,
-                  margin: 0,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Add your products
-              </h3>
-              <p
-                style={{
-                  fontSize: 12,
-                  color: BRAND.inkSoft,
-                  margin: '4px 0 0',
-                  lineHeight: 1.6,
-                }}
-              >
-                Import your product list to get started with inventory tracking.
-              </p>
-            </div>
-
-            <button className="import-btn" onClick={() => setShowImport(true)}>
-              <svg
-                width="12"
-                height="8"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M12 16V4" />
-                <path d="m7 9 5-5 5 5" />
-                <path d="M5 20h14" />
-              </svg>
-              Import Products
-            </button>
+        <section className="products-cta">
+          <div className="products-cta-text">
+            <h3>Add your products</h3>
+            <p>Import your product list to get started with inventory tracking.</p>
           </div>
-        </div>
 
-        {/* Import modal */}
+          <button className="import-btn" onClick={() => setShowImport(true)}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 16V4" />
+              <path d="m7 9 5-5 5 5" />
+              <path d="M5 20h14" />
+            </svg>
+            Import Products
+          </button>
+        </section>
+
         {showImport && (
           <div className="import-modal-overlay" onClick={closeImportModal}>
             <div className="import-modal" onClick={(e) => e.stopPropagation()}>
@@ -539,7 +418,6 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Hero Banner */}
         <section className="hero-banner">
           <div className="hero-banner-top">
             <div>
@@ -577,30 +455,18 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* Period toggle */}
-        <div style={{ display: 'flex', gap: 8, margin: '20px 0 4px' }}>
+        <div className="period-toggle">
           {PERIOD_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               onClick={() => setPeriod(opt.key)}
-              style={{
-                padding: '7px 13px',
-                borderRadius: 4,
-                border: `1px solid ${period === opt.key ? '#2D030D' : BRAND.line}`,
-                background: period === opt.key ? '#2D030D' : '#fff',
-                color: period === opt.key ? '#fff' : BRAND.ink,
-                fontSize: 8,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
+              className={`period-btn ${period === opt.key ? 'active' : ''}`}
             >
               {opt.label}
             </button>
           ))}
         </div>
 
-        {/* Analytics Grid */}
         <section className="analytics-grid">
           <div className="chart-section sales-card">
             <div className="chart-card-header">
@@ -611,7 +477,7 @@ function Dashboard() {
               <p className="chart-empty">No sales data yet — import products or record a sale to see this chart.</p>
             ) : (
               <>
-                <div style={{ height: 180, width: '100%' }}>
+                <div className="chart-body">
                   <ResponsiveContainer>
                     <BarChart data={salesData}>
                       <XAxis dataKey="label" stroke={BRAND.inkSoft} fontSize={10} tickLine={false} axisLine={false} />
@@ -637,7 +503,7 @@ function Dashboard() {
             {salesData.length === 0 ? (
               <p className="chart-empty">No margin data yet.</p>
             ) : (
-              <div style={{ height: 180, width: '100%' }}>
+              <div className="chart-body">
                 <ResponsiveContainer>
                   <AreaChart data={salesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <defs>
@@ -683,7 +549,7 @@ function Dashboard() {
               <p className="chart-empty">No sales recorded yet.</p>
             ) : (
               <div className="payment-channel-container">
-                <div style={{ flex: 1, height: '100%' }}>
+                <div style={{ flex: 1, height: 180 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={paymentSplit} innerRadius={32} outerRadius={52} paddingAngle={4} dataKey="value">
@@ -699,7 +565,7 @@ function Dashboard() {
                   {paymentSplit.map((item) => (
                     <div key={item.name} className="legend-item">
                       <span className="legend-swatch" style={{ backgroundColor: item.color }} />
-                      <span>{item.name}</span>
+                      <span style={{ flex: 1 }}>{item.name}</span>
                       <span className="legend-value">{item.value}%</span>
                     </div>
                   ))}
@@ -733,7 +599,6 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* Lower Feeds */}
         <section className="activity-grid">
           <div className="chart-section activity-card">
             <div className="chart-card-header">
@@ -746,19 +611,19 @@ function Dashboard() {
               <div className="feed-list">
                 {recentSales.map((sale) => (
                   <div key={sale.id} className="feed-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <span style={{
                         width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                         backgroundColor: PAYMENT_COLORS[sale.channel] || BRAND.amber,
                       }} />
-                      <div>
+                      <div style={{ minWidth: 0 }}>
                         <div className="feed-title">{sale.item}</div>
                         <div className="feed-sub">
                           {sale.id} <span className="feed-badge">{PAYMENT_LABELS[sale.channel] || sale.channel}</span>
                         </div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div className="feed-val" style={{ color: PAYMENT_COLORS[sale.channel] || BRAND.amber }}>{sale.amount}</div>
                       <div className="feed-sub">{sale.time}</div>
                     </div>
@@ -768,7 +633,6 @@ function Dashboard() {
             )}
           </div>
 
-          {/* Stock Audit Logs */}
           <div
             className="chart-section audit-card"
             style={stockLocked ? {
@@ -828,19 +692,19 @@ function Dashboard() {
                   <div className="feed-list">
                     {filtered.map((m) => (
                       <div key={m.id} className="feed-item">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                           <span style={{
                             width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                             backgroundColor: getMovementColor(m),
                           }} />
-                          <div>
+                          <div style={{ minWidth: 0 }}>
                             <div className="feed-title">{m.type}: {m.item}</div>
                             <div className="feed-sub">
                               By {m.user} <span className="feed-badge">{m.category}</span>
                             </div>
                           </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div className="feed-val" style={{ color: getMovementColor(m) }}>{m.qty}</div>
                           <div className="feed-sub">{new Date(m.time).toLocaleString()}</div>
                         </div>
@@ -899,7 +763,6 @@ function Dashboard() {
         </section>
       </main>
 
-      {/* Expiry modal */}
       <SubscriptionExpiredModal
         open={expiredOpen}
         plan={plan}

@@ -67,12 +67,12 @@
 
 @media (min-width: 900px) {
   .acct-layout {
-    --fs-label: 9.5px;
-    --fs-small: 10.5px;
-    --fs-body: 12px;
-    --fs-title: 14.5px;
-    --fs-section: 16.5px;
-    --fs-page: 22px;
+    --fs-label: 11px;
+    --fs-small: 13px;
+    --fs-body: 15px;
+    --fs-title: 18px;
+    --fs-section: 22px;
+    --fs-page: 28px;
   }
 }
 
@@ -114,7 +114,6 @@
   color: var(--ink);
 }
 
-/* Gold hairline under the title (same as .page-title::after) */
 .acct-header h1::after {
   content: "";
   position: absolute;
@@ -162,24 +161,20 @@
   overflow: hidden;
   border: 1px solid rgba(184, 144, 42, 0.35);
   background:
-    /* Burgundy glow from bottom-right, like the hero banner */
     radial-gradient(
       ellipse 70% 90% at 100% 100%,
       rgba(122, 12, 41, 0.5),
       transparent 62%
     ),
-    /* Faint burgundy wash from top-left */
     radial-gradient(
       ellipse 45% 60% at 0% 0%,
       rgba(122, 12, 41, 0.14),
       transparent 70%
     ),
-    /* Black base, warming to deep burgundy at the bottom */
     linear-gradient(180deg, #050505 0%, #0B0B0C 62%, #1A070C 100%);
   box-shadow: 0 22px 44px -22px rgba(0, 0, 0, 0.75);
 }
 
-/* Gold hairline across the top (like .hero-banner::before) */
 .acct-profile-card::before {
   content: "";
   position: absolute;
@@ -196,7 +191,6 @@
   z-index: 1;
 }
 
-/* Faint grid texture, exactly like the hero banner */
 .acct-profile-card::after {
   content: "";
   position: absolute;
@@ -297,7 +291,6 @@
 /* ═══ FORM CARD ═══ */
 
 .acct-form-card {
-  /* Gold hairline on the top edge (matches .chart-section::before) */
   overflow: hidden;
 }
 
@@ -416,6 +409,47 @@
 .acct-btn-secondary:hover {
   background: #E7E4DE;
   border-color: #D9D4CA;
+}
+
+/* ═══ SIGN OUT BUTTON ═══ */
+
+.acct-btn-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
+  color: var(--ink);
+  font-family: 'Cormorant', serif;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.acct-btn-signout svg {
+  flex-shrink: 0;
+  color: var(--burgundy);
+  transition: transform 0.15s ease;
+}
+
+.acct-btn-signout:hover {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+  color: var(--burgundy);
+}
+
+.acct-btn-signout:hover svg {
+  transform: translateX(2px);
+}
+
+.acct-btn-signout:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 /* ═══ DANGER ZONE ═══ */
@@ -540,7 +574,6 @@
 /* ═══ MOBILE ═══ */
 
 @media (max-width: 860px) {
-  /* Clear the fixed hamburger (top:6 + 28 button + 6 = 40px navbar) */
   .acct-page {
     padding-top: 56px;
   }
@@ -560,16 +593,16 @@
     right: 0;
 
     height: 40px;
-    padding: 0 12px 0 58px; /* 12 left + 34 button + 12 gap */
+    padding: 0 12px 0 58px;
 
     z-index: 99998;
 
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(14px) saturate(150%);
-    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
 
     border-bottom: 1px solid rgba(184, 144, 42, 0.45);
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
   }
 
   .acct-topbar-dot {
@@ -623,6 +656,11 @@
   .acct-danger-zone button,
   .acct-security-row button {
     width: 100%;
+  }
+
+  .acct-btn-signout {
+    width: 100%;
+    justify-content: center;
   }
 }
 

@@ -113,44 +113,8 @@ function StockMovement() {
 
         <div id="stock-movement-content-wrapper" className="stm-content-wrapper">
           <header className="sticky-navbar">
-            <div className="header-center">
-              <span className="brand-biashara">Biashara</span>
-              <span className="brand-pulse">Pulse</span>
-            </div>
-
-            <div className="header-right">
-              <div className="dropdown-container">
-                <button
-                  id="user-menu-btn"
-                  className="profile-btn"
-                  onClick={toggleMenu}
-                  aria-label="Toggle Menu"
-                  aria-expanded={isMenuOpen}
-                >
-                  <svg
-                    className="user-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </button>
-
-                <div className={`dropdown-menu ${isMenuOpen ? 'open' : ''}`}>
-                  <a href="/login" className="dropdown-item">
-                    Sign In
-                  </a>
-                  <a href="/signup" className="dropdown-item btn-signup">
-                    Sign Up
-                  </a>
-                </div>
-              </div>
-            </div>
+            <span className="header-dot" />
+            <span className="header-title">Stock Movement</span>
           </header>
 
           <main id="stock-movement-main-area" className="stm-main">

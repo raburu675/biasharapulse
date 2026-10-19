@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import Sidebar from './sidebar'
-// Shared axios instance: attaches the token and handles 401s
 import usePlan, { api } from '../hooks/usePlan'
 import './styles/pos.css'
 
@@ -14,10 +13,7 @@ const CHANNELS = [
 const SCAN_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
 
 function Pos() {
-  // Read on every render so it's fresh after login/signup
   const businessId = Number(localStorage.getItem('businessId')) || null
-
-  // PLAN: barcode scanning is a Growth-and-above feature
   const { hasFeature, loading: planLoading } = usePlan()
   const [showScanUpgrade, setShowScanUpgrade] = useState(false)
 
@@ -26,11 +22,11 @@ function Pos() {
   const [loadError, setLoadError] = useState('')
   const [query, setQuery] = useState('')
 
-  const [cart, setCart] = useState([]) // [{ product, qty }]
+  const [cart, setCart] = useState([])
   const [channel, setChannel] = useState('mpesa')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [complete, setComplete] = useState(null) // { items, total } after a sale
+  const [complete, setComplete] = useState(null)
 
   const [scannerOpen, setScannerOpen] = useState(false)
   const [scanMsg, setScanMsg] = useState('')
@@ -50,11 +46,8 @@ function Pos() {
     }
   }, [businessId])
 
-  useEffect(() => {
-    loadProducts()
-  }, [loadProducts])
+  useEffect(() => { loadProducts() }, [loadProducts])
 
-  // ── Cart actions ──
   const addToCart = (p) => {
     if (p.stock_quantity <= 0) return
     setComplete(null)
@@ -81,22 +74,16 @@ function Pos() {
   }
 
   const removeLine = (id) => setCart((prev) => prev.filter((l) => l.product.id !== id))
-
-  const clearCart = () => {
-    setCart([])
-    setError('')
-  }
+  const clearCart = () => { setCart([]); setError('') }
 
   const total = cart.reduce((sum, l) => sum + Number(l.product.selling_price) * l.qty, 0)
   const itemCount = cart.reduce((sum, l) => sum + l.qty, 0)
 
-  // ── Checkout: one create-sale call per cart line ──
   const checkout = async () => {
     if (cart.length === 0) return
     setSubmitting(true)
     setError('')
     const done = []
-
     try {
       for (const line of cart) {
         await api.post(`/create-sale/${businessId}/`, {
@@ -110,7 +97,6 @@ function Pos() {
       setCart([])
     } catch (err) {
       const msg = err.response?.data?.error || 'Could not complete the sale'
-      // Lines already recorded must leave the cart so they aren't charged twice
       setCart((prev) => prev.filter((l) => !done.includes(l.product.id)))
       setError(
         done.length > 0
@@ -119,11 +105,10 @@ function Pos() {
       )
     } finally {
       setSubmitting(false)
-      loadProducts() // refresh stock counts
+      loadProducts()
     }
   }
 
-  // ── Barcode handling (camera or a USB/Bluetooth scanner typing into the search box) ──
   const findByCode = (code) =>
     products.find((p) => p.barcode && String(p.barcode) === String(code).trim())
 
@@ -131,12 +116,8 @@ function Pos() {
     const now = Date.now()
     if (lastScan.current.code === code && now - lastScan.current.at < 1500) return
     lastScan.current = { code, at: now }
-
     const p = findByCode(code)
-    if (!p) {
-      setScanMsg(`No product matches code ${code}`)
-      return
-    }
+    if (!p) { setScanMsg(`No product matches code ${code}`); return }
     addToCart(p)
     setScanMsg(`Added ${p.name}`)
   }
@@ -146,20 +127,14 @@ function Pos() {
     if (e.key !== 'Enter') return
     const p = findByCode(query)
     if (p) {
-      // PLAN: barcode lookups are part of the scanning feature
-      if (!hasFeature('qr_scanning')) {
-        setShowScanUpgrade(true)
-        return
-      }
+      if (!hasFeature('qr_scanning')) { setShowScanUpgrade(true); return }
       addToCart(p)
       setQuery('')
     }
   }
 
-  // Camera scanner lifecycle
   useEffect(() => {
     if (!scannerOpen) return
-
     let stream = null
     let timer = null
     let active = true
@@ -171,30 +146,22 @@ function Pos() {
       }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        if (!active) {
-          stream.getTracks().forEach((t) => t.stop())
-          return
-        }
+        if (!active) { stream.getTracks().forEach((t) => t.stop()); return }
         videoRef.current.srcObject = stream
         await videoRef.current.play()
-
         const detector = new window.BarcodeDetector({ formats: SCAN_FORMATS })
         setScanMsg('Point the camera at a barcode')
         timer = setInterval(async () => {
           try {
             const codes = await detector.detect(videoRef.current)
             if (codes.length > 0) handleCodeRef.current(codes[0].rawValue)
-          } catch {
-            // ignore frames that fail to decode
-          }
+          } catch {}
         }, 400)
       } catch {
         setScanMsg('Could not access the camera. Check the browser permission.')
       }
     }
-
     start()
-
     return () => {
       active = false
       clearInterval(timer)
@@ -204,194 +171,250 @@ function Pos() {
 
   const openScanner = () => {
     if (planLoading) return
-    // PLAN: plans below Growth get the upgrade popup instead of the scanner
-    if (!hasFeature('qr_scanning')) {
-      setShowScanUpgrade(true)
-      return
-    }
+    if (!hasFeature('qr_scanning')) { setShowScanUpgrade(true); return }
     setScanMsg('')
     setScannerOpen(true)
   }
 
-  const filtered = products.filter((p) => {
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
-  })
+    if (!q) return products
+    return products.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+    )
+  }, [products, query])
 
   return (
     <div className="pos-shell">
       <Sidebar current="pos" />
 
-      <main className="pos-main">
-        <h1 className="pos-title">Point of Sale</h1>
+      <div className="pos-content">
+        <header className="pos-nav">
+          <span className="header-dot" />
+          <span className="header-title">Point of Sale</span>
+        </header>
 
-        <div className="pos-layout">
+        <main className="pos-main">
+          <header className="pos-header">
+            <div>
+              <h1 className="pos-title">Point of Sale</h1>
+              <p className="pos-subtitle">Ring up sales and accept payment</p>
+            </div>
+          </header>
 
-          {/* Products */}
-          <section>
-            <div className="pos-search-row">
-              <input
-                className="pos-search"
-                type="text"
-                placeholder="Search products or scan a barcode"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleSearchKey}
-              />
-              <button className="pos-scan-btn" onClick={openScanner} aria-label="Scan barcode">
+          <div className="pos-layout">
+            {/* Products */}
+            <section className="pos-products-panel">
+              <div className="pos-search-row">
+                <div className="pos-search-wrap">
+                  <svg className="pos-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    className="pos-search"
+                    type="text"
+                    placeholder="Search products or scan a barcode"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={handleSearchKey}
+                  />
+                </div>
+                <button className="pos-scan-btn" onClick={openScanner} aria-label="Scan barcode" title="Scan barcode">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                    <line x1="7" y1="8" x2="7" y2="16" />
+                    <line x1="11" y1="8" x2="11" y2="16" />
+                    <line x1="15" y1="8" x2="15" y2="16" />
+                    <line x1="18" y1="8" x2="18" y2="16" />
+                  </svg>
+                </button>
+              </div>
+
+              {loading ? (
+                <div className="pos-state">
+                  <div className="pos-spinner" />
+                  <p>Loading products...</p>
+                </div>
+              ) : loadError ? (
+                <div className="pos-state pos-state-error">
+                  <p>{loadError}</p>
+                  <button className="pos-retry" onClick={loadProducts}>Retry</button>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="pos-state">
+                  <p>No products found{query ? ` for "${query}"` : ''}.</p>
+                </div>
+              ) : (
+                <div className="pos-grid">
+                  {filtered.map((p) => {
+                    const out = p.stock_quantity <= 0
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="pos-product"
+                        disabled={out}
+                        onClick={() => addToCart(p)}
+                      >
+                        <div className="pos-product-name">{p.name}</div>
+                        <div className="pos-product-cat">{p.category}</div>
+                        <div className="pos-product-footer">
+                          <div className="pos-product-price">
+                            KES {Number(p.selling_price).toLocaleString()}
+                          </div>
+                          <span
+                            className={`pos-stock-badge ${
+                              out ? 'is-out' : p.stock_status === 'Low Stock' ? 'is-low' : ''
+                            }`}
+                          >
+                            {out ? 'Out' : `${p.stock_quantity}`}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* Cart */}
+            <aside className="pos-cart">
+              {complete ? (
+                <div className="pos-done">
+                  <div className="pos-done-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                  <h3>Sale complete</h3>
+                  <p className="pos-done-summary">
+                    {complete.items} item{complete.items === 1 ? '' : 's'} · KES {complete.total.toLocaleString()}
+                  </p>
+                  <button className="pos-charge" onClick={() => setComplete(null)}>New sale</button>
+                </div>
+              ) : (
+                <>
+                  <div className="pos-cart-head">
+                    <div className="pos-cart-title">
+                      <h2>Cart</h2>
+                      {itemCount > 0 && <span className="pos-count-badge">{itemCount}</span>}
+                    </div>
+                    {cart.length > 0 && (
+                      <button className="pos-clear" onClick={clearCart}>Clear</button>
+                    )}
+                  </div>
+
+                  <div className="pos-cart-body">
+                    {cart.length === 0 ? (
+                      <div className="pos-cart-empty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <circle cx="9" cy="21" r="1" />
+                          <circle cx="20" cy="21" r="1" />
+                          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                        </svg>
+                        <p>Your cart is empty</p>
+                        <span>Tap a product to add it</span>
+                      </div>
+                    ) : (
+                      <div className="pos-lines">
+                        {cart.map((l) => (
+                          <div key={l.product.id} className="pos-line">
+                            <div className="pos-line-top">
+                              <div className="pos-line-info">
+                                <div className="pos-line-name">{l.product.name}</div>
+                                <div className="pos-line-sub">
+                                  KES {Number(l.product.selling_price).toLocaleString()} each
+                                </div>
+                              </div>
+                              <div className="pos-line-total">
+                                KES {(Number(l.product.selling_price) * l.qty).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="pos-line-bottom">
+                              <div className="pos-stepper">
+                                <button type="button" disabled={l.qty <= 1} onClick={() => changeQty(l.product.id, -1)}>−</button>
+                                <span className="pos-qty">{l.qty}</span>
+                                <button
+                                  type="button"
+                                  disabled={l.qty >= l.product.stock_quantity}
+                                  onClick={() => changeQty(l.product.id, 1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button className="pos-remove" onClick={() => removeLine(l.product.id)}>
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <span className="pos-label">Payment method</span>
+                    <div className="pos-chips">
+                      {CHANNELS.map((c) => (
+                        <button
+                          key={c.key}
+                          type="button"
+                          className={`pos-chip ${channel === c.key ? 'active' : ''}`}
+                          onClick={() => setChannel(c.key)}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {error && <p className="pos-error">{error}</p>}
+                  </div>
+
+                  <div className="pos-cart-foot">
+                    <div className="pos-total">
+                      <span>Total</span>
+                      <strong>KES {total.toLocaleString()}</strong>
+                    </div>
+                    <button
+                      className="pos-charge"
+                      onClick={checkout}
+                      disabled={cart.length === 0 || submitting}
+                    >
+                      {submitting ? 'Recording…' : `Charge KES ${total.toLocaleString()}`}
+                    </button>
+                  </div>
+                </>
+              )}
+            </aside>
+          </div>
+        </main>
+      </div>
+
+      {scannerOpen && (
+        <div className="pos-overlay" onClick={() => setScannerOpen(false)}>
+          <div className="pos-scan-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pos-modal-head">
+              <h3>Scan barcode</h3>
+              <button className="pos-modal-close" onClick={() => setScannerOpen(false)} aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-                  <line x1="7" y1="8" x2="7" y2="16" />
-                  <line x1="11" y1="8" x2="11" y2="16" />
-                  <line x1="15" y1="8" x2="15" y2="16" />
-                  <line x1="18" y1="8" x2="18" y2="16" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
-
-            {loading ? (
-              <p className="pos-empty">Loading products...</p>
-            ) : loadError ? (
-              <p className="pos-empty">{loadError}</p>
-            ) : filtered.length === 0 ? (
-              <p className="pos-empty">No products found.</p>
-            ) : (
-              <div className="pos-grid">
-                {filtered.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="pos-product"
-                    disabled={p.stock_quantity <= 0}
-                    onClick={() => addToCart(p)}
-                  >
-                    <div className="pos-product-name">{p.name}</div>
-                    <div className="pos-product-cat">{p.category}</div>
-                    <div className="pos-product-price">KES {Number(p.selling_price).toLocaleString()}</div>
-                    <div
-                      className={`pos-product-stock ${
-                        p.stock_status === 'Out of Stock' ? 'pos-out' : p.stock_status === 'Low Stock' ? 'pos-low' : ''
-                      }`}
-                    >
-                      {p.stock_quantity} in stock
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Cart */}
-          <aside className="pos-cart">
-            {complete ? (
-              <div className="pos-done">
-                <div className="pos-done-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <h3>Sale complete</h3>
-                <p>
-                  {complete.items} item{complete.items === 1 ? '' : 's'} · KES {complete.total.toLocaleString()}
-                </p>
-                <button className="pos-charge" onClick={() => setComplete(null)}>New sale</button>
-              </div>
-            ) : (
-              <>
-                <div className="pos-cart-head">
-                  <h2>Cart ({itemCount})</h2>
-                  {cart.length > 0 && (
-                    <button className="pos-clear" onClick={clearCart}>Clear</button>
-                  )}
-                </div>
-
-                {cart.length === 0 ? (
-                  <p className="pos-cart-empty">Tap a product to add it to the cart.</p>
-                ) : (
-                  <div className="pos-lines">
-                    {cart.map((l) => (
-                      <div key={l.product.id} className="pos-line">
-                        <div className="pos-line-top">
-                          <div>
-                            <div className="pos-line-name">{l.product.name}</div>
-                            <div className="pos-line-sub">KES {Number(l.product.selling_price).toLocaleString()} each</div>
-                          </div>
-                          <div className="pos-line-total">
-                            KES {(Number(l.product.selling_price) * l.qty).toLocaleString()}
-                          </div>
-                        </div>
-                        <div className="pos-line-bottom">
-                          <div className="pos-stepper">
-                            <button type="button" disabled={l.qty <= 1} onClick={() => changeQty(l.product.id, -1)}>−</button>
-                            <span className="pos-qty">{l.qty}</span>
-                            <button
-                              type="button"
-                              disabled={l.qty >= l.product.stock_quantity}
-                              onClick={() => changeQty(l.product.id, 1)}
-                            >
-                              +
-                            </button>
-                          </div>
-                          <button className="pos-remove" onClick={() => removeLine(l.product.id)}>Remove</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <span className="pos-label">Payment method</span>
-                <div className="pos-chips">
-                  {CHANNELS.map((c) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      className={`pos-chip ${channel === c.key ? 'active' : ''}`}
-                      onClick={() => setChannel(c.key)}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pos-total">
-                  <span>Total</span>
-                  <strong>KES {total.toLocaleString()}</strong>
-                </div>
-
-                {error && <p className="pos-error">{error}</p>}
-
-                <button
-                  className="pos-charge"
-                  onClick={checkout}
-                  disabled={cart.length === 0 || submitting}
-                >
-                  {submitting ? 'Recording...' : `Charge KES ${total.toLocaleString()}`}
-                </button>
-              </>
-            )}
-          </aside>
-
-        </div>
-      </main>
-
-      {/* Barcode scanner */}
-      {scannerOpen && (
-        <div className="pos-scan-overlay" onClick={() => setScannerOpen(false)}>
-          <div className="pos-scan-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Scan a barcode</h3>
-            <video ref={videoRef} className="pos-scan-video" playsInline muted />
-            <p className="pos-scan-msg">{scanMsg}</p>
-            <button className="pos-scan-close" onClick={() => setScannerOpen(false)}>Close</button>
+            <div className="pos-scan-frame">
+              <video ref={videoRef} className="pos-scan-video" playsInline muted />
+              <div className="pos-scan-reticle" />
+            </div>
+            <p className="pos-scan-msg">{scanMsg || 'Align the barcode within the frame'}</p>
           </div>
         </div>
       )}
 
-      {/* PLAN: shown when a plan below Growth taps the scanner */}
       {showScanUpgrade && (
-        <div className="pos-upgrade-overlay" onClick={() => setShowScanUpgrade(false)}>
+        <div className="pos-overlay" onClick={() => setShowScanUpgrade(false)}>
           <div className="pos-upgrade-modal" onClick={(e) => e.stopPropagation()}>
             <div className="pos-upgrade-lock">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -399,25 +422,13 @@ function Pos() {
                 <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               </svg>
             </div>
-
             <h3>Barcode scanning is a Growth feature</h3>
-            <p>
-              Scan products with your camera from Biashara Growth onwards. Upgrade to start using it.
-            </p>
-
+            <p>Scan products with your camera from Biashara Growth onwards. Upgrade to start using it.</p>
             <div className="pos-upgrade-actions">
-              <Link
-                to="/?view=landing#pricing"
-                className="pos-upgrade-primary"
-                onClick={() => setShowScanUpgrade(false)}
-              >
+              <Link to="/?view=landing#pricing" className="pos-upgrade-primary" onClick={() => setShowScanUpgrade(false)}>
                 View pricing
               </Link>
-              <button
-                type="button"
-                className="pos-upgrade-secondary"
-                onClick={() => setShowScanUpgrade(false)}
-              >
+              <button type="button" className="pos-upgrade-secondary" onClick={() => setShowScanUpgrade(false)}>
                 Maybe later
               </button>
             </div>
