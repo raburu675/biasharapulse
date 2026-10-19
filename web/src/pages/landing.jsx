@@ -45,7 +45,8 @@ function Landing() {
   // Notice shown to signed-in users (active paid plan, or a failed switch)
   const [planNotice, setPlanNotice] = useState(null); // { title, body } | null
 
-  const API_BASE = "http://127.0.0.1:8000";
+  // const API_BASE = "http://127.0.0.1:8000";
+  const API_BASE = 'https://your-backend.onrender.com'
   // const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
 
   const isSignedIn = () => !!localStorage.getItem("token");
