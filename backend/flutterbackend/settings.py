@@ -2,23 +2,17 @@ import os
 from pathlib import Path
 import dj_database_url
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get(
     'SECRET_KEY',
     'django-insecure-^2pmskkwblgbupv51$)iad=h2d6l#-tg%62!9ql=fie8fdk!y9'
 )
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
-
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -68,32 +62,7 @@ WSGI_APPLICATION = 'flutterbackend.wsgi.application'
 # ═══════════════════════════════════════════════════════════
 # DATABASE
 # ═══════════════════════════════════════════════════════════
-#
-# Only ONE of these blocks should be uncommented at a time.
-#
-# ── LOCAL (SQLite) — use when running on your laptop ──
-# DATABASES = {
-#     'default': dj_database_url.config(
-#         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
-#         conn_max_age=600,
-#     )
-# }
-#
-# ── RAILWAY (Postgres) — use when you move to Railway ──
-# DATABASES = {
-#     'default': dj_database_url.config(
-#         conn_max_age=600,
-#         conn_health_checks=True,
-#     )
-# }
-#
-# ── RENDER (Postgres, free tier) — CURRENTLY ACTIVE ──
-# DATABASES = {
-#     'default': dj_database_url.config(
-#         conn_max_age=600,
-#         conn_health_checks=True,
-#     )
-# }
+# DATABASE_URL set (Render Postgres) -> Postgres, else local SQLite.
 DATABASES = {
     'default': dj_database_url.config(
         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
@@ -103,8 +72,6 @@ DATABASES = {
 }
 
 
-# Password validation
-
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -112,8 +79,6 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
@@ -128,15 +93,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# ── ORIGINAL (manifest version) — uncomment when you're ready
-#    to fail the build on missing static files (local, Railway, or
-#    any environment where you've verified every asset is present).
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# ── RENDER (non-manifest) — CURRENTLY ACTIVE
-#    Forgiving version for first-time deploys. Won't fail the build
-#    if a referenced static file is missing. Switch back to the
-#    manifest version once the deploy is stable.
+# Manifest version: 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 
@@ -144,17 +101,11 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 # CORS
 # ═══════════════════════════════════════════════════════════
 
-# ── ORIGINAL (allow all) — fine for local testing
-# CORS_ALLOW_ALL_ORIGINS = True
-
-# ── RENDER (specific origin) — CURRENTLY ACTIVE
-#    Replace the URL with your deployed frontend's actual hostname.
-#    Add more entries to the list if you have multiple frontends.
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    'https://biashara-pulse-12345.web.app',
-    'https://biashara-pulse-12345.firebaseapp.com',
+    'https://biasharapulse-mvp.web.app',
+    'https://biasharapulse-mvp.firebaseapp.com',
 ]
 
 
