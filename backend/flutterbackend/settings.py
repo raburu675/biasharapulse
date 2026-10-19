@@ -151,8 +151,10 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 #    Replace the URL with your deployed frontend's actual hostname.
 #    Add more entries to the list if you have multiple frontends.
 CORS_ALLOWED_ORIGINS = [
-    'https://your-project-id.web.app',
-    'https://your-project-id.firebaseapp.com',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://biashara-pulse-12345.web.app',
+    'https://biashara-pulse-12345.firebaseapp.com',
 ]
 
 

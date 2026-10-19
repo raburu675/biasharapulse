@@ -5,7 +5,7 @@ import './styles/auth.css'
 
 // Keep in sync with API_BASE in your other pages
 // const API_BASE = 'http://127.0.0.1:8000'
-const API_BASE = 'https://your-backend.onrender.com'
+const API_BASE = 'https://biasharapulse.onrender.com'
 
 function Signup() {
   const [businessName, setBusinessName] = useState('')
