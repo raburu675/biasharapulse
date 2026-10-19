@@ -4,7 +4,8 @@ import axios from 'axios'
 import './styles/auth.css'
 
 // Keep in sync with API_BASE in your other pages
-const API_BASE = 'http://127.0.0.1:8000'
+// const API_BASE = 'http://127.0.0.1:8000'
+const API_BASE = 'https://your-backend.onrender.com'
 
 function Login() {
   const [identifier, setIdentifier] = useState('') // username or email
@@ -19,16 +20,15 @@ function Login() {
     setLoading(true)
 
     try {
-      // The backend reads the "username" field; it also accepts an email address there
       const res = await axios.post(`${API_BASE}/api/auth/login/`, {
         username: identifier,
         password,
       })
 
-      // Save what the rest of the app needs (usePlan and the pages read businessId)
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('businessId', res.data.businessId)
-      // If the user picked a plan before signing up, apply it now
+
+      // If the user picked a plan before signing in, apply it now
       const pending = localStorage.getItem('pendingPlan')
       if (pending) {
         try {
@@ -55,7 +55,7 @@ function Login() {
   return (
     <div className="auth-shell">
 
-     <Link to="/?view=landing" className="auth-home">
+      <Link to="/?view=landing" className="auth-home">
         <svg
           viewBox="0 0 24 24"
           fill="none"

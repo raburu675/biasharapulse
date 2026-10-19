@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 
 // Keep in sync with API_BASE in your pages (swap to the Railway URL when deploying)
-const API_BASE = 'http://127.0.0.1:8000'
+// const API_BASE = 'http://127.0.0.1:8000'
+const API_BASE = 'https://your-backend.onrender.com'
 
 // ═══════════════════════════════════════════════════════════
 //  AXIOS INSTANCE

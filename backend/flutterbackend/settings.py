@@ -151,7 +151,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 #    Replace the URL with your deployed frontend's actual hostname.
 #    Add more entries to the list if you have multiple frontends.
 CORS_ALLOWED_ORIGINS = [
-    'https://your-frontend-name.onrender.com',
+    'https://your-project-id.web.app',
+    'https://your-project-id.firebaseapp.com',
 ]
 
 

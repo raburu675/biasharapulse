@@ -4,7 +4,8 @@ import axios from 'axios'
 import './styles/auth.css'
 
 // Keep in sync with API_BASE in your other pages
-const API_BASE = 'http://127.0.0.1:8000'
+// const API_BASE = 'http://127.0.0.1:8000'
+const API_BASE = 'https://your-backend.onrender.com'
 
 function Signup() {
   const [businessName, setBusinessName] = useState('')
@@ -19,7 +20,6 @@ function Signup() {
     e.preventDefault()
     setError('')
 
-    // Quick check here so the user gets an instant message
     if (password.length < 8) {
       setError('Password must be at least 8 characters')
       return
@@ -28,7 +28,6 @@ function Signup() {
     setLoading(true)
 
     try {
-      // Creates the user and their first business in one request
       const res = await axios.post(`${API_BASE}/api/auth/signup/`, {
         business_name: businessName,
         username,
@@ -36,10 +35,9 @@ function Signup() {
         password,
       })
 
-      // Same storage as login, so the app treats both the same way
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('businessId', res.data.businessId)
-      // If the user picked a plan before signing up, apply it now
+
       const pending = localStorage.getItem('pendingPlan')
       if (pending) {
         try {
@@ -55,7 +53,6 @@ function Signup() {
       }
       localStorage.setItem('username', res.data.username)
 
-      // Already picked a plan → dashboard. Otherwise let them choose now.
       navigate(pending ? '/dashboard' : '/choose-plan')
     } catch (err) {
       if (err.response?.status === 429) {
@@ -174,7 +171,7 @@ function Signup() {
 
           </form>
 
-          <p className="auth-subtitle" style={{ marginTop: 14, textAlign: 'center' }}>
+          <p className="auth-foot">
             By creating an account you agree to our{' '}
             <Link to="/terms">Terms of Service</Link> and{' '}
             <Link to="/privacy">Privacy Policy</Link>.
