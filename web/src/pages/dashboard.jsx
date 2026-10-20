@@ -152,6 +152,27 @@ function Dashboard() {
       setImporting(false)
     }
   }
+    const downloadTemplate = async () => {
+    try {
+      const res = await api.get('/api/products/import-template/', { responseType: 'blob' })
+
+      // Use the server's filename if it sends one
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const filename = match ? match[1] : 'product-import-template.xlsx'
+
+      const url = window.URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      alert('Could not download the template. Please try again.')
+    }
+  }
 
   const closeImportModal = () => {
     setShowImport(false)
@@ -259,9 +280,11 @@ function Dashboard() {
                   <span>Use our ready-made spreadsheet.</span>
                 </div>
 
-                <a
-                  href={`http://127.0.0.1:8000/api/products/import-template/`}
+                <button
+                  type="button"
+                  onClick={downloadTemplate}
                   className="import-template-link"
+                  style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M12 3v12" />
@@ -269,7 +292,7 @@ function Dashboard() {
                     <path d="M5 21h14" />
                   </svg>
                   Download Template
-                </a>
+                </button>
               </div>
 
               <div
