@@ -46,7 +46,12 @@ function Landing() {
   const [planNotice, setPlanNotice] = useState(null); // { title, body } | null
 
   // const API_BASE = "http://127.0.0.1:8000";
-  const API_BASE = 'https://biasharapulse.onrender.com'
+  const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : 'https://biasharapulse.onrender.com')
+
   // const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
 
   const isSignedIn = () => !!localStorage.getItem("token");

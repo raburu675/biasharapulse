@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Sidebar from './sidebar'
 import './styles/orders.css'
 import LoadingScreen from './LoadingScreen'
@@ -29,6 +30,9 @@ function Orders() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [openStatusId, setOpenStatusId] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+
+  const triggerRefs = useRef({})
 
   const [newOrder, setNewOrder] = useState({
     customer_name: '', customer_phone: '', shipping_address: '',
@@ -64,7 +68,13 @@ function Orders() {
     if (!openStatusId) return
     const close = () => setOpenStatusId(null)
     document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
   }, [openStatusId])
 
   const metrics = useMemo(() => {
@@ -130,6 +140,36 @@ function Orders() {
     } catch (err) {
       alert(err.response?.data?.error || 'Could not update status')
     }
+  }
+
+  const openMenu = (order, e) => {
+    e.stopPropagation()
+    if (openStatusId === order.id) {
+      setOpenStatusId(null)
+      return
+    }
+    const trigger = triggerRefs.current[order.id]
+    if (!trigger) return
+    const rect = trigger.getBoundingClientRect()
+
+    // Compute position: below the trigger, right-aligned.
+    // Flip up if there isn't enough room below.
+    const MENU_WIDTH = 180
+    const MENU_HEIGHT = 220
+
+    let top = rect.bottom + 6
+    if (top + MENU_HEIGHT > window.innerHeight) {
+      top = rect.top - MENU_HEIGHT - 6
+    }
+
+    let left = rect.right - MENU_WIDTH
+    if (left < 8) left = 8
+    if (left + MENU_WIDTH > window.innerWidth - 8) {
+      left = window.innerWidth - MENU_WIDTH - 8
+    }
+
+    setMenuPos({ top, left })
+    setOpenStatusId(order.id)
   }
 
   if (loading) return <LoadingScreen label="Loading orders..." />
@@ -251,8 +291,6 @@ function Orders() {
                     const isMenuOpen = openStatusId === o.id
                     return (
                       <article key={o.id} className={`ord-card ord-card-${o.status}`}>
-                        <div className="ord-accent" style={{ background: meta.dot }} />
-
                         <div className="ord-card-inner">
                           <header className="ord-card-head">
                             <div className="ord-id-wrap">
@@ -303,35 +341,17 @@ function Orders() {
 
                             <div className="ord-cell ord-cell-actions">
                               {canUpdate && (
-                                <div className={`ord-status-wrap ${isMenuOpen ? 'is-open' : ''}`}>
-                                  <button
-                                    className="ord-status-trigger"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setOpenStatusId(isMenuOpen ? null : o.id)
-                                    }}
-                                  >
-                                    Update
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                      <polyline points="6 9 12 15 18 9" />
-                                    </svg>
-                                  </button>
-
-                                  {isMenuOpen && (
-                                    <div className="ord-status-menu" onClick={(e) => e.stopPropagation()}>
-                                      {STATUS_OPTIONS.filter((s) => s !== o.status).map((s) => (
-                                        <button
-                                          key={s}
-                                          className="ord-status-option"
-                                          onClick={() => advanceStatus(o, s)}
-                                        >
-                                          <span className="status-dot" style={{ background: statusMeta(s).dot }} />
-                                          {statusMeta(s).label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                <button
+                                  ref={(el) => { triggerRefs.current[o.id] = el }}
+                                  className="ord-status-trigger"
+                                  onClick={(e) => openMenu(o, e)}
+                                  aria-expanded={isMenuOpen}
+                                >
+                                  Update
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <polyline points="6 9 12 15 18 9" />
+                                  </svg>
+                                </button>
                               )}
                             </div>
                           </div>
@@ -357,6 +377,31 @@ function Orders() {
           </main>
         </div>
       </div>
+
+      {/* Status dropdown — rendered via portal so nothing clips it */}
+      {openStatusId && (() => {
+        const order = orders.find((o) => o.id === openStatusId)
+        if (!order) return null
+        return createPortal(
+          <div
+            className="ord-status-menu"
+            style={{ top: menuPos.top, left: menuPos.left }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {STATUS_OPTIONS.filter((s) => s !== order.status).map((s) => (
+              <button
+                key={s}
+                className="ord-status-option"
+                onClick={() => advanceStatus(order, s)}
+              >
+                <span className="status-dot" style={{ background: statusMeta(s).dot }} />
+                {statusMeta(s).label}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )
+      })()}
 
       {isAddOpen && (
         <div className="ord-overlay" onClick={() => setIsAddOpen(false)}>

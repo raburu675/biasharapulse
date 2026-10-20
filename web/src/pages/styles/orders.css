@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400..700;1,400..700&display=swap');
 
 /* ═══════════════════════════════════════════════════════════
-   ORDERS — aligned to dashboard/account/stockMovement tokens
+   ORDERS
    ═══════════════════════════════════════════════════════════ */
 
 .ord-root {
@@ -31,7 +31,6 @@
   --purple-soft: #F5F3FF;
   --green: #0F7A44;
   --green-soft: #EAF7EF;
-  --grey: #9CA3AF;
 
   --r-btn: 4px;
   --r-sm: 6px;
@@ -88,6 +87,7 @@
 .ord-shell {
   display: flex;
   min-height: 100vh;
+  width: 100%;
 }
 
 .ord-content-wrapper {
@@ -357,6 +357,7 @@
   border-radius: var(--r-sm);
   overflow-x: auto;
   scrollbar-width: none;
+  max-width: 100%;
 }
 
 .chip-group::-webkit-scrollbar { display: none; }
@@ -427,11 +428,9 @@
   border: 1px solid var(--border);
   border-radius: var(--r-card);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
-  /* NOTE: no overflow:hidden here — it would clip the status dropdown.
-     The dropdown is layered above using z-index on .ord-status-wrap.is-open. */
 }
 
-/* Accent bar uses a pseudo-element so the card itself isn't clipped */
+/* Colored left accent — depends on the parent's ord-card-{status} class */
 .ord-card::after {
   content: "";
   position: absolute;
@@ -439,10 +438,16 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--accent-color, var(--gold));
   border-radius: var(--r-card) 0 0 var(--r-card);
   pointer-events: none;
+  background: var(--gold);
 }
+
+.ord-card-pending::after    { background: #D97706; }
+.ord-card-processing::after { background: #2563EB; }
+.ord-card-shipped::after    { background: #7C3AED; }
+.ord-card-delivered::after  { background: #059669; }
+.ord-card-cancelled::after  { background: #9CA3AF; }
 
 .ord-card:hover {
   border-color: #DDD6CB;
@@ -450,16 +455,6 @@
     0 1px 2px rgba(20, 17, 15, 0.04),
     0 20px 40px -20px rgba(20, 17, 15, 0.26);
   transform: translateY(-1px);
-}
-
-/* When a card's status dropdown is open, lift it above the other cards */
-.ord-card:has(.ord-status-wrap.is-open) {
-  z-index: 30;
-}
-
-/* Accent left bar (kept as a colored div but no longer clipped) */
-.ord-accent {
-  display: none;
 }
 
 .ord-card-inner {
@@ -482,6 +477,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .ord-id {
@@ -512,6 +508,7 @@
   height: 6px;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .st-pending {
@@ -624,24 +621,10 @@
   font-weight: 800;
 }
 
-/* ═══ STATUS UPDATE DROPDOWN ═══ */
+/* ═══ STATUS TRIGGER ═══ */
 
 .ord-cell-actions {
   align-items: flex-end;
-  /* Ensure the cell can host an absolutely positioned dropdown
-     without any inherited overflow clipping */
-  overflow: visible;
-  position: relative;
-}
-
-.ord-status-wrap {
-  position: relative;
-  display: inline-block;
-}
-
-/* While the menu is open, raise the wrapper so the menu floats above siblings */
-.ord-status-wrap.is-open {
-  z-index: 40;
 }
 
 .ord-status-trigger {
@@ -672,12 +655,14 @@
   outline-offset: 2px;
 }
 
+/* ═══ STATUS DROPDOWN (portal-rendered, position: fixed) ═══
+   This menu is mounted directly on <body> via React portal,
+   so its positioning is relative to the viewport, not the card. */
+
 .ord-status-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 50;
-  min-width: 170px;
+  position: fixed;
+  z-index: 99999;
+  width: 180px;
   padding: 6px;
   background: #FFFFFF;
   border: 1px solid var(--border);
@@ -688,7 +673,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  animation: ord-menu-in 0.15s var(--ease);
+  font-family: 'Cormorant', serif;
+  animation: ord-menu-in 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes ord-menu-in {
@@ -705,7 +691,7 @@
   border-radius: var(--r-btn);
   background: transparent;
   font-family: 'Cormorant', serif;
-  font-size: var(--fs-body);
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink);
   text-align: left;
@@ -992,10 +978,6 @@ select.ord-input {
     grid-column: 1 / -1;
     align-items: flex-start;
   }
-  .ord-status-menu {
-    left: 0;
-    right: auto;
-  }
 }
 
 @media (max-width: 860px) {
@@ -1046,12 +1028,11 @@ select.ord-input {
   .ord-toolbar { flex-direction: column; align-items: stretch; }
   .ord-search-wrap { max-width: none; }
   .chip-group {
+    width: 100%;
     flex-wrap: nowrap;
     overflow-x: auto;
     padding-bottom: 4px;
-    scrollbar-width: none;
   }
-  .chip-group::-webkit-scrollbar { display: none; }
   .ord-card-head {
     flex-direction: column;
     align-items: flex-start;
@@ -1064,8 +1045,7 @@ select.ord-input {
 @media (prefers-reduced-motion: reduce) {
   .ord-overlay,
   .ord-modal,
-  .ord-status-menu,
-  .dropdown-menu {
+  .ord-status-menu {
     animation: none;
   }
   .new-order-btn,

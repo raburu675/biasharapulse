@@ -1,11 +1,23 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import './styles/auth.css'
+import './styles/signup.css'
 
-// Keep in sync with API_BASE in your other pages
-// const API_BASE = 'http://127.0.0.1:8000'
-const API_BASE = 'https://biasharapulse.onrender.com'
+// Dev (npm run dev) -> local backend. Build (Firebase) -> Render.
+// VITE_API_BASE overrides both if set.
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : 'https://biasharapulse.onrender.com')
+
+const PLAN_LABELS = {
+  starter: 'Starter',
+  lite: 'Biashara Lite',
+  growth: 'Biashara Growth',
+  pro: 'Biashara Pro',
+  multi_branch: 'Pro Multi-Branch',
+}
 
 function Signup() {
   const [businessName, setBusinessName] = useState('')
@@ -14,7 +26,12 @@ function Signup() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
   const navigate = useNavigate()
+
+  // Plan picked on the landing page (null = plain sign-up -> free Starter)
+  const chosenPlan = localStorage.getItem('pendingPlan')
+  const paidChoice = chosenPlan && chosenPlan !== 'starter' ? chosenPlan : null
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -47,48 +64,44 @@ function Signup() {
             { headers: { Authorization: `Token ${res.data.token}` } }
           )
         } catch {
-          /* ignore — they'll still land on Starter */
+          /* ignore */
         }
         localStorage.removeItem('pendingPlan')
       }
       localStorage.setItem('username', res.data.username)
 
-      navigate(pending ? '/dashboard' : '/choose-plan')
+      setRedirecting(true)
+      navigate('/dashboard')
     } catch (err) {
       if (err.response?.status === 429) {
         setError('Too many sign-ups from this network. Please try again later.')
       } else {
         setError(err.response?.data?.error || 'Could not reach the server. Is the backend running?')
       }
-    } finally {
       setLoading(false)
     }
   }
 
+  if (redirecting) {
+    return (
+      <div className="auth-loading">
+        <div className="auth-loading-brand">
+          <span className="brand-biashara">Biashara</span>
+          <span className="brand-pulse">Pulse</span>
+        </div>
+        <div className="auth-loading-spinner" />
+        <span className="auth-loading-text">Setting up your account…</span>
+      </div>
+    )
+  }
+
   return (
-    <div className="auth-shell">
+    <div className="signup-shell">
 
       <Link to="/?view=landing" className="auth-home">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M9 21V14H15V21"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 21V14H15V21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         Home
       </Link>
@@ -106,11 +119,33 @@ function Signup() {
             Set up your business on Biashara Pulse in a minute.
           </p>
 
-          {error && (
-            <div className="auth-error">
-              {error}
-            </div>
-          )}
+          <div
+            className="auth-plan-note"
+            style={{
+              background: '#fdf2f4',
+              border: '1px solid #f3c9d1',
+              color: '#333',
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 14,
+              marginBottom: 16,
+            }}
+          >
+            {paidChoice ? (
+              <>
+                You're signing up for <strong>{PLAN_LABELS[paidChoice] || paidChoice}</strong>.{' '}
+                <Link to="/?view=landing#pricing">Change plan</Link>
+              </>
+            ) : (
+              <>
+                No paid plan selected. You'll start on the free <strong>Starter</strong> plan and
+                can upgrade anytime.{' '}
+                <Link to="/?view=landing#pricing">See plans</Link>
+              </>
+            )}
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
 
           <form onSubmit={handleSubmit}>
 
@@ -123,6 +158,7 @@ function Signup() {
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 placeholder="e.g. 34 Fitted"
+                disabled={loading}
               />
             </div>
 
@@ -135,6 +171,7 @@ function Signup() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Choose a username"
+                disabled={loading}
                 required
               />
             </div>
@@ -148,6 +185,7 @@ function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                disabled={loading}
                 required
               />
             </div>
@@ -161,12 +199,20 @@ function Signup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
+                disabled={loading}
                 required
               />
             </div>
 
             <button className="auth-submit" type="submit" disabled={loading}>
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? (
+                <>
+                  <span className="auth-spinner" />
+                  Creating account…
+                </>
+              ) : (
+                'Create account'
+              )}
             </button>
 
           </form>

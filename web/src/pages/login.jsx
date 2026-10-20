@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import './styles/auth.css'
+import './styles/login.css'
 
-// Keep in sync with API_BASE in your other pages
-// const API_BASE = 'http://127.0.0.1:8000'
-const API_BASE = 'https://biasharapulse.onrender.com'
+// Dev (npm run dev) -> local backend. Build (Firebase) -> Render.
+// VITE_API_BASE overrides both if set.
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : 'https://biasharapulse.onrender.com')
 
 function Login() {
-  const [identifier, setIdentifier] = useState('') // username or email
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -28,7 +33,6 @@ function Login() {
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('businessId', res.data.businessId)
 
-      // If the user picked a plan before signing in, apply it now
       const pending = localStorage.getItem('pendingPlan')
       if (pending) {
         try {
@@ -38,44 +42,40 @@ function Login() {
             { headers: { Authorization: `Token ${res.data.token}` } }
           )
         } catch {
-          /* ignore — they'll still land on Starter */
+          /* ignore */
         }
         localStorage.removeItem('pendingPlan')
       }
       localStorage.setItem('username', res.data.username)
 
+      setRedirecting(true)
       navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Could not reach the server. Is the backend running?')
-    } finally {
       setLoading(false)
     }
   }
 
+  if (redirecting) {
+    return (
+      <div className="auth-loading">
+        <div className="auth-loading-brand">
+          <span className="brand-biashara">Biashara</span>
+          <span className="brand-pulse">Pulse</span>
+        </div>
+        <div className="auth-loading-spinner" />
+        <span className="auth-loading-text">Taking you to your dashboard…</span>
+      </div>
+    )
+  }
+
   return (
-    <div className="auth-shell">
+    <div className="login-shell">
 
       <Link to="/?view=landing" className="auth-home">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M9 21V14H15V21"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 21V14H15V21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         Home
       </Link>
@@ -93,11 +93,7 @@ function Login() {
             Sign in to your Biashara Pulse account.
           </p>
 
-          {error && (
-            <div className="auth-error">
-              {error}
-            </div>
-          )}
+          {error && <div className="auth-error">{error}</div>}
 
           <form onSubmit={handleSubmit}>
 
@@ -110,6 +106,7 @@ function Login() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="your username or you@example.com"
+                disabled={loading}
                 required
               />
             </div>
@@ -123,12 +120,20 @@ function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
+                disabled={loading}
                 required
               />
             </div>
 
             <button className="auth-submit" type="submit" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? (
+                <>
+                  <span className="auth-spinner" />
+                  Signing in…
+                </>
+              ) : (
+                'Sign in'
+              )}
             </button>
 
           </form>

@@ -4,7 +4,12 @@ import axios from 'axios'
 
 // Keep in sync with API_BASE in your pages (swap to the Railway URL when deploying)
 // const API_BASE = 'http://127.0.0.1:8000'
-const API_BASE = 'https://biasharapulse.onrender.com'
+// const API_BASE = 'https://biasharapulse.onrender.com'
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (import.meta.env.DEV
+    ? 'http://127.0.0.1:8000'
+    : 'https://biasharapulse.onrender.com')
 
 // ═══════════════════════════════════════════════════════════
 //  AXIOS INSTANCE

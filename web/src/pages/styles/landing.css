@@ -390,8 +390,8 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
   display: flex;
   align-items: center;
-  min-height: 56vh;
-  padding-top: 44px;
+  min-height: 50vh;
+  padding-top: 40px;
 }
 
 .landing-wave-bg {
@@ -408,7 +408,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   max-width: 820px;
   margin: 0 auto;
-  padding: 72px 24px 112px;
+  padding: 60px 24px 112px;
   text-align: center;
 }
 
