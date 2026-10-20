@@ -77,11 +77,11 @@ def business_plan(request, business_id):
 @permission_classes([IsAuthenticated])
 def select_plan(request, business_id):
     """
-    DEV ONLY: switches a business to the chosen tier without payment.
-    Disabled when DEBUG is False. Replace with the M-Pesa success callback
-    once payments exist.
+    PRE-LAUNCH MVP: switches a business to the chosen tier without payment.
+    Controlled by ALLOW_FREE_PLAN_SWITCH. Turn it off and replace with the
+    M-Pesa success callback once payments exist.
     """
-    if not settings.DEBUG:
+    if not settings.ALLOW_FREE_PLAN_SWITCH:
         return Response({'error': 'Plan switching is disabled'}, status=403)
 
     try:
@@ -116,7 +116,6 @@ def select_plan(request, business_id):
         'paid_until': business.paid_until,
         'trial_ends': business.trial_ends,
     })
-
 
 # ═══════════════════════════════════════════════════════════
 #  DASHBOARD
@@ -342,107 +341,6 @@ def pos_summary(request, business_id):
         'most_profitable': most_profitable,
         'best_margin': best_margin,
     })
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def product_performance(request, business_id):
-#     """
-#     Per-product performance over a period (?days=7|30|90): velocity,
-#     days of stock cover, last sale, margin and all-time totals.
-#     """
-#     try:
-#         business = Business.objects.get(id=business_id, owner=request.user)
-#     except Business.DoesNotExist:
-#         return Response({'error': 'Business not found'}, status=404)
-
-#     # PLAN GATE: Growth and above
-#     denied = require_feature(business, 'product_performance')
-#     if denied:
-#         return denied
-
-#     try:
-#         days = int(request.GET.get('days', 30))
-#     except ValueError:
-#         days = 30
-#     days = min(max(days, 1), 365)
-
-#     now = timezone.now()
-#     since = now - timedelta(days=days)
-#     sales = SaleRecord.objects.filter(business=business)
-
-#     # All-time totals and last sale date, per product
-#     totals = {
-#         r['product']: r
-#         for r in sales.values('product').annotate(
-#             units=Sum('quantity'), revenue=Sum('amount'), last=Max('created_at')
-#         )
-#     }
-#     # Totals inside the selected period
-#     recent = {
-#         r['product']: r
-#         for r in sales.filter(created_at__gte=since).values('product').annotate(
-#             units=Sum('quantity'), revenue=Sum('amount')
-#         )
-#     }
-
-#     data = []
-#     for p in Product.objects.filter(business=business):
-#         t = totals.get(p.id, {})
-#         r = recent.get(p.id, {})
-
-#         units_total = t.get('units') or 0
-#         revenue_total = t.get('revenue') or Decimal('0')
-#         units_period = r.get('units') or 0
-#         revenue_period = r.get('revenue') or Decimal('0')
-#         last_sale = t.get('last')
-
-#         price = Decimal(str(p.price))
-#         gross_profit = revenue_total - Decimal(units_total) * p.cost_price
-
-#         # Realised margin once there are sales, otherwise the unit margin
-#         if revenue_total > 0:
-#             margin = gross_profit / revenue_total * 100
-#         elif price > 0:
-#             margin = (price - p.cost_price) / price * 100
-#         else:
-#             margin = Decimal('0')
-
-#         handled = units_total + p.stock_count
-#         sell_through = (Decimal(units_total) / Decimal(handled) * 100) if handled > 0 else Decimal('0')
-
-#         velocity = units_period / days                      # units per day
-#         cover = round(p.stock_count / velocity, 1) if velocity > 0 else None
-
-#         if p.stock_count <= 0:
-#             stock_status = 'Out of Stock'
-#         elif p.stock_count <= p.reorder_point:
-#             stock_status = 'Low Stock'
-#         else:
-#             stock_status = 'In Stock'
-
-#         data.append({
-#             'id': p.id,
-#             'name': p.name,
-#             'category': p.category,
-#             'cost_price': p.cost_price,
-#             'selling_price': p.price,
-#             'stock_quantity': p.stock_count,
-#             'reorder_point': p.reorder_point,
-#             'stock_status': stock_status,
-#             'units_period': units_period,
-#             'revenue_period': revenue_period,
-#             'units_total': units_total,
-#             'revenue_total': revenue_total,
-#             'gross_profit': gross_profit,
-#             'profit_margin': round(margin, 1),
-#             'sell_through_rate': round(sell_through, 1),
-#             'velocity': round(velocity, 2),
-#             'days_of_cover': cover,
-#             'last_sale_at': last_sale,
-#             'days_since_last_sale': (now - last_sale).days if last_sale else None,
-#         })
-
-#     return Response({'days': days, 'products': data})
 
 
 @api_view(['GET'])

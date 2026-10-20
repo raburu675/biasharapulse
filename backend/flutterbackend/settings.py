@@ -11,6 +11,9 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
+# Pre-launch MVP: lets users switch plans without payment. Defaults to DEBUG's value.
+ALLOW_FREE_PLAN_SWITCH = os.environ.get('ALLOW_FREE_PLAN_SWITCH', str(DEBUG)) == 'True'
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 
