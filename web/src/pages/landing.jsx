@@ -14,6 +14,18 @@ const PLAN_LABELS = {
   multi_branch: "Pro Multi-Branch",
 };
 
+// Nav links: each name describes the section it scrolls to
+const NAV_LINKS = [
+  { id: "features", label: "Features", hint: "What you get" },
+  { id: "showcase", label: "Product Tour", hint: "Each page, in action" },
+  { id: "demo", label: "Demo", hint: "Watch the walkthrough" },
+  { id: "pricing", label: "Pricing", hint: "Plans for every stage" },
+  { id: "how-it-works", label: "How It Works", hint: "Up and running in four steps" },
+  { id: "values", label: "Why Us", hint: "What we stand for" },
+];
+
+const FOOTER_LINK_IDS = ["features", "showcase", "pricing", "values"];
+
 const formatDate = (iso) =>
   iso
     ? new Date(iso).toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" })
@@ -32,7 +44,9 @@ function Landing() {
   const [fadeOut, setFadeOut] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
   const mobileScrollRefs = useRef([]);
+  const showcaseRef = useRef(null);
   const accountRef = useRef(null);
 
   // Signed-in user shown in the account menu (null = signed out)
@@ -56,6 +70,8 @@ function Landing() {
 
   const isSignedIn = () => !!localStorage.getItem("token");
 
+  const closeMobileNav = () => setMobileNavOpen(false);
+
   // Log out: tell the backend (best effort), clear storage, update the menu
   const handleLogout = async () => {
     const token = localStorage.getItem("token");
@@ -76,6 +92,7 @@ function Landing() {
     localStorage.removeItem("pendingPlan");
     setCurrentUser(null);
     setAccountOpen(false);
+    setMobileNavOpen(false);
   };
 
   const showActivePlanNotice = (planKey, paidUntil) => {
@@ -268,6 +285,82 @@ function Landing() {
     };
   }, [accountOpen]);
 
+  // Mobile sidebar: lock page scroll while open, close on Escape
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onEscape = (e) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [mobileNavOpen]);
+
+  // Close the sidebar if the window grows past the sidebar breakpoint
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth > 900) setMobileNavOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Highlight the nav link of the section currently in view
+  useEffect(() => {
+    if (stage !== "landing" || !("IntersectionObserver" in window)) return;
+
+    const targets = ["top", ...NAV_LINKS.map((l) => l.id)]
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id === "top" ? null : entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-45% 0px -50% 0px" }
+    );
+
+    targets.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [stage]);
+
+  // Fade product tour items in as they scroll into view
+  useEffect(() => {
+    if (stage !== "landing") return;
+    const items = showcaseRef.current?.querySelectorAll(".showcase-item");
+    if (!items?.length) return;
+
+    if (!("IntersectionObserver" in window)) {
+      items.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+
+    items.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [stage]);
+
   if (stage === "splash") {
     return (
       <div className={`splash ${fadeOut ? "splash-fade-out" : ""}`}>
@@ -291,8 +384,9 @@ function Landing() {
         <div className="nav-container">
           <button
             className="mobile-nav-toggle"
-            aria-label="Toggle Navigation"
-            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen(true)}
           >
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="3" y1="6" x2="21" y2="6" />
@@ -307,11 +401,15 @@ function Landing() {
           </div>
 
           <div className="nav-links">
-            <a href="#features">Features</a>
-            <a href="#showcase">Product</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#how-it-works">How It Works</a>
-            <a href="#values">What we offer</a>
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.id}
+                href={`#${link.id}`}
+                className={activeSection === link.id ? "active" : ""}
+              >
+                {link.label}
+              </a>
+            ))}
           </div>
 
           <div className="nav-dropdown-wrapper" ref={accountRef}>
@@ -340,16 +438,10 @@ function Landing() {
                   <Link to="/dashboard" className="account-menu-btn solid" onClick={() => setAccountOpen(false)}>
                     Go to dashboard
                   </Link>
-                  <br></br>
                   <Link to="/account" className="account-menu-btn ghost" onClick={() => setAccountOpen(false)}>
                     My account
                   </Link>
-                  <button
-                    type="button"
-                    className="account-menu-btn ghost"
-                    style={{ width: "100%", cursor: "pointer", fontFamily: "inherit" }}
-                    onClick={handleLogout}
-                  >
+                  <button type="button" className="account-menu-btn ghost" onClick={handleLogout}>
                     Log out
                   </button>
                 </>
@@ -370,19 +462,82 @@ function Landing() {
             </div>
           </div>
         </div>
-
-        {mobileNavOpen && (
-          <div className="mobile-menu-drawer">
-            <a href="#features" onClick={() => setMobileNavOpen(false)}>Features</a>
-            <a href="#showcase" onClick={() => setMobileNavOpen(false)}>Product</a>
-            <a href="#pricing" onClick={() => setMobileNavOpen(false)}>Pricing</a>
-            <a href="#how-it-works" onClick={() => setMobileNavOpen(false)}>How It Works</a>
-            <a href="#values" onClick={() => setMobileNavOpen(false)}>What we offer</a>
-          </div>
-        )}
       </nav>
 
-      <div className="landing-top">
+      {/* Mobile sidebar — outside <nav> so the nav's blur can't trap its fixed position */}
+      <div
+        className={`mobile-overlay ${mobileNavOpen ? "open" : ""}`}
+        onClick={closeMobileNav}
+      />
+      <aside
+        className={`mobile-sidebar ${mobileNavOpen ? "open" : ""}`}
+        aria-hidden={!mobileNavOpen}
+        aria-label="Site navigation"
+      >
+        <div className="sidebar-head">
+          <div className="sidebar-brand">
+            <span className="sidebar-brand-biashara">Biashara</span>
+            <span className="sidebar-brand-pulse">Pulse</span>
+          </div>
+          <button className="sidebar-close" aria-label="Close menu" onClick={closeMobileNav}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <p className="sidebar-label">Explore</p>
+        <div className="sidebar-links">
+          {NAV_LINKS.map((link, i) => (
+            <a
+              key={link.id}
+              href={`#${link.id}`}
+              className={`sidebar-link ${activeSection === link.id ? "active" : ""}`}
+              style={{ "--i": i }}
+              onClick={closeMobileNav}
+            >
+              <span className="sidebar-link-num">{String(i + 1).padStart(2, "0")}</span>
+              <span className="sidebar-link-text">
+                <strong>{link.label}</strong>
+                <small>{link.hint}</small>
+              </span>
+              <svg className="sidebar-link-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </a>
+          ))}
+        </div>
+
+        <div className="sidebar-foot">
+          {currentUser ? (
+            <>
+              <div className="sidebar-user">
+                <span>Logged in as</span>
+                <strong>{currentUser}</strong>
+              </div>
+              <Link to="/dashboard" className="account-menu-btn solid" onClick={closeMobileNav}>
+                Go to dashboard
+              </Link>
+              <button type="button" className="account-menu-btn ghost" onClick={handleLogout}>
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/signup" className="account-menu-btn solid" onClick={closeMobileNav}>
+                Create New account
+              </Link>
+              <Link to="/login" className="account-menu-btn ghost" onClick={closeMobileNav}>
+                Sign in
+              </Link>
+            </>
+          )}
+          <p className="sidebar-note">Developed for Kenyan SMEs 🇰🇪</p>
+        </div>
+      </aside>
+
+      <div className="landing-top" id="top">
         <svg className="landing-wave-bg" viewBox="0 0 1440 600" preserveAspectRatio="none">
           <defs>
             <linearGradient id="landingGradient" x1="0" y1="0" x2="0" y2="1">
@@ -452,14 +607,14 @@ function Landing() {
 
       <section id="showcase" className="showcase">
         <div className="showcase-intro">
-          <span className="features-tag">See it in action</span>
+          <span className="features-tag">Product tour</span>
           <h2>Built for how you actually run your shop</h2>
           <p>Scroll through the platform and see how each part fits into the way you work.</p>
         </div>
 
-        <div className="showcase-scroll">
+        <div className="showcase-scroll" ref={showcaseRef}>
           {showcaseTabs.map((tab, i) => (
-            <article className="showcase-item" key={tab.label}>
+            <article className="showcase-item reveal" key={tab.label}>
               <div className="showcase-content">
                 <div className="showcase-info">
                   <span className="showcase-number">{String(i + 1).padStart(2, "0")} / {tab.label}</span>
@@ -476,13 +631,30 @@ function Landing() {
                 </div>
 
                 <div className="showcase-frame">
-                  <img
-                    src={tab.desktopSrc}
-                    alt={`${tab.label} screenshot`}
-                    className="showcase-shot showcase-shot-desktop"
-                  />
+                  {/* Desktop: browser window */}
+                  <div className="browser">
+                    <div className="browser-bar">
+                      <span className="browser-dots"><i /><i /><i /></span>
+                      <span className="browser-url">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
+                          <rect x="5" y="11" width="14" height="10" rx="2" />
+                          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                        </svg>
+                        BiasharaPulse · {tab.label}
+                      </span>
+                      <span className="browser-live"><i /> Live</span>
+                    </div>
+                    <div className="browser-screen">
+                      <img
+                        src={tab.desktopSrc}
+                        alt={`${tab.label} screenshot`}
+                        className="showcase-shot showcase-shot-desktop"
+                      />
+                    </div>
+                  </div>
 
-                  <div className="showcase-mobile-scroll-wrap">
+                  {/* Phone: device frames, swipeable */}
+                  <div className={`showcase-mobile-scroll-wrap ${tab.mobileSrc.length > 1 ? "has-more" : ""}`}>
                     <div
                       className="showcase-mobile-shots"
                       style={{ justifyContent: tab.mobileSrc.length > 1 ? "flex-start" : "center" }}
@@ -492,12 +664,13 @@ function Landing() {
                       }}
                     >
                       {tab.mobileSrc.map((src, index) => (
-                        <img
-                          key={src}
-                          src={src}
-                          alt={`${tab.label} mobile screenshot ${index + 1}`}
-                          className="showcase-shot showcase-shot-mobile"
-                        />
+                        <div className="phone" key={src}>
+                          <img
+                            src={src}
+                            alt={`${tab.label} mobile screenshot ${index + 1}`}
+                            className="showcase-shot showcase-shot-mobile"
+                          />
+                        </div>
                       ))}
                     </div>
 
@@ -526,9 +699,9 @@ function Landing() {
       </section>
 
       {/* ── PRODUCT VIDEO ── */}
-      <section className="product-video">
+      <section id="demo" className="product-video">
         <div className="product-video-intro">
-          <span className="section-eyebrow">SEE IT IN ACTION</span>
+          <span className="section-eyebrow">WATCH THE DEMO</span>
           <h2>See how BiasharaPulse Works</h2>
           <p>
             Take a quick walkthrough of BiasharaPulse and see how you can
@@ -827,9 +1000,9 @@ function Landing() {
 
           <div className="footer-col">
             <h5>Product</h5>
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#values">Values</a>
+            {NAV_LINKS.filter((l) => FOOTER_LINK_IDS.includes(l.id)).map((link) => (
+              <a key={link.id} href={`#${link.id}`}>{link.label}</a>
+            ))}
           </div>
 
           <div className="footer-col">

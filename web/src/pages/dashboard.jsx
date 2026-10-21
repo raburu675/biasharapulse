@@ -44,6 +44,9 @@ const PERIOD_OPTIONS = [
   { key: 'monthly', label: 'Monthly' },
 ]
 
+const RECENT_LIMIT = 5
+const RADIAN = Math.PI / 180
+
 const formatPeriodLabel = (period, dateStr) => {
   const d = new Date(dateStr)
   if (period === 'daily') return d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })
@@ -55,6 +58,27 @@ const getMovementColor = (m) => {
   if (m.type === 'Low Stock Alert') return BRAND.amber
   if (m.currentStock === 0) return BRAND.red
   return BRAND.green
+}
+
+// Percent label inside each pie slice
+const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, value }) => {
+  if (value < 6) return null
+  const r = innerRadius + (outerRadius - innerRadius) * 0.6
+  const x = cx + r * Math.cos(-midAngle * RADIAN)
+  const y = cy + r * Math.sin(-midAngle * RADIAN)
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#fff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={13}
+      fontWeight={700}
+    >
+      {`${value}%`}
+    </text>
+  )
 }
 
 function Dashboard() {
@@ -152,7 +176,8 @@ function Dashboard() {
       setImporting(false)
     }
   }
-    const downloadTemplate = async () => {
+
+  const downloadTemplate = async () => {
     try {
       const res = await api.get('/api/products/import-template/', { responseType: 'blob' })
 
@@ -186,6 +211,8 @@ function Dashboard() {
   if (error) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>Error: {error}</p></main></div>
   if (!summary) return <div className="app-shell"><Sidebar current="dashboard" /><main className="main"><p>No data yet.</p></main></div>
 
+  const importSuccess = !!importResult && !importResult.error && importResult.created !== undefined
+
   const periodMap = {}
   summary.period_sales.forEach((r) => {
     const label = formatPeriodLabel(period, r.period)
@@ -213,13 +240,17 @@ function Dashboard() {
     color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
   }))
 
-  const recentSales = summary.recent_activity.map((s, i) => ({
-    id: `TXN-${i}`,
-    item: s.product,
-    channel: s.payment_channel,
-    amount: `KES ${s.amount}`,
-    time: new Date(s.created_at).toLocaleString(),
-  }))
+  // Newest first, latest 5 only
+  const recentSales = [...summary.recent_activity]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, RECENT_LIMIT)
+    .map((s, i) => ({
+      id: `TXN-${i}`,
+      item: s.product,
+      channel: s.payment_channel,
+      amount: `KES ${s.amount}`,
+      time: new Date(s.created_at).toLocaleString(),
+    }))
 
   return (
     <div className="app-shell">
@@ -274,168 +305,190 @@ function Dashboard() {
                 </button>
               </div>
 
-              <div className="import-template-row">
-                <div>
-                  <strong>Don't have the template?</strong>
-                  <span>Use our ready-made spreadsheet.</span>
-                </div>
+              {importSuccess ? (
+                <div className="import-success-wrap">
+                  <div className="import-success-panel">
+                    <div className="import-success-icon">
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m5 12 5 5 9-10" />
+                      </svg>
+                    </div>
+                    <strong className="import-success-title">Products imported successfully</strong>
+                    <span className="import-success-count">
+                      Created: {importResult.created} · Updated: {importResult.updated ?? 0}
+                    </span>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={downloadTemplate}
-                  className="import-template-link"
-                  style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M12 3v12" />
-                    <path d="m7 10 5 5 5-5" />
-                    <path d="M5 21h14" />
-                  </svg>
-                  Download Template
-                </button>
-              </div>
+                  {importResult.errors?.length > 0 && (
+                    <ul className="import-error-list">
+                      {importResult.errors.map((e, i) => (
+                        <li key={i}>Row {e.row}: {e.error}</li>
+                      ))}
+                    </ul>
+                  )}
 
-              <div
-                className={`import-dropzone ${file ? 'has-file' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.currentTarget.classList.add('dragging')
-                }}
-                onDragLeave={(e) => {
-                  e.currentTarget.classList.remove('dragging')
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.currentTarget.classList.remove('dragging')
-                  const droppedFile = e.dataTransfer.files[0]
-                  if (
-                    droppedFile &&
-                    (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.csv'))
-                  ) {
-                    setFile(droppedFile)
-                  }
-                }}
-                onClick={() => document.getElementById('product-import-file').click()}
-              >
-                {!file ? (
-                  <>
-                    <div className="import-upload-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 16V4" />
-                        <path d="m7 9 5-5 5 5" />
-                        <path d="M5 20h14" />
-                      </svg>
-                    </div>
-                    <strong>Drop your file here</strong>
-                    <span>or <b>browse from your computer</b></span>
-                    <small>XLSX or CSV · Maximum file size 10MB</small>
-                  </>
-                ) : (
-                  <div className="import-selected-file">
-                    <div className="import-file-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <path d="M14 2v6h6" />
-                        <path d="M8 13h8" />
-                        <path d="M8 17h6" />
-                      </svg>
-                    </div>
-                    <div className="import-file-info">
-                      <strong>{file.name}</strong>
-                      <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="import-remove-file"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setFile(null)
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M18 6 6 18" />
-                        <path d="m6 6 12 12" />
-                      </svg>
+                  <div className="import-modal-actions">
+                    <button onClick={closeImportModal} className="import-btn-confirm import-btn-done">
+                      Done
                     </button>
                   </div>
-                )}
-
-                <input
-                  id="product-import-file"
-                  type="file"
-                  accept=".xlsx,.csv"
-                  hidden
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
-              </div>
-
-              <div className="import-info-row">
-                <div className="import-info-item">
-                  <span className="import-info-number">01</span>
-                  <div>
-                    <strong>Download</strong>
-                    <small>Use the template</small>
-                  </div>
                 </div>
-                <div className="import-info-line"></div>
-                <div className="import-info-item">
-                  <span className="import-info-number">02</span>
-                  <div>
-                    <strong>Fill in</strong>
-                    <small>Add your products</small>
-                  </div>
-                </div>
-                <div className="import-info-line"></div>
-                <div className="import-info-item">
-                  <span className="import-info-number">03</span>
-                  <div>
-                    <strong>Upload</strong>
-                    <small>Upload your data</small>
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="import-template-row">
+                    <div>
+                      <strong>Don't have the template?</strong>
+                      <span>Use our ready-made spreadsheet.</span>
+                    </div>
 
-              <div className="import-modal-actions">
-                <button
-                  onClick={handleImport}
-                  disabled={!file || importing}
-                  className="import-btn-confirm"
-                >
-                  {importing ? (
-                    <>
-                      <span className="import-spinner"></span>
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      Upload Products
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M5 12h14" />
-                        <path d="m13 6 6 6-6 6" />
+                    <button type="button" onClick={downloadTemplate} className="import-template-link">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M12 3v12" />
+                        <path d="m7 10 5 5 5-5" />
+                        <path d="M5 21h14" />
                       </svg>
-                    </>
+                      Download Template
+                    </button>
+                  </div>
+
+                  <div
+                    className={`import-dropzone ${file ? 'has-file' : ''}`}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.add('dragging')
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('dragging')
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.remove('dragging')
+                      const droppedFile = e.dataTransfer.files[0]
+                      if (
+                        droppedFile &&
+                        (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.csv'))
+                      ) {
+                        setFile(droppedFile)
+                      }
+                    }}
+                    onClick={() => document.getElementById('product-import-file').click()}
+                  >
+                    {!file ? (
+                      <>
+                        <div className="import-upload-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 16V4" />
+                            <path d="m7 9 5-5 5 5" />
+                            <path d="M5 20h14" />
+                          </svg>
+                        </div>
+                        <strong>Drop your file here</strong>
+                        <span>or <b>browse from your computer</b></span>
+                        <small>XLSX or CSV · Maximum file size 10MB</small>
+                      </>
+                    ) : (
+                      <div className="import-selected-file">
+                        <div className="import-file-icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 2v6h6" />
+                            <path d="M8 13h8" />
+                            <path d="M8 17h6" />
+                          </svg>
+                        </div>
+                        <div className="import-file-info">
+                          <strong>{file.name}</strong>
+                          <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="import-remove-file"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setFile(null)
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
+                    <input
+                      id="product-import-file"
+                      type="file"
+                      accept=".xlsx,.csv"
+                      hidden
+                      onChange={(e) => setFile(e.target.files[0])}
+                    />
+                  </div>
+
+                  <div className="import-info-row">
+                    <div className="import-info-item">
+                      <span className="import-info-number">01</span>
+                      <div>
+                        <strong>Download</strong>
+                        <small>Use the template</small>
+                      </div>
+                    </div>
+                    <div className="import-info-line"></div>
+                    <div className="import-info-item">
+                      <span className="import-info-number">02</span>
+                      <div>
+                        <strong>Fill in</strong>
+                        <small>Add your products</small>
+                      </div>
+                    </div>
+                    <div className="import-info-line"></div>
+                    <div className="import-info-item">
+                      <span className="import-info-number">03</span>
+                      <div>
+                        <strong>Upload</strong>
+                        <small>Upload your data</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="import-modal-actions">
+                    <button
+                      onClick={handleImport}
+                      disabled={!file || importing}
+                      className="import-btn-confirm"
+                    >
+                      {importing ? (
+                        <>
+                          <span className="import-spinner"></span>
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          Upload Products
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M5 12h14" />
+                            <path d="m13 6 6 6-6 6" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+
+                    <button onClick={closeImportModal} className="import-btn-cancel">
+                      Cancel
+                    </button>
+                  </div>
+
+                  {importResult?.error && (
+                    <p className="import-error">{importResult.error}</p>
                   )}
-                </button>
-
-                <button onClick={closeImportModal} className="import-btn-cancel">
-                  Cancel
-                </button>
-              </div>
-
-              {importResult?.error && (
-                <p className="import-error">{importResult.error}</p>
-              )}
-              {importResult?.created !== undefined && (
-                <p className="import-success">
-                  Created: {importResult.created}, Updated: {importResult.updated}
-                </p>
-              )}
-              {importResult?.errors?.length > 0 && (
-                <ul className="import-error-list">
-                  {importResult.errors.map((e, i) => (
-                    <li key={i}>Row {e.row}: {e.error}</li>
-                  ))}
-                </ul>
+                  {importResult?.errors?.length > 0 && (
+                    <ul className="import-error-list">
+                      {importResult.errors.map((e, i) => (
+                        <li key={i}>Row {e.row}: {e.error}</li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -511,8 +564,8 @@ function Dashboard() {
                   </ResponsiveContainer>
                 </div>
                 <div className="chart-legend">
-                  <span><i className="dot" style={{ backgroundColor: "#000" }} /> Expenses</span>
-                  <span><i className="dot" style={{ backgroundColor: "#008B55" }} /> Sales</span>
+                  <span><i className="dot dot-expenses" /> Expenses</span>
+                  <span><i className="dot dot-sales" /> Sales</span>
                 </div>
               </>
             )}
@@ -571,16 +624,32 @@ function Dashboard() {
             {paymentSplit.length === 0 ? (
               <p className="chart-empty">No sales recorded yet.</p>
             ) : (
-              <div className="payment-channel-container">
-                <div style={{ flex: 1, height: 180 }}>
+              <div className="pie-card-body">
+                <div className="pie-chart-wrap">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={paymentSplit} innerRadius={32} outerRadius={52} paddingAngle={4} dataKey="value">
+                      <Pie
+                        data={paymentSplit}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="92%"
+                        startAngle={90}
+                        endAngle={-270}
+                        stroke="#fff"
+                        strokeWidth={3}
+                        labelLine={false}
+                        label={renderPieLabel}
+                      >
                         {paymentSplit.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: '#fff', border: `1px solid ${BRAND.line}`, borderRadius: 8 }} />
+                      <Tooltip
+                        formatter={(value, name) => [`${value}%`, name]}
+                        contentStyle={{ backgroundColor: '#fff', border: `1px solid ${BRAND.line}`, borderRadius: 8 }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -588,7 +657,7 @@ function Dashboard() {
                   {paymentSplit.map((item) => (
                     <div key={item.name} className="legend-item">
                       <span className="legend-swatch" style={{ backgroundColor: item.color }} />
-                      <span style={{ flex: 1 }}>{item.name}</span>
+                      <span className="legend-name">{item.name}</span>
                       <span className="legend-value">{item.value}%</span>
                     </div>
                   ))}
@@ -610,7 +679,7 @@ function Dashboard() {
                   <div key={cat.name}>
                     <div className="category-item-header">
                       <span>{cat.name}</span>
-                      <span style={{ fontWeight: 700 }}>{cat.volume}%</span>
+                      <span>{cat.volume}%</span>
                     </div>
                     <div className="progress-track">
                       <div className="progress-fill" style={{ width: `${cat.volume}%`, backgroundColor: cat.color }} />
@@ -634,19 +703,19 @@ function Dashboard() {
               <div className="feed-list">
                 {recentSales.map((sale) => (
                   <div key={sale.id} className="feed-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                      <span style={{
-                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                        backgroundColor: PAYMENT_COLORS[sale.channel] || BRAND.amber,
-                      }} />
-                      <div style={{ minWidth: 0 }}>
+                    <div className="feed-left">
+                      <span
+                        className="feed-dot"
+                        style={{ backgroundColor: PAYMENT_COLORS[sale.channel] || BRAND.amber }}
+                      />
+                      <div className="feed-text">
                         <div className="feed-title">{sale.item}</div>
                         <div className="feed-sub">
                           {sale.id} <span className="feed-badge">{PAYMENT_LABELS[sale.channel] || sale.channel}</span>
                         </div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div className="feed-right">
                       <div className="feed-val" style={{ color: PAYMENT_COLORS[sale.channel] || BRAND.amber }}>{sale.amount}</div>
                       <div className="feed-sub">{sale.time}</div>
                     </div>
@@ -656,15 +725,7 @@ function Dashboard() {
             )}
           </div>
 
-          <div
-            className="chart-section audit-card"
-            style={stockLocked ? {
-              position: 'relative',
-              overflow: 'hidden',
-              border: '1.5px solid #d4af37',
-              boxShadow: '0 0 0 3px rgba(212, 175, 55, 0.12)',
-            } : undefined}
-          >
+          <div className={`chart-section audit-card ${stockLocked ? 'locked' : ''}`}>
             <div className="chart-card-header">
               <h2>Stock Audit Logs</h2>
               <p className="chart-sub">Inventory Movement, Every row comes from StockMovement page — a restock, a waste/damage write-off, or a system-generated low-stock warning.</p>
@@ -686,14 +747,14 @@ function Dashboard() {
               <div className="feed-list">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="feed-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, backgroundColor: BRAND.line }} />
+                    <div className="feed-left">
+                      <span className="feed-dot skeleton" />
                       <div>
-                        <div style={{ width: 130, height: 10, borderRadius: 4, background: BRAND.line, marginBottom: 6 }} />
-                        <div style={{ width: 80, height: 8, borderRadius: 4, background: BRAND.line }} />
+                        <div className="skeleton skeleton-title" />
+                        <div className="skeleton skeleton-sub" />
                       </div>
                     </div>
-                    <div style={{ width: 60, height: 10, borderRadius: 4, background: BRAND.line }} />
+                    <div className="skeleton skeleton-val" />
                   </div>
                 ))}
               </div>
@@ -703,11 +764,14 @@ function Dashboard() {
               <p className="chart-empty">Couldn't load movements: {movementsError}</p>
             ) : (
               (() => {
-                const filtered = movements.filter((m) => {
-                  if (activeMovementTab === 1) return m.type !== 'Low Stock Alert'
-                  if (activeMovementTab === 2) return m.type === 'Low Stock Alert'
-                  return true
-                }).slice(0, 5)
+                const filtered = movements
+                  .filter((m) => {
+                    if (activeMovementTab === 1) return m.type !== 'Low Stock Alert'
+                    if (activeMovementTab === 2) return m.type === 'Low Stock Alert'
+                    return true
+                  })
+                  .sort((a, b) => new Date(b.time) - new Date(a.time))
+                  .slice(0, RECENT_LIMIT)
 
                 return filtered.length === 0 ? (
                   <p className="chart-empty">No stock movements yet.</p>
@@ -715,19 +779,16 @@ function Dashboard() {
                   <div className="feed-list">
                     {filtered.map((m) => (
                       <div key={m.id} className="feed-item">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                          <span style={{
-                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                            backgroundColor: getMovementColor(m),
-                          }} />
-                          <div style={{ minWidth: 0 }}>
+                        <div className="feed-left">
+                          <span className="feed-dot" style={{ backgroundColor: getMovementColor(m) }} />
+                          <div className="feed-text">
                             <div className="feed-title">{m.type}: {m.item}</div>
                             <div className="feed-sub">
                               By {m.user} <span className="feed-badge">{m.category}</span>
                             </div>
                           </div>
                         </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div className="feed-right">
                           <div className="feed-val" style={{ color: getMovementColor(m) }}>{m.qty}</div>
                           <div className="feed-sub">{new Date(m.time).toLocaleString()}</div>
                         </div>
@@ -739,45 +800,15 @@ function Dashboard() {
             )}
 
             {stockLocked && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  zIndex: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  background: 'rgba(255, 255, 255, 0.45)',
-                  backdropFilter: 'blur(5px)',
-                  WebkitBackdropFilter: 'blur(5px)',
-                }}
-              >
-                <div
-                  style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'rgba(212, 175, 55, 0.15)',
-                    border: '1px solid #d4af37',
-                  }}
-                >
+              <div className="audit-lock-overlay">
+                <div className="audit-lock-icon">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b8941f" strokeWidth="2.2">
                     <rect x="4" y="11" width="16" height="10" rx="2" />
                     <path d="M8 11V7a4 4 0 0 1 8 0v4" />
                   </svg>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.ink }}>
-                  Stock Audit Logs is included from Biashara Growth
-                </span>
-                <Link
-                  to="/?view=landing#pricing"
-                  style={{ fontSize: 11.5, fontWeight: 700, color: '#9a7b1a', textDecoration: 'none' }}
-                >
+                <span className="audit-lock-title">Stock Audit Logs is included from Biashara Growth</span>
+                <Link to="/?view=landing#pricing" className="audit-lock-link">
                   View pricing →
                 </Link>
               </div>
