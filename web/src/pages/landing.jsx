@@ -12,6 +12,8 @@ const PLAN_LABELS = {
   growth: "Biashara Growth",
   pro: "Biashara Pro",
   multi_branch: "Pro Multi-Branch",
+  six_months: "6-Month Plan",
+  annual: "Annual Plan",
 };
 
 // Nav links: each name describes the section it scrolls to
@@ -25,6 +27,97 @@ const NAV_LINKS = [
 ];
 
 const FOOTER_LINK_IDS = ["features", "showcase", "pricing", "values"];
+
+// Features: `icon` is a list of SVG path strings, `plan` is the lowest plan that includes it
+const FEATURES = [
+  {
+    icon: ["M3 4h2l2.4 11h10.2a2 2 0 0 0 2-1.5L21 8H6", "M10 20h.01", "M17 20h.01"],
+    title: "Point of Sale",
+    text: "Ring up sales in seconds at the counter. Every sale updates your stock and your books automatically.",
+    points: ["Cash, M-Pesa, and other payments", "Stock deducts on every sale", "Simple enough for new staff"],
+    plan: "Every plan",
+  },
+  {
+    icon: ["M21 8 12 3 3 8v8l9 5 9-5V8Z", "M3 8l9 5 9-5", "M12 13v8"],
+    title: "Stock Movement",
+    text: "Know what came in, what went out, and what is about to run out, before it costs you a sale.",
+    points: ["Restocks, write-offs, adjustments", "Low-stock alerts", "QR code product scanning"],
+    plan: "Growth and up",
+  },
+  {
+    icon: ["M9 4h6v3H9z", "M7 5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1", "M8 12h8", "M8 16h5"],
+    title: "Order Tracking",
+    text: "Keep every customer order moving from the moment it is placed until it is delivered.",
+    points: ["Pending, active, and completed", "Status updates on each order", "No more orders lost in chats"],
+    plan: "Every plan",
+  },
+  {
+    icon: ["M3 17l6-6 4 4 8-8", "M15 7h6v6"],
+    title: "Expenses & Profit",
+    text: "Log what you spend and see what you actually keep. Revenue, expenses, and margin update live.",
+    points: ["Sales and expense logging", "Live profit and margin", "Dashboard of your shop's health"],
+    plan: "Every plan",
+  },
+  {
+    icon: ["M4 20V10", "M10 20V4", "M16 20v-7", "M22 20H2"],
+    title: "Product Performance",
+    text: "See which products earn their shelf space and which ones tie up your cash.",
+    points: ["Best sellers and slow movers", "Cost, margin, and sell-through", "Detailed monthly business reports"],
+    plan: "Growth and up",
+  },
+  {
+    icon: ["M3 9l1.5-5h15L21 9", "M3 9v11h18V9", "M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0", "M10 20v-6h4v6"],
+    title: "Branches & Team",
+    text: "Grow past one counter. Add branches and give your team their own accounts.",
+    points: ["Up to 8 shop branches", "Owner and staff accounts", "One view across locations"],
+    plan: "Pro and up",
+  },
+];
+
+// Why Us: same icon format as FEATURES
+const VALUES = [
+  {
+    icon: ["M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z", "M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"],
+    title: "Local by design",
+    text: "M-Pesa, KES, and the way Kenyan shops actually sell and stock. Not a foreign POS with a currency symbol swapped in.",
+  },
+  {
+    icon: ["M12 3 3 8l9 5 9-5-9-5Z", "M3 12.5l9 5 9-5", "M3 17l9 5 9-5"],
+    title: "One system, one truth",
+    text: "Sales, stock, orders, and expenses live in the same place. The dashboard, POS, and reports read from one source, so your numbers never disagree.",
+  },
+  {
+    icon: ["M3 17l6-6 4 4 8-8", "M15 7h6v6"],
+    title: "Margins, not just totals",
+    text: "See profit and sell-through per product, not just revenue at the top. Know which products earn their shelf space.",
+  },
+  {
+    icon: ["M13 2 4 14h7l-1 8 9-12h-7l1-8Z"],
+    title: "Fast on the network you have",
+    text: "Lightweight enough for everyday mobile data, and simple enough for a new staff member to ring up a sale on day one.",
+  },
+  {
+    icon: ["M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z", "M7.5 7.5h.01"],
+    title: "Honest pricing",
+    text: "Start free, no card. Upgrade only when the product is already paying for itself. No lock-in, no surprise renewal.",
+  },
+  {
+    icon: ["M12 3v12", "M7 10l5 5 5-5", "M4 20h16"],
+    title: "Your data stays yours",
+    text: "Export your sales, products, and reports whenever you like. If you ever decide to move on, nothing is held hostage.",
+  },
+];
+
+const VALUE_PROMISES = ["Free plan to start, no card", "Export your data anytime", "Built and supported in Kenya"];
+
+// Renders a list of SVG path strings as one stroked icon
+const Icon = ({ paths }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {paths.map((d) => (
+      <path key={d} d={d} />
+    ))}
+  </svg>
+);
 
 const formatDate = (iso) =>
   iso
@@ -47,6 +140,8 @@ function Landing() {
   const [activeSection, setActiveSection] = useState(null);
   const mobileScrollRefs = useRef([]);
   const showcaseRef = useRef(null);
+  const tabsRef = useRef(null);
+  const [activeTour, setActiveTour] = useState(0);
   const accountRef = useRef(null);
 
   // Signed-in user shown in the account menu (null = signed out)
@@ -154,6 +249,14 @@ function Landing() {
     }
   };
 
+  // Smooth-scroll to a product tour chapter, clearing the nav and the sticky tab bar
+  const goToTour = (i) => {
+    const el = document.getElementById(`tour-${i}`);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.pageYOffset - 130;
+    window.scrollTo({ top, behavior: "smooth" });
+  };
+
   const showcaseTabs = [
     {
       label: "Dashboard",
@@ -215,6 +318,20 @@ function Landing() {
       ],
       caption: "Track customer orders from pending to delivered.",
     },
+    {
+      label: "Product Performance",
+      desktopSrc: "/screenshots/product-performance-desktop.png",
+      mobileSrc: ["/screenshots/product-performance-mobile.png"],
+      heading: "See which products actually make you money",
+      description:
+        "Know your best sellers, your slow movers, and the products with the strongest margins — so you stock smarter and price with confidence.",
+      benefits: [
+        { icon: "★", text: "Rank products by revenue, profit, and units sold" },
+        { icon: "↗", text: "Spot high-margin products worth pushing harder" },
+        { icon: "◔", text: "Identify slow movers tying up your cash" },
+      ],
+      caption: "See cost, margin, and sell-through for every product you stock.",
+    },
   ];
 
   useEffect(() => {
@@ -240,7 +357,14 @@ function Landing() {
     const id = window.location.hash.replace("#", "");
     if (!id) return;
 
-    const go = () => document.getElementById(id)?.scrollIntoView();
+    const go = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        const navHeight = 60;
+        const top = el.getBoundingClientRect().top + window.pageYOffset - navHeight;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
+    };
     go();
     const retry = setTimeout(go, 300);
     return () => clearTimeout(retry);
@@ -259,7 +383,12 @@ function Landing() {
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      const el = document.getElementById(id);
+      if (el) {
+        const navHeight = 60;
+        const top = el.getBoundingClientRect().top + window.pageYOffset - navHeight;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
     };
 
     document.addEventListener("click", onClick);
@@ -360,6 +489,33 @@ function Landing() {
     items.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [stage]);
+
+  // Track which product tour chapter is in view
+  useEffect(() => {
+    if (stage !== "landing" || !("IntersectionObserver" in window)) return;
+    const items = showcaseRef.current?.querySelectorAll(".showcase-item");
+    if (!items?.length) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) setActiveTour(Number(entry.target.dataset.index));
+        });
+      },
+      { rootMargin: "-35% 0px -55% 0px" }
+    );
+
+    items.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [stage]);
+
+  // Keep the active tab centred in the tab bar (matters on phones)
+  useEffect(() => {
+    const bar = tabsRef.current;
+    const btn = bar?.children[activeTour];
+    if (!bar || !btn) return;
+    bar.scrollTo({ left: btn.offsetLeft - bar.clientWidth / 2 + btn.offsetWidth / 2, behavior: "smooth" });
+  }, [activeTour]);
 
   if (stage === "splash") {
     return (
@@ -574,35 +730,26 @@ function Landing() {
       {/* FEATURES SECTION */}
       <section id="features" className="features-intro">
         <span className="features-tag">What you get</span>
-        <h2>Everything your business needs to run smarter</h2>
-        <p>Sales, stock, expenses, orders, and performance — brought together in one clear view.</p>
+        <h2>Run your whole shop from one screen</h2>
+        <p>Sales, stock, orders, expenses, and performance are recorded once and connected everywhere.</p>
       </section>
 
       <section className="features">
-        <div className="feature">
-          <div className="feature-top"><span className="feature-index">01</span><div className="feature-icon">📊</div></div>
-          <h3>Sales & Expense Tracking</h3>
-          <p>See what is coming in, what is going out, and where your money is going without manual calculations.</p>
-          <span className="feature-note">Know your numbers</span>
-        </div>
-        <div className="feature">
-          <div className="feature-top"><span className="feature-index">02</span><div className="feature-icon">📦</div></div>
-          <h3>Stock Movement</h3>
-          <p>Record incoming stock, sales, adjustments, and low-stock activity so your inventory stays under control.</p>
-          <span className="feature-note">Stay ahead of stock</span>
-        </div>
-        <div className="feature">
-          <div className="feature-top"><span className="feature-index">03</span><div className="feature-icon">📈</div></div>
-          <h3>Reports & Insights</h3>
-          <p>Turn everyday transactions into useful performance information, from profit margins to your best products.</p>
-          <span className="feature-note">Understand performance</span>
-        </div>
-        <div className="feature">
-          <div className="feature-top"><span className="feature-index">04</span><div className="feature-icon">⚡</div></div>
-          <h3>Built for Local SMEs</h3>
-          <p>Simple enough for a busy shop floor and lightweight enough to work smoothly across everyday mobile networks.</p>
-          <span className="feature-note">Made for real biashara</span>
-        </div>
+        {FEATURES.map((f) => (
+          <div className="feature" key={f.title}>
+            <div className="feature-top">
+              <div className="feature-icon"><Icon paths={f.icon} /></div>
+              <span className="feature-plan">{f.plan}</span>
+            </div>
+            <h3>{f.title}</h3>
+            <p>{f.text}</p>
+            <ul className="feature-points">
+              {f.points.map((pt) => (
+                <li key={pt}>{pt}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </section>
 
       <section id="showcase" className="showcase">
@@ -612,9 +759,27 @@ function Landing() {
           <p>Scroll through the platform and see how each part fits into the way you work.</p>
         </div>
 
+        <div className="tour-tabs-wrap">
+          <div className="tour-tabs" ref={tabsRef} role="tablist" aria-label="Product tour chapters">
+            {showcaseTabs.map((tab, i) => (
+              <button
+                key={tab.label}
+                type="button"
+                role="tab"
+                aria-selected={activeTour === i}
+                className={`tour-tab ${activeTour === i ? "active" : ""}`}
+                onClick={() => goToTour(i)}
+              >
+                <span className="tour-tab-num">{String(i + 1).padStart(2, "0")}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="showcase-scroll" ref={showcaseRef}>
           {showcaseTabs.map((tab, i) => (
-            <article className="showcase-item reveal" key={tab.label}>
+            <article className="showcase-item reveal" key={tab.label} id={`tour-${i}`} data-index={i}>
               <div className="showcase-content">
                 <div className="showcase-info">
                   <span className="showcase-number">{String(i + 1).padStart(2, "0")} / {tab.label}</span>
@@ -628,6 +793,7 @@ function Landing() {
                       </li>
                     ))}
                   </ul>
+                  <p className="showcase-caption">{tab.caption}</p>
                 </div>
 
                 <div className="showcase-frame">
@@ -692,7 +858,6 @@ function Landing() {
                   </div>
                 </div>
               </div>
-              <p className="showcase-caption">{tab.caption}</p>
             </article>
           ))}
         </div>
@@ -728,6 +893,8 @@ function Landing() {
         </div>
       </section>
 
+      {/* ── BLACK + BURGUNDY BAND: Pricing ── */}
+      <div className="dark-band">
       {/* pricing */}
       <section id="pricing" className="pricing">
         <div className="pricing-header">
@@ -856,44 +1023,153 @@ function Landing() {
             </div>
           </div>
         </div>
+
+        {/* Discounted plans — below the main grid */}
+        <div className="pricing-discounts">
+          <div className="pricing-discounts-header">
+            <span className="pricing-tag">Save more</span>
+            <h3>Prepay and keep more of your money</h3>
+          </div>
+
+          <div className="pricing-discounts-grid">
+            <div className="pricing-card discount-card">
+              <div className="discount-badge">Save 7%</div>
+              <div className="pricing-card-header">
+                <h3>6-Month Plan</h3>
+                <p>Pay for six months upfront and get 7% off any paid plan.</p>
+                {/* <div className="pricing-amount">
+                  <span className="currency">KES</span>
+                  <span className="price">~7,249</span>
+                  <span className="period">/ 6 months</span>
+                </div> */}
+                {/* <span className="discount-note">Example based on Biashara Lite (KES 1,299/mo)</span> */}
+              </div>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li>✓ 7% discount on any paid tier</li>
+                  <li>✓ One payment for six months</li>
+                  <li>✓ All plan features included</li>
+                  <li>✓ Priority support</li>
+                </ul>
+                <button className="pricing-btn primary" onClick={() => selectPlan("six_months")}>
+                  Get 6 months
+                </button>
+              </div>
+            </div>
+
+            <div className="pricing-card discount-card featured-discount">
+              <div className="discount-badge">Best value</div>
+              <div className="pricing-card-header">
+                <h3>Annual Plan</h3>
+                <p>Pay for a full year and get 17% off — that's 2 months free.</p>
+                {/* <div className="pricing-amount">
+                  <span className="currency">KES</span>
+                  <span className="price">~12,940</span>
+                  <span className="period">/ year</span>
+                </div> */}
+                {/* <span className="discount-note">Example based on Biashara Lite (KES 1,299/mo)</span> */}
+              </div>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li>✓ 17% discount on any paid tier</li>
+                  <li>✓ 2 months free</li>
+                  <li>✓ All plan features included</li>
+                  <li>✓ Priority support</li>
+                  <li>✓ Lock in today's price for a year</li>
+                </ul>
+                <button className="pricing-btn primary" onClick={() => selectPlan("annual")}>
+                  Get annual
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
+
+      </div>
 
       {/* ── HOW IT WORKS ── */}
       <section id="how-it-works" className="how-it-works">
         <div className="how-intro">
           <span className="features-tag">How it works</span>
-          <h2>A simpler way to stay on top of the business</h2>
-          <p>Set it up once, keep your day moving, and let the numbers build themselves around your work.</p>
+          <h2>From counter sale to clear decision — in one loop</h2>
+          <p>
+            Every sale, restock, and expense you record feeds the same system.
+            BiasharaPulse turns that daily activity into the numbers you need to
+            price better, stock smarter, and grow with confidence.
+          </p>
         </div>
 
         <div className="how-steps">
           <div className="how-step">
             <span className="how-step-number">01</span>
             <div>
-              <h3>Start with your account</h3>
-              <p>Create your account and get into your workspace without a long setup process.</p>
+              <h3>Record the sale</h3>
+              <p>
+                Ring up a sale at the counter in seconds. Stock deducts itself,
+                the payment method is logged, and the transaction is accounted
+                for — no notebook, no end-of-day reconciliation.
+              </p>
+              <span className="how-step-outcome">Every sale captured, automatically</span>
             </div>
           </div>
+
           <div className="how-step">
             <span className="how-step-number">02</span>
             <div>
-              <h3>Bring in your products</h3>
-              <p>Import your catalog from a spreadsheet or add products as you build your inventory.</p>
+              <h3>Keep stock honest</h3>
+              <p>
+                Restocks, write-offs, and adjustments are recorded as they
+                happen. Low-stock alerts surface before a product runs out, so
+                you restock on your terms — not in a panic.
+              </p>
+              <span className="how-step-outcome">Inventory you can trust</span>
             </div>
           </div>
+
           <div className="how-step">
             <span className="how-step-number">03</span>
             <div>
-              <h3>Run your daily operations</h3>
-              <p>Sell, receive stock, record expenses, and keep customer orders moving from one place.</p>
+              <h3>See the real numbers</h3>
+              <p>
+                Revenue, expenses, profit, and margin update live. Product
+                performance shows what actually sells and what ties up your
+                cash — by product, by branch, by period.
+              </p>
+              <span className="how-step-outcome">Insight, not guesswork</span>
             </div>
           </div>
+
           <div className="how-step">
             <span className="how-step-number">04</span>
             <div>
-              <h3>Make decisions with clarity</h3>
-              <p>Your dashboard turns those everyday activities into numbers you can actually use.</p>
+              <h3>Decide with confidence</h3>
+              <p>
+                Use margins, sell-through, and trends to set prices, choose what
+                to stock, and spot problems early. The dashboard is built for
+                decisions, not just record-keeping.
+              </p>
+              <span className="how-step-outcome">Better calls, backed by data</span>
             </div>
+          </div>
+        </div>
+
+        <div className="how-proof">
+          <div className="how-proof-item">
+            <strong>Live</strong>
+            <span>Sales &amp; expense tracking</span>
+          </div>
+          <div className="how-proof-item">
+            <strong>Automatic</strong>
+            <span>Stock deduction on every sale</span>
+          </div>
+          <div className="how-proof-item">
+            <strong>Per product</strong>
+            <span>Margin &amp; sell-through insight</span>
+          </div>
+          <div className="how-proof-item">
+            <strong>Multi-branch</strong>
+            <span>One view across locations</span>
           </div>
         </div>
 
@@ -902,70 +1178,45 @@ function Landing() {
         </button>
       </section>
 
+      {/* ── BLACK + BURGUNDY BAND: Why us ── */}
+      <div className="dark-band">
+      {/* why us */}
       <section id="values" className="values">
-        <h2>Better tools for better business decisions</h2>
-        <p className="values-subtitle">
-          We believe every business deserves a clearer view of its performance,
-          better control of its operations, and the tools to grow with confidence.
-        </p>
-
-        <div className="value-grid">
-          <div className="value-stamp">
-            <span className="stamp-mark">01 / Clarity</span>
-            <h3>Know your numbers</h3>
-            <p>
-              Get a clearer picture of sales, expenses, profit, and business
-              performance without piecing together scattered spreadsheets.
+        <div className="values-layout">
+          <div className="values-lead">
+            <span className="features-tag">Why BiasharaPulse</span>
+            <h2>Built for Kenyan shops, not adapted for them</h2>
+            <p className="values-subtitle">
+              Most business software is designed somewhere else and translated
+              for Kenya. BiasharaPulse was built here, for how shops here
+              actually sell, stock, and get paid.
             </p>
+
+            <ul className="values-promises">
+              {VALUE_PROMISES.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+
+            <button className="values-cta" onClick={handleStartFree}>
+              {currentUser ? "Go to Dashboard" : "Start Free Now"}
+            </button>
           </div>
 
-          <div className="value-stamp">
-            <span className="stamp-mark">02 / Control</span>
-            <h3>Stay ahead of stock</h3>
-            <p>
-              Track inventory movement, monitor low-stock products, and understand
-              what is selling so you can make more informed restocking decisions.
-            </p>
-          </div>
-
-          <div className="value-stamp">
-            <span className="stamp-mark">03 / Accuracy</span>
-            <h3>Keep better records</h3>
-            <p>
-              Bring sales, expenses, orders, and stock activity into one system
-              to make everyday record-keeping more consistent and manageable.
-            </p>
-          </div>
-
-          <div className="value-stamp">
-            <span className="stamp-mark">04 / Insight</span>
-            <h3>Turn data into direction</h3>
-            <p>
-              Go beyond recording transactions. Use product performance, margins,
-              and sales trends to understand what is working and where to improve.
-            </p>
-          </div>
-
-          <div className="value-stamp">
-            <span className="stamp-mark">05 / Simplicity</span>
-            <h3>Built for everyday work</h3>
-            <p>
-              Manage essential business operations through a practical,
-              straightforward interface designed to fit into your daily workflow,
-              not complicate it.
-            </p>
-          </div>
-
-          <div className="value-stamp">
-            <span className="stamp-mark">06 / Accessibility</span>
-            <h3>Tools within reach</h3>
-            <p>
-              Start with a free plan and explore the core workflow before
-              upgrading as your business needs more capacity and advanced features.
-            </p>
+          <div className="values-list">
+            {VALUES.map((v) => (
+              <article className="value-item" key={v.title}>
+                <div className="value-icon"><Icon paths={v.icon} /></div>
+                <div className="value-body">
+                  <h3>{v.title}</h3>
+                  <p>{v.text}</p>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
+      </div>
 
       <footer className="landing-footer">
         <div className="footer-top">
