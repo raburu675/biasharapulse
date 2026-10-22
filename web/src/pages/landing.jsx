@@ -520,16 +520,37 @@ function Landing() {
   if (stage === "splash") {
     return (
       <div className={`splash ${fadeOut ? "splash-fade-out" : ""}`}>
+        <div className="splash-grid" />
+
+        {/* Heartbeat line draws across the screen; the big spike lands on the wordmark */}
+        <div className="splash-ecg-wrap" aria-hidden="true">
+          <span className="splash-ring" />
+          <span className="splash-ring splash-ring-2" />
+          <svg className="splash-ecg" viewBox="0 0 1200 160" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="splashEcgGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+                <stop offset="0%" stopColor="#7A0C29" stopOpacity="0" />
+                <stop offset="35%" stopColor="#C4173F" />
+                <stop offset="52%" stopColor="#FFFFFF" />
+                <stop offset="70%" stopColor="#12A056" />
+                <stop offset="100%" stopColor="#12A056" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              className="splash-ecg-line"
+              pathLength="1"
+              d="M0,80 L470,80 L510,80 L540,40 L570,120 L600,8 L630,152 L660,80 L700,80 L1200,80"
+            />
+          </svg>
+        </div>
+
         <h1 className="splash-text">
           <span className="splash-biashara">Biashara</span>
           <span className="splash-pulse">Pulse</span>
         </h1>
         <p className="splash-tagline">the heart of your business</p>
-        <div className="splash-loader">
-          <svg viewBox="0 0 150 34" preserveAspectRatio="none">
-            <path d="M0,17 L35,17 L45,4 L55,30 L65,17 L150,17" />
-          </svg>
-        </div>
+
+        <div className="splash-bar"><span /></div>
       </div>
     );
   }

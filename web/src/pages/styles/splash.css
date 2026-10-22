@@ -1,4 +1,240 @@
+/* ═══════════════════════════════════════════════════════════
+   SPLASH
+   A heartbeat line draws across the screen, the big spike lands
+   on the wordmark, then the name and tagline resolve.
+   Timeline (~6s, matches the 6.2s fade in Landing.jsx):
+     0.0s  line starts drawing        1.3s  spike reaches the centre
+     1.4s  wordmark rises             2.2s  tagline appears
+     0.3s  progress bar starts, fills over ~5.9s
+   ═══════════════════════════════════════════════════════════ */
+
 .splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+  background: #0A0A0B;
+  color: #FFFFFF;
+  text-align: center;
+  transition: opacity 1.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.splash-fade-out { opacity: 0; }
+
+/* Burgundy glow behind the wordmark, a faint emerald one in the corner */
+.splash::before,
+.splash::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.splash::before {
+  inset: 0;
+  background: radial-gradient(ellipse 60% 45% at 50% 50%, rgba(122, 12, 41, 0.42), transparent 70%);
+}
+
+.splash::after {
+  right: -10%;
+  bottom: -20%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(15, 122, 68, 0.16), transparent 65%);
+}
+
+/* Faint grid, faded out towards the edges */
+.splash-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000, transparent 75%);
+  pointer-events: none;
+}
+
+/* ── Heartbeat line ── */
+.splash-ecg-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1200px;
+  height: 130px;
+  margin-bottom: 8px;
+}
+
+.splash-ecg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.splash-ecg-line {
+  fill: none;
+  stroke: url(#splashEcgGradient);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 6px rgba(196, 23, 63, 0.55));
+  animation:
+    splashDraw 2.6s cubic-bezier(0.45, 0, 0.35, 1) 0.1s forwards,
+    splashGlow 2.4s ease-in-out 2.7s infinite;
+}
+
+/* Rings that beat outwards from the centre spike */
+.splash-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260px;
+  height: 260px;
+  border: 1px solid rgba(196, 23, 63, 0.5);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.2);
+  animation: splashRing 2.4s cubic-bezier(0.22, 1, 0.36, 1) 1.35s infinite;
+}
+
+.splash-ring-2 {
+  border-color: rgba(18, 160, 86, 0.4);
+  animation-delay: 1.95s;
+}
+
+/* ── Wordmark ── */
+.splash-text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.08em;
+  margin: 0;
+  font-family: "Cormorant", serif;
+  font-size: clamp(46px, 9vw, 96px);
+  line-height: 1;
+  opacity: 0;
+  animation: splashRise 1.2s cubic-bezier(0.22, 1, 0.36, 1) 1.4s forwards;
+}
+
+.splash-biashara {
+  color: #FFFFFF;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.splash-pulse {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background-image: linear-gradient(90deg, #C4173F 0%, #12A056 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.splash-tagline {
+  position: relative;
+  z-index: 1;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.56);
+  font-family: "Cormorant", serif;
+  font-size: clamp(16px, 2.2vw, 22px);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  opacity: 0;
+  animation: splashFade 1.5s ease 3s forwards;
+}
+
+/* ── Progress line ── */
+.splash-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 11vh;
+  z-index: 1;
+  width: 160px;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+
+.splash-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #C4173F, #12A056);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: splashBar 7.2s linear 0.8s forwards;
+}
+
+/* ── Keyframes ── */
+@keyframes splashDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes splashGlow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(196, 23, 63, 0.45)); }
+  50% { filter: drop-shadow(0 0 14px rgba(196, 23, 63, 0.9)); }
+}
+
+@keyframes splashRing {
+  0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.2); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
+}
+
+@keyframes splashRise {
+  from { opacity: 0; filter: blur(10px); transform: translateY(16px); letter-spacing: 0.06em; }
+  to { opacity: 1; filter: blur(0); transform: none; letter-spacing: 0; }
+}
+
+@keyframes splashFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes splashBar {
+  to { transform: scaleX(1); }
+}
+
+/* ── Phone ── */
+@media (max-width: 640px) {
+  .splash-ecg-wrap { height: 96px; }
+  .splash-ring { width: 190px; height: 190px; }
+  .splash-tagline { margin-top: 14px; letter-spacing: 0.1em; }
+  .splash-bar { width: 120px; bottom: 9vh; }
+  .splash::after { width: 90vw; height: 90vw; }
+}
+
+/* Reduced motion: show the finished frame, no movement */
+@media (prefers-reduced-motion: reduce) {
+  .splash-ecg-line { animation: none; stroke-dashoffset: 0; }
+  .splash-ring { display: none; }
+  .splash-text,
+  .splash-tagline { animation: none; opacity: 1; }
+  .splash-bar span { animation: none; transform: scaleX(1); }
+}
+
+
+
+
+
+/* .splash {
   position: fixed;
   inset: 0;
   display: flex;
@@ -108,4 +344,4 @@
 @keyframes splashTaglineIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
-}
+} */
