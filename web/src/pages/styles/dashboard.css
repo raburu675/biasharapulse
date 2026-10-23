@@ -1093,10 +1093,11 @@
   .app-shell .products-cta { padding: 22px 28px; }
 }
 
-/* ═══ SMALL SCREENS ═══ */
+/* ═══ SMALL SCREENS — 3-column nav: dot left, title centered, Live right ═══ */
 @media (max-width: 640px) {
   .app-shell .main-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 8px;
     position: sticky;
@@ -1104,7 +1105,7 @@
     z-index: 99999;
     width: 100%;
     height: 40px;
-    padding: 0 12px 0 58px;
+    padding: 0 12px;
     background: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -1114,6 +1115,8 @@
   }
 
   .app-shell .header-dot {
+    grid-column: 1;
+    justify-self: start;
     width: 6px;
     height: 6px;
     border-radius: 1px;
@@ -1123,10 +1126,39 @@
   }
 
   .app-shell .header-title {
+    grid-column: 2;
+    justify-self: center;
     font-size: var(--fs-body);
     font-weight: 700;
     color: var(--ink);
     letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .app-shell .header-live {
+    grid-column: 3;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background: rgba(18, 160, 86, 0.12);
+    border: 1px solid rgba(18, 160, 86, 0.35);
+    border-radius: 20px;
+    color: var(--emerald);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .app-shell .header-live i {
+    width: 6px;
+    height: 6px;
+    background: var(--emerald-bright);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(18, 160, 86, 0.22);
+    animation: livePulse 2s ease-in-out infinite;
   }
 
   .app-shell .products-cta {
@@ -1152,8 +1184,14 @@
   .app-shell .pie-chart-wrap { height: 210px; }
 }
 
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(18, 160, 86, 0.22); }
+  50% { box-shadow: 0 0 0 6px rgba(18, 160, 86, 0.06); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-shell .feed-item,
   .app-shell .progress-fill,
-  .app-shell .import-btn::before { transition: none; }
+  .app-shell .import-btn::before,
+  .app-shell .header-live i { transition: none; animation: none; }
 }

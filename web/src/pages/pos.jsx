@@ -192,6 +192,7 @@ function Pos() {
         <header className="pos-nav">
           <span className="header-dot" />
           <span className="header-title">Point of Sale</span>
+          <span className="header-live"><i /> Live</span>
         </header>
 
         <main className="pos-main">

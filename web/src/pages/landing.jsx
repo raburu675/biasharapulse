@@ -23,10 +23,12 @@ const NAV_LINKS = [
   { id: "demo", label: "Demo", hint: "Watch the walkthrough" },
   { id: "pricing", label: "Pricing", hint: "Plans for every stage" },
   { id: "how-it-works", label: "How It Works", hint: "Up and running in four steps" },
-  { id: "values", label: "Why Us", hint: "What we stand for" },
+  { id: "values", label: "Why Us", hint: "How we beat SME bottlenecks" },
+  { id: "reviews", label: "Reviews", hint: "What shop owners say" },
+  { id: "faq", label: "FAQ", hint: "Quick answers" },
 ];
 
-const FOOTER_LINK_IDS = ["features", "showcase", "pricing", "values"];
+const FOOTER_LINK_IDS = ["features", "showcase", "pricing", "values", "faq"];
 
 // Features: `icon` is a list of SVG path strings, `plan` is the lowest plan that includes it
 const FEATURES = [
@@ -74,41 +76,137 @@ const FEATURES = [
   },
 ];
 
-// Why Us: same icon format as FEATURES
-const VALUES = [
+// Why Us: the bottlenecks that slow SMEs down, and how BiasharaPulse removes each one
+const BOTTLENECKS = [
   {
-    icon: ["M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z", "M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"],
-    title: "Local by design",
-    text: "M-Pesa, KES, and the way Kenyan shops actually sell and stock. Not a foreign POS with a currency symbol swapped in.",
+    icon: ["M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4Z", "M8 9h6", "M8 13h4"],
+    title: "Sales live in a notebook",
+    problem: "Sales are scribbled down during the day and added up at night, with mistakes and missing entries.",
+    fix: "Ring up each sale at the counter. The payment method, stock, and totals update instantly.",
   },
   {
-    icon: ["M12 3 3 8l9 5 9-5-9-5Z", "M3 12.5l9 5 9-5", "M3 17l9 5 9-5"],
-    title: "One system, one truth",
-    text: "Sales, stock, orders, and expenses live in the same place. The dashboard, POS, and reports read from one source, so your numbers never disagree.",
+    icon: ["M21 8 12 3 3 8v8l9 5 9-5V8Z", "M3 8l9 5 9-5", "M12 13v8"],
+    title: "Surprise stock-outs",
+    problem: "You find out a product is finished when a customer asks for it.",
+    fix: "Low-stock alerts and a stock movement log show what is running out before it costs you a sale.",
   },
   {
     icon: ["M3 17l6-6 4 4 8-8", "M15 7h6v6"],
-    title: "Margins, not just totals",
-    text: "See profit and sell-through per product, not just revenue at the top. Know which products earn their shelf space.",
+    title: "Profit you can't see",
+    problem: "Revenue looks healthy, but you can't tell which products actually make money.",
+    fix: "See cost, margin, and sell-through for every product, so you stock and price with confidence.",
   },
   {
-    icon: ["M13 2 4 14h7l-1 8 9-12h-7l1-8Z"],
-    title: "Fast on the network you have",
-    text: "Lightweight enough for everyday mobile data, and simple enough for a new staff member to ring up a sale on day one.",
+    icon: ["M9 4h6v3H9z", "M7 5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1", "M8 12h8", "M8 16h5"],
+    title: "Orders lost in chats",
+    problem: "Customer orders sit in chat messages and notebooks until someone forgets them.",
+    fix: "Every order is tracked in one place, from pending to delivered.",
+  },
+  {
+    icon: ["M3 9l1.5-5h15L21 9", "M3 9v11h18V9", "M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0", "M10 20v-6h4v6"],
+    title: "Branches you can't see at once",
+    problem: "Each location keeps its own records, so you only get the full picture weeks later.",
+    fix: "One view across up to 8 branches, with separate owner and staff accounts.",
   },
   {
     icon: ["M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z", "M7.5 7.5h.01"],
-    title: "Honest pricing",
-    text: "Start free, no card. Upgrade only when the product is already paying for itself. No lock-in, no surprise renewal.",
-  },
-  {
-    icon: ["M12 3v12", "M7 10l5 5 5-5", "M4 20h16"],
-    title: "Your data stays yours",
-    text: "Export your sales, products, and reports whenever you like. If you ever decide to move on, nothing is held hostage.",
+    title: "Tools that cost too much or fit badly",
+    problem: "Imported tools are often priced for other markets, built around other payment habits, and heavy on data.",
+    fix: "Priced in KES, built around M-Pesa, light on mobile data, and free to start with no lock-in.",
   },
 ];
 
+// Comparison: "yes" and "no" render as icons, anything else renders as text
+const COMPARE_COLS = ["BiasharaPulse", "Notebook & spreadsheets", "Generic POS / ERP"];
+const COMPARE_ROWS = [
+  { label: "Built around M-Pesa and KES", values: ["yes", "no", "Varies"] },
+  { label: "Stock updates on every sale", values: ["yes", "Manual", "Usually"] },
+  { label: "Profit and margin per product", values: ["yes", "Manual", "Varies"] },
+  { label: "Customer order tracking", values: ["yes", "no", "Varies"] },
+  { label: "One view across branches", values: ["yes", "no", "Varies"] },
+  { label: "Simple enough for day-one staff", values: ["yes", "yes", "Can be complex"] },
+];
+
 const VALUE_PROMISES = ["Free plan to start, no card", "Export your data anytime", "Built and supported in Kenya"];
+
+// SAMPLE CONTENT: replace these with real customer reviews (with permission) before publishing
+const REVIEWS = [
+  {
+    featured: true,
+    tag: "Clear margins",
+    quote: "I used to guess which products were worth restocking. Now I can see the margin on each one, and I order with confidence.",
+    name: "Hardware shop owner",
+    meta: "Nairobi",
+  },
+  {
+    tag: "No more stock-outs",
+    quote: "The low-stock alerts mean I find out before a customer does. We stopped turning people away at the counter.",
+    name: "Mini-mart owner",
+    meta: "Nakuru",
+  },
+  {
+    tag: "Orders under control",
+    quote: "Orders used to live in chat messages. Now every order has a status and nothing gets forgotten.",
+    name: "Online clothing seller",
+    meta: "Mombasa",
+  },
+];
+
+const FAQS = [
+  {
+    q: "Is BiasharaPulse really free to start?",
+    a: "Yes. The Starter plan costs KES 0 and includes the full POS page, order tracking, and sales and expense logging for one branch and one user. You don't need a card to start, and you can upgrade when your shop is ready.",
+  },
+  {
+    q: "Does it work with M-Pesa?",
+    a: "Yes. Every sale at the POS records how the customer paid, whether that is cash, M-Pesa, or another method, so your daily totals match what actually came in.",
+  },
+  {
+    q: "Do I need special hardware?",
+    a: "No. BiasharaPulse is a web app built to run smoothly on everyday phones and mobile data, so you can start with the device you already use in your shop.",
+  },
+  {
+    q: "How does it keep my stock accurate?",
+    a: "Stock deducts automatically on every sale. On Growth and above, the Stock Movement log records restocks, write-offs, and adjustments, and low-stock alerts warn you before a product runs out.",
+  },
+  {
+    q: "Can I run more than one branch?",
+    a: "Yes. Biashara Pro supports up to 5 branches and Pro Multi-Branch supports up to 8, both with owner and staff accounts, so you can see every location in one place.",
+  },
+  {
+    q: "Can I change my plan later?",
+    a: "You can start free and move up whenever you like. If you already have an active paid plan, you can choose a new one once it expires. There is no lock-in and no surprise renewal.",
+  },
+  {
+    q: "Who owns my data, and can I take it with me?",
+    a: "You do. Your sales, products, and reports are yours, and you can export them whenever you like.",
+  },
+  {
+    q: "What do the 6-month and annual plans save?",
+    a: "Paying for six months upfront saves 7% on any paid plan. Paying for a full year saves 17%, which works out to two months free.",
+  },
+];
+
+// Comparison table cell
+const CompareCell = ({ v }) => {
+  if (v === "yes") {
+    return (
+      <>
+        <span className="cmp-yes" aria-hidden="true">✓</span>
+        <span className="sr-only">Yes</span>
+      </>
+    );
+  }
+  if (v === "no") {
+    return (
+      <>
+        <span className="cmp-no" aria-hidden="true">—</span>
+        <span className="sr-only">No</span>
+      </>
+    );
+  }
+  return <span className="cmp-text">{v}</span>;
+};
 
 // Renders a list of SVG path strings as one stroked icon
 const Icon = ({ paths }) => (
@@ -142,6 +240,7 @@ function Landing() {
   const showcaseRef = useRef(null);
   const tabsRef = useRef(null);
   const [activeTour, setActiveTour] = useState(0);
+  const [openFaq, setOpenFaq] = useState(0); // index of the open FAQ, or null
   const accountRef = useRef(null);
 
   // Signed-in user shown in the account menu (null = signed out)
@@ -1201,43 +1300,158 @@ function Landing() {
 
       {/* ── BLACK + BURGUNDY BAND: Why us ── */}
       <div className="dark-band">
-      {/* why us */}
       <section id="values" className="values">
-        <div className="values-layout">
-          <div className="values-lead">
-            <span className="features-tag">Why BiasharaPulse</span>
-            <h2>Built for Kenyan shops, not adapted for them</h2>
-            <p className="values-subtitle">
-              Most business software is designed somewhere else and translated
-              for Kenya. BiasharaPulse was built here, for how shops here
-              actually sell, stock, and get paid.
-            </p>
+        <div className="values-head">
+          <span className="features-tag">Why BiasharaPulse</span>
+          <h2>Shops don't lose money on big mistakes. They lose it in the gaps.</h2>
+          <p className="values-subtitle">
+            Handwritten sales, surprise stock-outs, profit you can't see. These are
+            the bottlenecks that hold Kenyan SMEs back. BiasharaPulse closes each
+            one, in a single tool built here.
+          </p>
+        </div>
 
+        <div className="gap-grid">
+          {BOTTLENECKS.map((b, i) => (
+            <article className="gap-card" key={b.title}>
+              <div className="gap-top">
+                <div className="gap-icon"><Icon paths={b.icon} /></div>
+                <span className="gap-num">{String(i + 1).padStart(2, "0")}</span>
+              </div>
+              <h3>{b.title}</h3>
+              <div className="gap-block gap-problem">
+                <span className="gap-label">The bottleneck</span>
+                <p>{b.problem}</p>
+              </div>
+              <div className="gap-block gap-fix">
+                <span className="gap-label">With BiasharaPulse</span>
+                <p>{b.fix}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="compare">
+          <div className="compare-head">
+            <h3>How we compare</h3>
+            <p>
+              Notebooks are simple but manual. General-purpose POS and ERP tools
+              are powerful but rarely built for how Kenyan shops sell and get paid.
+            </p>
+          </div>
+
+          <div className="compare-scroll">
+            <table className="compare-table">
+              <thead>
+                <tr>
+                  <th scope="col"><span className="sr-only">Feature</span></th>
+                  {COMPARE_COLS.map((col, i) => (
+                    <th scope="col" key={col} className={i === 0 ? "cmp-us" : ""}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE_ROWS.map((row) => (
+                  <tr key={row.label}>
+                    <th scope="row">{row.label}</th>
+                    {row.values.map((v, i) => (
+                      <td key={i} className={i === 0 ? "cmp-us" : ""}><CompareCell v={v} /></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="compare-note">
+            Compared with typical notebooks and spreadsheets, and with general-purpose
+            POS and ERP tools. Features vary by product.
+          </p>
+        </div>
+
+        <div className="values-cta-panel">
+          <div>
+            <h3>Close the gaps in your shop this week</h3>
             <ul className="values-promises">
               {VALUE_PROMISES.map((p) => (
                 <li key={p}>{p}</li>
               ))}
             </ul>
+          </div>
+          <button className="values-cta" onClick={handleStartFree}>
+            {currentUser ? "Go to Dashboard" : "Start Free Now"}
+          </button>
+        </div>
+      </section>
+      </div>
 
-            <button className="values-cta" onClick={handleStartFree}>
-              {currentUser ? "Go to Dashboard" : "Start Free Now"}
-            </button>
+      {/* ── REVIEWS ── */}
+      <section id="reviews" className="reviews">
+        <div className="reviews-intro">
+          <span className="features-tag">Reviews</span>
+          <h2>Shops that stopped guessing</h2>
+          <p>What shop owners notice first when their sales, stock, and profit finally sit in one place.</p>
+        </div>
+
+        <div className="reviews-grid">
+          {REVIEWS.map((r) => (
+            <figure className={`review-card ${r.featured ? "featured" : ""}`} key={r.name}>
+              <div>
+                <span className="review-tag">{r.tag}</span>
+                <blockquote className="review-quote">{r.quote}</blockquote>
+              </div>
+              <figcaption className="review-author">
+                <span className="review-avatar">{r.name.charAt(0)}</span>
+                <span>
+                  <strong>{r.name}</strong>
+                  <span>{r.meta}</span>
+                </span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section id="faq" className="faq">
+        <div className="faq-layout">
+          <div className="faq-aside">
+            <span className="features-tag">FAQ</span>
+            <h2>Questions shop owners ask first</h2>
+            <p>Straight answers about pricing, payments, stock, and your data.</p>
+
+            <div className="faq-help">
+              <strong>Still deciding?</strong>
+              <span>Start on the free plan and try it with your own products.</span>
+              <button type="button" className="faq-cta" onClick={handleStartFree}>
+                {currentUser ? "Go to Dashboard" : "Start Free Now"}
+              </button>
+            </div>
           </div>
 
-          <div className="values-list">
-            {VALUES.map((v) => (
-              <article className="value-item" key={v.title}>
-                <div className="value-icon"><Icon paths={v.icon} /></div>
-                <div className="value-body">
-                  <h3>{v.title}</h3>
-                  <p>{v.text}</p>
+          <div className="faq-list">
+            {FAQS.map((f, i) => (
+              <div className={`faq-item ${openFaq === i ? "open" : ""}`} key={f.q}>
+                <button
+                  type="button"
+                  className="faq-q"
+                  id={`faq-q-${i}`}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-a-${i}`}
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                >
+                  <span>{f.q}</span>
+                  <span className="faq-icon" aria-hidden="true" />
+                </button>
+                <div className="faq-a" id={`faq-a-${i}`} role="region" aria-labelledby={`faq-q-${i}`}>
+                  <div>
+                    <p>{f.a}</p>
+                  </div>
                 </div>
-              </article>
+              </div>
             ))}
           </div>
         </div>
       </section>
-      </div>
 
       <footer className="landing-footer">
         <div className="footer-top">

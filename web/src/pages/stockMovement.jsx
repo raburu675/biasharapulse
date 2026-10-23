@@ -115,6 +115,7 @@ function StockMovement() {
           <header className="sticky-navbar">
             <span className="header-dot" />
             <span className="header-title">Stock Movement</span>
+            <span className="header-live"><i /> Live</span>
           </header>
 
           <main id="stock-movement-main-area" className="stm-main">

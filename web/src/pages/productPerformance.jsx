@@ -167,6 +167,7 @@ function ProductPerformance() {
           <header className="pp-nav">
             <span className="header-dot" />
             <span className="header-title">Product Performance</span>
+            <span className="header-live"><i /> Live</span>
           </header>
 
           <main className="pp-main">

@@ -259,6 +259,7 @@ function Dashboard() {
         <header className="main-header">
           <span className="header-dot" />
           <span className="header-title">Dashboard Overview</span>
+          <span className="header-live"><i /> Live</span>
         </header>
 
         <section className="products-cta">

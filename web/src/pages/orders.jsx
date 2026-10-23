@@ -183,6 +183,7 @@ function Orders() {
           <header className="ord-navbar">
             <span className="header-dot" />
             <span className="header-title">Orders</span>
+            <span className="header-live"><i /> Live</span>
           </header>
 
           <main className="ord-main">
