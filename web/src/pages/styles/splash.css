@@ -21,7 +21,7 @@
   background: #0A0A0B;
   color: #FFFFFF;
   text-align: center;
-  transition: opacity 4.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 1.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .splash-fade-out { opacity: 0; }
@@ -89,8 +89,8 @@
   stroke-dashoffset: 1;
   filter: drop-shadow(0 0 6px rgba(196, 23, 63, 0.55));
   animation:
-    splashDraw 3.6s cubic-bezier(0.45, 0, 0.35, 1) 0.1s forwards,
-    splashGlow 3.6s ease-in-out 2.7s infinite;
+    splashDraw 2.6s cubic-bezier(0.45, 0, 0.35, 1) 0.1s forwards,
+    splashGlow 2.4s ease-in-out 2.7s infinite;
 }
 
 /* Rings that beat outwards from the centre spike */
@@ -104,12 +104,12 @@
   border-radius: 50%;
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.2);
-  animation: splashRing 3.2s cubic-bezier(0.22, 1, 0.36, 1) 1.35s infinite;
+  animation: splashRing 2.4s cubic-bezier(0.22, 1, 0.36, 1) 1.35s infinite;
 }
 
 .splash-ring-2 {
   border-color: rgba(18, 160, 86, 0.4);
-  animation-delay: 2.8s;
+  animation-delay: 1.95s;
 }
 
 /* ── Wordmark ── */
@@ -119,31 +119,31 @@
   display: flex;
   align-items: baseline;
   justify-content: center;
-  
+  gap: 0.08em;
   margin: 0;
   font-family: "Cormorant", serif;
   font-size: clamp(46px, 9vw, 96px);
   line-height: 1;
   opacity: 0;
-  animation: splashRise 2.3s cubic-bezier(0.22, 1, 0.36, 1) 2.2s forwards;
+  animation: splashRise 1.2s cubic-bezier(0.22, 1, 0.36, 1) 1.4s forwards;
 }
 
 .splash-biashara {
   color: #FFFFFF;
   font-weight: 700;
   letter-spacing: -0.02em;
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .splash-pulse {
   font-weight: 800;
-  font-size: 30px;
   letter-spacing: -0.03em;
   background-image: linear-gradient(90deg, #C4173F 0%, #12A056 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+  font-size: 26px;
 }
 
 .splash-tagline {
@@ -157,7 +157,7 @@
   font-weight: 500;
   letter-spacing: 0.14em;
   opacity: 0;
-  animation: splashFade 1.8s ease 3.4s forwards;
+  animation: splashFade 1.5s ease 3s forwards;
 }
 
 /* ── Progress line ── */

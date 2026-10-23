@@ -37,8 +37,9 @@
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Clearance for the fixed nav when anchor-scrolling */
-  --scroll-offset: 60px;
+  /* Clearance for the fixed nav when anchor-scrolling.
+     Nav is ~48px tall; +40px gives the heading breathing room. */
+  --scroll-offset: 88px;
 
   /* Type scale (desktop) */
   --fs-xs: 13px;
@@ -115,8 +116,16 @@ h1, h2, h3, h4, h5, h6 {
 #demo,
 #pricing,
 #how-it-works,
-#values {
+#values,
+#reviews,
+#faq {
   scroll-margin-top: var(--scroll-offset);
+}
+
+/* When arriving via anchor, tighten the section's own top padding so the
+   heading is close to the nav instead of floating far below it */
+section:target {
+  padding-top: clamp(48px, 6vw, 72px);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -853,7 +862,6 @@ h1, h2, h3, h4, h5, h6 {
   height: 22px;
 }
 
-/* Lowest plan that includes the feature */
 .feature-plan {
   padding: 4px 11px;
   background: var(--feature-bg);
@@ -922,7 +930,7 @@ h1, h2, h3, h4, h5, h6 {
 .showcase {
   position: relative;
   padding: var(--section-y) var(--section-x);
-  overflow-x: clip; /* clip, not hidden: keeps the sticky tab bar working */
+  overflow-x: clip;
   background:
     radial-gradient(circle at 8% 20%, rgba(122, 12, 41, 0.06), transparent 28%),
     radial-gradient(circle at 92% 75%, rgba(15, 122, 68, 0.055), transparent 30%),
@@ -1017,14 +1025,12 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom: 0;
 }
 
-/* Each item has its own accent colour */
 .showcase-item:nth-child(1) { --accent: var(--burgundy-rich); --accent-soft: #FBEEF1; --accent-line: rgba(122, 12, 41, 0.16); }
 .showcase-item:nth-child(2) { --accent: var(--emerald-main);  --accent-soft: #EAF7EF; --accent-line: rgba(15, 122, 68, 0.18); }
 .showcase-item:nth-child(3) { --accent: var(--gold-accent);   --accent-soft: #FCF3E4; --accent-line: rgba(193, 122, 23, 0.22); }
 .showcase-item:nth-child(4) { --accent: #6C55A3;              --accent-soft: #EFEBF7; --accent-line: rgba(108, 85, 163, 0.2); }
 .showcase-item:nth-child(5) { --accent: #0B6E8A;              --accent-soft: #E8F6FA; --accent-line: rgba(11, 110, 138, 0.2); }
 
-/* Scroll-in animation */
 .showcase-item.reveal {
   opacity: 0;
   transform: translateY(40px);
@@ -1043,7 +1049,6 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
 }
 
-/* Every second item flips: screenshot left, text right */
 .showcase-item:nth-child(even) .showcase-content {
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.72fr);
 }
@@ -1114,7 +1119,6 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
-/* Frame: tinted panel behind a browser window (desktop) or phones (phone) */
 .showcase-frame {
   position: relative;
   isolation: isolate;
@@ -1134,7 +1138,6 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 30px;
 }
 
-/* Browser window */
 .browser {
   overflow: hidden;
   background: #0E0E10;
@@ -1226,10 +1229,8 @@ h1, h2, h3, h4, h5, h6 {
   height: auto;
 }
 
-/* Phone screenshots only exist on phones; see the 640px block */
 .showcase-mobile-scroll-wrap { display: none; }
 
-/* Result callout under the benefits */
 .showcase-caption {
   display: flex;
   align-items: flex-start;
@@ -1327,8 +1328,8 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 50%;
   box-shadow: 0 0 0 4px rgba(15, 122, 68, 0.09);
 }
-/* ── PRICING ──
-   Lives inside .dark-band, so it has no background of its own. */
+
+/* ── PRICING ── */
 .pricing {
   padding: var(--section-y) var(--section-x);
 }
@@ -1380,13 +1381,11 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
-/* Tier colour on the top edge (main grid only) */
 .pricing-grid > .pricing-card:nth-child(1) .pricing-card-header { border-top: 3px solid rgba(255, 255, 255, 0.28); }
 .pricing-grid > .pricing-card:nth-child(2) .pricing-card-header { border-top: 3px solid var(--emerald-main); }
 .pricing-grid > .pricing-card:nth-child(4) .pricing-card-header { border-top: 3px solid var(--gold-accent); }
 .pricing-grid > .pricing-card:nth-child(5) .pricing-card-header { border-top: 3px solid #C4173F; }
 
-/* Most popular: emerald glow so it stands out on the black */
 .pricing-card.featured {
   background:
     radial-gradient(ellipse 90% 45% at 50% 0%, rgba(18, 160, 86, 0.18), transparent 70%),
@@ -1509,7 +1508,6 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
-/* ── PRICING: DISCOUNTED PLANS ── */
 .pricing-discounts {
   max-width: 1320px;
   margin: 56px auto 0;
@@ -1586,10 +1584,7 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.4;
 }
 
-/* ── HOW IT WORKS ── */
-/* Black + burgundy band used behind Pricing and Why Us.
-   Black base (~85%) with burgundy glows spread down the band (~15%).
-   */
+/* ── DARK BAND ── */
 .dark-band {
   position: relative;
   background:
@@ -1619,6 +1614,7 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 1;
 }
 
+/* ── HOW IT WORKS ── */
 .how-it-works {
   position: relative;
   padding: var(--section-y) var(--section-x);
@@ -1691,7 +1687,6 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.7;
 }
 
-/* Outcome line under each step — the "so what" */
 .how-step-outcome {
   display: inline-block;
   margin-top: auto;
@@ -1707,7 +1702,6 @@ h1, h2, h3, h4, h5, h6 {
 .how-step > div { display: flex; flex-direction: column; flex: 1; }
 .how-step p { margin-bottom: 16px; }
 
-/* Proof strip — four concrete capabilities */
 .how-proof {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1768,10 +1762,7 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-2px);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   VALUES / WHY US
-   Sits inside .dark-band. Bottleneck cards, comparison table, CTA.
-   ═══════════════════════════════════════════════════════════ */
+/* ── VALUES / WHY US ── */
 .values {
   padding: var(--section-y) var(--section-x);
   color: #FFFFFF;
@@ -1805,7 +1796,6 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.7;
 }
 
-/* Bottleneck cards */
 .gap-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1907,7 +1897,6 @@ h1, h2, h3, h4, h5, h6 {
 .gap-problem p { color: rgba(255, 255, 255, 0.55); }
 .gap-fix p { color: rgba(255, 255, 255, 0.88); }
 
-/* Comparison table */
 .compare {
   max-width: 1180px;
   margin: 80px auto 0;
@@ -1975,7 +1964,6 @@ h1, h2, h3, h4, h5, h6 {
 .compare-table tbody tr:last-child th,
 .compare-table tbody tr:last-child td { border-bottom: 0; }
 
-/* BiasharaPulse column stands out */
 .compare-table .cmp-us {
   background: linear-gradient(180deg, rgba(18, 160, 86, 0.14), rgba(18, 160, 86, 0.05));
 }
@@ -2019,7 +2007,6 @@ h1, h2, h3, h4, h5, h6 {
   text-align: center;
 }
 
-/* Closing CTA */
 .values-cta-panel {
   display: flex;
   align-items: center;
@@ -2105,6 +2092,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ═══════════════════════════════════════════════════════════
    REVIEWS
+   All three cards share the dark feature style (black + burgundy glow)
    ═══════════════════════════════════════════════════════════ */
 .reviews {
   padding: var(--section-y) var(--section-x);
@@ -2139,13 +2127,15 @@ h1, h2, h3, h4, h5, h6 {
 
 .reviews-grid {
   display: grid;
-  grid-template-columns: 1.25fr 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
   align-items: stretch;
   max-width: 1180px;
   margin: 0 auto;
 }
 
+/* All cards now use the same dark + burgundy treatment as the former
+   featured card. */
 .review-card {
   position: relative;
   display: flex;
@@ -2154,32 +2144,32 @@ h1, h2, h3, h4, h5, h6 {
   gap: 28px;
   padding: 30px;
   overflow: hidden;
-  background: #FFFFFF;
-  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(196, 23, 63, 0.2), transparent 70%),
+    linear-gradient(160deg, #0D0C0E 0%, #080809 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 18px;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  box-shadow: 0 24px 60px -16px rgba(20, 17, 15, 0.5);
+  color: #FFFFFF;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
 }
 
 .review-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 20px 45px rgba(20, 17, 15, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 28px 70px -16px rgba(20, 17, 15, 0.6);
 }
-
-.review-card:nth-child(1) { --rc: var(--burgundy-rich); --rc-soft: var(--burgundy-light); }
-.review-card:nth-child(2) { --rc: var(--emerald-main);  --rc-soft: var(--emerald-light); }
-.review-card:nth-child(3) { --rc: var(--gold-accent);   --rc-soft: #FCF3E4; }
 
 .review-card::before {
   content: "“";
   position: absolute;
   top: 6px;
   right: 22px;
-  color: var(--rc);
+  color: #FFFFFF;
   font-family: "Cormorant", serif;
   font-size: 96px;
   line-height: 1;
-  opacity: 0.12;
+  opacity: 0.08;
   pointer-events: none;
 }
 
@@ -2187,19 +2177,19 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-block;
   margin-bottom: 18px;
   padding: 5px 12px;
-  background: var(--rc-soft);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  color: var(--rc);
+  color: #7DDBA4;
   font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .review-quote {
-  color: #292522;
-  font-size: var(--fs-md);
+  color: #FFFFFF;
+  font-size: var(--fs-lg);
   font-weight: 600;
-  line-height: 1.7;
+  line-height: 1.55;
 }
 
 .review-author {
@@ -2207,7 +2197,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 12px;
   padding-top: 20px;
-  border-top: 1px dashed var(--border-subtle);
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
 }
 
 .review-avatar {
@@ -2216,41 +2206,24 @@ h1, h2, h3, h4, h5, h6 {
   place-items: center;
   width: 40px;
   height: 40px;
-  background: var(--rc-soft);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  color: var(--rc);
+  color: #FFFFFF;
   font-size: var(--fs-sm);
   font-weight: 800;
 }
 
 .review-author strong {
   display: block;
-  color: var(--text-main);
+  color: #FFFFFF;
   font-size: var(--fs-sm);
   font-weight: 700;
 }
 
 .review-author span > span {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.5);
   font-size: var(--fs-xs);
 }
-
-/* First review is the dark feature card */
-.review-card.featured {
-  background:
-    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(196, 23, 63, 0.2), transparent 70%),
-    linear-gradient(160deg, #0D0C0E 0%, #080809 100%);
-  border-color: rgba(255, 255, 255, 0.09);
-  box-shadow: 0 24px 60px -16px rgba(20, 17, 15, 0.5);
-}
-
-.review-card.featured::before { color: #FFFFFF; opacity: 0.08; }
-.review-card.featured .review-tag { background: rgba(255, 255, 255, 0.08); color: #7DDBA4; }
-.review-card.featured .review-quote { color: #FFFFFF; font-size: var(--fs-lg); line-height: 1.55; }
-.review-card.featured .review-author { border-top-color: rgba(255, 255, 255, 0.12); }
-.review-card.featured .review-avatar { background: rgba(255, 255, 255, 0.1); color: #FFFFFF; }
-.review-card.featured .review-author strong { color: #FFFFFF; }
-.review-card.featured .review-author span > span { color: rgba(255, 255, 255, 0.5); }
 
 /* ═══════════════════════════════════════════════════════════
    FAQ
@@ -2423,7 +2396,6 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--ink-black);
 }
 
-/* Fading burgundy-to-emerald line marks the start of the footer */
 .landing-footer::before {
   content: "";
   position: absolute;
@@ -2542,8 +2514,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: var(--fs-xs);
 }
 
-/* ── TABLET (641px to 1100px): layout changes only ── */
-/* 3 on top, 2 centred underneath */
+/* ── TABLET ── */
 @media (max-width: 1279px) {
   .pricing-grid { grid-template-columns: repeat(6, 1fr); max-width: 1000px; }
   .pricing-grid > .pricing-card { grid-column: span 2; }
@@ -2577,12 +2548,10 @@ h1, h2, h3, h4, h5, h6 {
 
   .how-steps { grid-template-columns: repeat(2, 1fr); }
   .footer-top { grid-template-columns: 1fr 1fr; }
-}
 
-@media (max-width: 1050px) {
   .gap-grid { grid-template-columns: repeat(2, 1fr); }
   .reviews-grid { grid-template-columns: 1fr 1fr; }
-  .review-card.featured { grid-column: 1 / -1; }
+  .review-card:last-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 960px) {
@@ -2590,9 +2559,7 @@ h1, h2, h3, h4, h5, h6 {
   .faq-layout { grid-template-columns: 1fr; gap: 32px; }
 }
 
-/* ── PHONE (max-width 640px) ──
-   All phone sizes live here. Change a --fs value and every heading,
-   paragraph or button of that kind changes together. */
+/* ── PHONE ── */
 @media (max-width: 640px) {
   :root {
     --fs-xs: 10px;
@@ -2612,9 +2579,9 @@ h1, h2, h3, h4, h5, h6 {
 
     --section-y: 64px;
     --section-x: 16px;
+    --scroll-offset: 72px;
   }
 
-  /* Navbar: shorter, smaller text and icons */
   .nav-container { height: 40px; gap: 8px; padding: 0 12px; }
   .mobile-nav-toggle,
   .btn-account-trigger { width: 28px; height: 28px; border-radius: 7px; }
@@ -2622,7 +2589,6 @@ h1, h2, h3, h4, h5, h6 {
   .btn-account-trigger svg { width: 13px; height: 13px; }
   .account-menu { width: 250px; padding: 14px; }
 
-  /* Hero */
   .landing-top { min-height: 50vh; padding-top: 46px; }
   .hero { padding: 24px 20px 56px; max-width: 720px; }
   .hero-pill { margin-bottom: 20px; padding: 6px 14px; }
@@ -2632,7 +2598,6 @@ h1, h2, h3, h4, h5, h6 {
   .cta-primary,
   .cta-secondary { padding: 8px 18px; }
 
-  /* Features: one column, compact */
   .features-intro { padding-top: 40px; }
   .features { grid-template-columns: 1fr; gap: 10px; margin-top: 20px; padding: 0 14px 56px; }
   .feature { padding: 18px; border-radius: var(--radius-md); }
@@ -2644,7 +2609,6 @@ h1, h2, h3, h4, h5, h6 {
   .feature-points li { padding-left: 14px; }
   .feature-points li::before { width: 5px; height: 5px; }
 
-  /* Product tour: phone screenshots in device frames */
   .showcase-intro { margin-bottom: 20px; }
   .tour-tabs-wrap { top: 52px; margin-bottom: 32px; }
   .tour-tab { padding: 6px 12px; gap: 6px; }
@@ -2691,7 +2655,6 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: 20px;
   }
 
-  /* Soft fade on the right edge hints that there is more to scroll */
   .showcase-mobile-scroll-wrap.has-more::after {
     content: "";
     position: absolute;
@@ -2726,13 +2689,11 @@ h1, h2, h3, h4, h5, h6 {
 
   .showcase-caption { margin-top: 20px; padding: 12px 14px; }
 
-  /* Video */
   .product-video-intro { margin-bottom: 36px; }
   .product-video-player { padding: 7px; border-radius: 18px; }
   .product-video-player video { border-radius: 12px; }
   .product-video-meta { padding-top: 12px; }
 
-  /* Pricing: one column */
   .pricing-header { margin-bottom: 36px; }
   .pricing-grid { grid-template-columns: 1fr; gap: 14px; max-width: 440px; }
   .pricing-grid > .pricing-card:last-child { grid-column: auto; width: auto; justify-self: stretch; }
@@ -2742,13 +2703,11 @@ h1, h2, h3, h4, h5, h6 {
   .pricing-features { gap: 8px; margin-bottom: 18px; }
   .pricing-btn { padding: 11px; }
 
-  /* Discounted plans: single column, compact */
   .pricing-discounts { margin-top: 36px; padding-top: 28px; }
   .pricing-discounts-header { margin-bottom: 22px; }
   .pricing-discounts-grid { grid-template-columns: 1fr; max-width: 440px; gap: 14px; }
   .discount-badge { top: 10px; right: 10px; padding: 3px 10px; font-size: 9px; }
 
-  /* How it works: a vertical list with the number on the left */
   .how-intro { margin-bottom: 40px; }
   .how-steps { grid-template-columns: 1fr; gap: 10px; }
   .how-step {
@@ -2765,7 +2724,6 @@ h1, h2, h3, h4, h5, h6 {
   .how-proof-item { padding: 16px 18px; }
   .how-cta { margin-top: 40px; padding: 11px 20px; }
 
-  /* Why Us */
   .values-head { margin-bottom: 36px; }
   .gap-grid { grid-template-columns: 1fr; gap: 12px; }
   .gap-card { padding: 20px; }
@@ -2781,26 +2739,24 @@ h1, h2, h3, h4, h5, h6 {
   .values-cta-panel { margin-top: 36px; padding: 24px 20px; border-radius: 18px; }
   .values-cta { padding: 11px 20px; }
 
-  /* Reviews */
   .reviews-intro { margin-bottom: 36px; }
   .reviews-grid { grid-template-columns: 1fr; gap: 12px; }
   .review-card { gap: 20px; padding: 22px 20px; }
+  .review-card:last-child { grid-column: auto; }
   .review-card::before { font-size: 72px; }
+  .review-quote { font-size: var(--fs-md); line-height: 1.6; }
   .review-avatar { width: 34px; height: 34px; }
 
-  /* FAQ */
   .faq-layout { gap: 24px; }
   .faq-help { margin-top: 20px; padding: 18px; }
   .faq-q { gap: 12px; padding: 16px; }
   .faq-a p { padding: 0 16px 16px; }
 
-  /* Footer */
   .landing-footer { padding-top: 48px; }
   .footer-top { grid-template-columns: 1fr; gap: 28px; padding-bottom: 32px; }
   .footer-bottom { flex-direction: column; align-items: flex-start; }
 }
 
-/* Reduced motion: no scroll-in or sidebar animation */
 @media (prefers-reduced-motion: reduce) {
   .showcase-item.reveal { opacity: 1; transform: none; transition: none; }
   .mobile-sidebar,
@@ -2813,10 +2769,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ═══════════════════════════════════════════════════════════
    AUTH PROMPT MODAL
-   Shown when a signed-out user taps a pricing button or
-   "Start Free Now". Matches the sidebar's upgrade popup.
    ═══════════════════════════════════════════════════════════ */
-
 .landing-auth-overlay {
   position: fixed;
   inset: 0;
@@ -2939,7 +2892,6 @@ h1, h2, h3, h4, h5, h6 {
   color: #0F172A;
 }
 
-/* Phone tweaks — matches the small-phone token scale */
 @media (max-width: 640px) {
   .landing-auth-modal {
     max-width: 320px;
@@ -2972,7 +2924,6 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .landing-auth-overlay,
   .landing-auth-modal {

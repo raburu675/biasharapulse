@@ -240,31 +240,36 @@ function Landing() {
   const showcaseRef = useRef(null);
   const tabsRef = useRef(null);
   const [activeTour, setActiveTour] = useState(0);
-  const [openFaq, setOpenFaq] = useState(0); // index of the open FAQ, or null
+  const [openFaq, setOpenFaq] = useState(0);
   const accountRef = useRef(null);
 
   // Signed-in user shown in the account menu (null = signed out)
   const [currentUser, setCurrentUser] = useState(readUser);
 
   // Where the user was heading when we intercepted them
-  const [pendingPlan, setPendingPlan] = useState(null); // 'starter' | 'lite' | ... | null
+  const [pendingPlan, setPendingPlan] = useState(null);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
   // Notice shown to signed-in users (active paid plan, or a failed switch)
-  const [planNotice, setPlanNotice] = useState(null); // { title, body } | null
+  const [planNotice, setPlanNotice] = useState(null);
 
-  // const API_BASE = "http://127.0.0.1:8000";
   const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  (import.meta.env.DEV
-    ? 'http://127.0.0.1:8000'
-    : 'https://biasharapulse.onrender.com')
-
-  // const API_BASE = 'https://biasharapulse-production.up.railway.app' // Railway — restore once billing is sorted
+    import.meta.env.VITE_API_BASE ||
+    (import.meta.env.DEV
+      ? "http://127.0.0.1:8000"
+      : "https://biasharapulse.onrender.com");
 
   const isSignedIn = () => !!localStorage.getItem("token");
 
   const closeMobileNav = () => setMobileNavOpen(false);
+
+  // Measure the live nav height so anchors always clear it exactly.
+  // Falls back to 48 when the nav hasn't rendered yet.
+  const getScrollTop = (el) => {
+    const nav = document.querySelector(".landing-nav");
+    const navH = nav?.offsetHeight || 48;
+    return el.getBoundingClientRect().top + window.pageYOffset - navH - 6;
+  };
 
   // Log out: tell the backend (best effort), clear storage, update the menu
   const handleLogout = async () => {
@@ -316,7 +321,6 @@ function Landing() {
     }
 
     try {
-      // Check the current plan first — an active paid plan can't be switched
       const { data: current } = await api.get(`/api/business/${businessId}/plan/`);
       if (current.plan !== "starter" && current.plan !== "expired") {
         showActivePlanNotice(current.plan, current.paid_until);
@@ -338,12 +342,11 @@ function Landing() {
     }
   };
 
-  // "Start Free Now" hero button — no tier, just route (or prompt) to the dashboard
   const handleStartFree = () => {
     if (isSignedIn()) {
       navigate("/dashboard");
     } else {
-      setPendingPlan(null); // no tier to apply
+      setPendingPlan(null);
       setAuthPromptOpen(true);
     }
   };
@@ -458,11 +461,8 @@ function Landing() {
 
     const go = () => {
       const el = document.getElementById(id);
-      if (el) {
-        const navHeight = 60;
-        const top = el.getBoundingClientRect().top + window.pageYOffset - navHeight;
-        window.scrollTo({ top, behavior: "smooth" });
-      }
+      if (!el) return;
+      window.scrollTo({ top: getScrollTop(el), behavior: "smooth" });
     };
     go();
     const retry = setTimeout(go, 300);
@@ -484,9 +484,7 @@ function Landing() {
       }
       const el = document.getElementById(id);
       if (el) {
-        const navHeight = 60;
-        const top = el.getBoundingClientRect().top + window.pageYOffset - navHeight;
-        window.scrollTo({ top, behavior: "smooth" });
+        window.scrollTo({ top: getScrollTop(el), behavior: "smooth" });
       }
     };
 
@@ -621,7 +619,6 @@ function Landing() {
       <div className={`splash ${fadeOut ? "splash-fade-out" : ""}`}>
         <div className="splash-grid" />
 
-        {/* Heartbeat line draws across the screen; the big spike lands on the wordmark */}
         <div className="splash-ecg-wrap" aria-hidden="true">
           <span className="splash-ring" />
           <span className="splash-ring splash-ring-2" />
@@ -694,7 +691,7 @@ function Landing() {
               aria-label="Account menu"
               aria-expanded={accountOpen}
               onClick={() => {
-                setCurrentUser(readUser()); // re-check in case the session changed
+                setCurrentUser(readUser());
                 setAccountOpen(!accountOpen);
               }}
             >
@@ -740,7 +737,6 @@ function Landing() {
         </div>
       </nav>
 
-      {/* Mobile sidebar — outside <nav> so the nav's blur can't trap its fixed position */}
       <div
         className={`mobile-overlay ${mobileNavOpen ? "open" : ""}`}
         onClick={closeMobileNav}
@@ -771,7 +767,17 @@ function Landing() {
               href={`#${link.id}`}
               className={`sidebar-link ${activeSection === link.id ? "active" : ""}`}
               style={{ "--i": i }}
-              onClick={closeMobileNav}
+              onClick={(e) => {
+                e.preventDefault();
+                closeMobileNav();
+                // Wait for the body overflow to reset before measuring
+                setTimeout(() => {
+                  const el = document.getElementById(link.id);
+                  if (el) {
+                    window.scrollTo({ top: getScrollTop(el), behavior: "smooth" });
+                  }
+                }, 60);
+              }}
             >
               <span className="sidebar-link-num">{String(i + 1).padStart(2, "0")}</span>
               <span className="sidebar-link-text">
@@ -917,7 +923,6 @@ function Landing() {
                 </div>
 
                 <div className="showcase-frame">
-                  {/* Desktop: browser window */}
                   <div className="browser">
                     <div className="browser-bar">
                       <span className="browser-dots"><i /><i /><i /></span>
@@ -939,7 +944,6 @@ function Landing() {
                     </div>
                   </div>
 
-                  {/* Phone: device frames, swipeable */}
                   <div className={`showcase-mobile-scroll-wrap ${tab.mobileSrc.length > 1 ? "has-more" : ""}`}>
                     <div
                       className="showcase-mobile-shots"
@@ -1013,199 +1017,184 @@ function Landing() {
         </div>
       </section>
 
-      {/* ── BLACK + BURGUNDY BAND: Pricing ── */}
+      {/* ── DARK BAND: Pricing ── */}
       <div className="dark-band">
-      {/* pricing */}
-      <section id="pricing" className="pricing">
-        <div className="pricing-header">
-          <span className="pricing-tag">Transparent SME Pricing</span>
-          <h2>Plans built to fit every stage of your biashara</h2>
-          <p>Test free for the first month. Upgrade seamlessly as your shop scales.</p>
-        </div>
-
-        <div className="pricing-grid">
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Starter</h3>
-              <p>For new vendors testing the app without commitment.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">0</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ First 1 month free </li>
-                <li>✓ 1 Branch</li>
-                <li>✓ 1 User</li>
-                <li>✓ Order Tracking</li>
-                <li>✓ Full POS Page</li>
-                <li>✓ Sales & Expense Logging</li>
-                <li>✓ 30-Day History</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => selectPlan("starter")}>
-                Select starter
-              </button>
-            </div>
+        <section id="pricing" className="pricing">
+          <div className="pricing-header">
+            <span className="pricing-tag">Transparent SME Pricing</span>
+            <h2>Plans built to fit every stage of your biashara</h2>
+            <p>Test free for the first month. Upgrade seamlessly as your shop scales.</p>
           </div>
 
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Biashara Lite</h3>
-              <p>For small online sellers with light, steady order volume.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">1299</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ <strong>Unlimited Orders</strong></li>
-                <li>✓ 1 Branch</li>
-                <li>✓ 1 User</li>
-                <li>✓ Order Tracking</li>
-                <li>✓ Full POS Page</li>
-                <li>✓ Sales & Expense Logging</li>
-                <li>✓ Unlimited History</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => selectPlan("lite")}>
-                Select Lite
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-card featured">
-            <div className="popular-badge">Most Popular</div>
-            <div className="pricing-card-header">
-              <h3>Biashara Growth</h3>
-              <p>For active retail shops that need faster imports and stock entry log.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">2,499</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ <strong>Everything in lite</strong></li>
-                <li>✓ Stock Movement Log</li>
-                <li>✓ Full Product performance page</li>
-                <li>✓ QR Code Product Scanning</li>
-                <li>✓ Get detailed Monthly business reports</li>
-              </ul>
-              <button className="pricing-btn primary" onClick={() => selectPlan("growth")}>
-                Start free 14 day trial
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Biashara Pro</h3>
-              <p>For shops that need full product performance insight and a team.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">5,999</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ Everything in Growth</li>
-                <li>✓ Upto 5 shop branches</li>
-                <li>✓ Owner & Staff Accounts</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => selectPlan("pro")}>
-                Start Pro
-              </button>
-            </div>
-          </div>
-
-          <div className="pricing-card">
-            <div className="pricing-card-header">
-              <h3>Pro Multi-Branch</h3>
-              <p>For businesses running multiple locations with a team.</p>
-              <div className="pricing-amount">
-                <span className="currency">KES</span>
-                <span className="price">8,999</span>
-                <span className="period">/ month</span>
-              </div>
-            </div>
-            <div className="pricing-card-body">
-              <ul className="pricing-features">
-                <li>✓ Everything in Pro</li>
-                <li>✓ Up to 8 Shop Branches</li>
-              </ul>
-              <button className="pricing-btn secondary" onClick={() => selectPlan("multi_branch")}>
-                Upgrade
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Discounted plans — below the main grid */}
-        <div className="pricing-discounts">
-          <div className="pricing-discounts-header">
-            <span className="pricing-tag">Save more</span>
-            <h3>Prepay and keep more of your money</h3>
-          </div>
-
-          <div className="pricing-discounts-grid">
-            <div className="pricing-card discount-card">
-              <div className="discount-badge">Save 7%</div>
+          <div className="pricing-grid">
+            <div className="pricing-card">
               <div className="pricing-card-header">
-                <h3>6-Month Plan</h3>
-                <p>Pay for six months upfront and get 7% off any paid plan.</p>
-                {/* <div className="pricing-amount">
+                <h3>Starter</h3>
+                <p>For new vendors testing the app without commitment.</p>
+                <div className="pricing-amount">
                   <span className="currency">KES</span>
-                  <span className="price">~7,249</span>
-                  <span className="period">/ 6 months</span>
-                </div> */}
-                {/* <span className="discount-note">Example based on Biashara Lite (KES 1,299/mo)</span> */}
+                  <span className="price">0</span>
+                </div>
               </div>
               <div className="pricing-card-body">
                 <ul className="pricing-features">
-                  <li>✓ 7% discount on any paid tier</li>
-                  <li>✓ One payment for six months</li>
-                  <li>✓ All plan features included</li>
-                  <li>✓ Priority support</li>
+                  <li>✓ First 1 month free </li>
+                  <li>✓ 1 Branch</li>
+                  <li>✓ 1 User</li>
+                  <li>✓ Order Tracking</li>
+                  <li>✓ Full POS Page</li>
+                  <li>✓ Sales & Expense Logging</li>
+                  <li>✓ 30-Day History</li>
                 </ul>
-                <button className="pricing-btn primary" onClick={() => selectPlan("six_months")}>
-                  Get 6 months
+                <button className="pricing-btn secondary" onClick={() => selectPlan("starter")}>
+                  Select starter
                 </button>
               </div>
             </div>
 
-            <div className="pricing-card discount-card featured-discount">
-              <div className="discount-badge">Best value</div>
+            <div className="pricing-card">
               <div className="pricing-card-header">
-                <h3>Annual Plan</h3>
-                <p>Pay for a full year and get 17% off — that's 2 months free.</p>
-                {/* <div className="pricing-amount">
+                <h3>Biashara Lite</h3>
+                <p>For small online sellers with light, steady order volume.</p>
+                <div className="pricing-amount">
                   <span className="currency">KES</span>
-                  <span className="price">~12,940</span>
-                  <span className="period">/ year</span>
-                </div> */}
-                {/* <span className="discount-note">Example based on Biashara Lite (KES 1,299/mo)</span> */}
+                  <span className="price">1299</span>
+                  <span className="period">/ month</span>
+                </div>
               </div>
               <div className="pricing-card-body">
                 <ul className="pricing-features">
-                  <li>✓ 17% discount on any paid tier</li>
-                  <li>✓ 2 months free</li>
-                  <li>✓ All plan features included</li>
-                  <li>✓ Priority support</li>
-                  <li>✓ Lock in today's price for a year</li>
+                  <li>✓ <strong>Unlimited Orders</strong></li>
+                  <li>✓ 1 Branch</li>
+                  <li>✓ 1 User</li>
+                  <li>✓ Order Tracking</li>
+                  <li>✓ Full POS Page</li>
+                  <li>✓ Sales & Expense Logging</li>
+                  <li>✓ Unlimited History</li>
                 </ul>
-                <button className="pricing-btn primary" onClick={() => selectPlan("annual")}>
-                  Get annual
+                <button className="pricing-btn secondary" onClick={() => selectPlan("lite")}>
+                  Select Lite
+                </button>
+              </div>
+            </div>
+
+            <div className="pricing-card featured">
+              <div className="popular-badge">Most Popular</div>
+              <div className="pricing-card-header">
+                <h3>Biashara Growth</h3>
+                <p>For active retail shops that need faster imports and stock entry log.</p>
+                <div className="pricing-amount">
+                  <span className="currency">KES</span>
+                  <span className="price">2,499</span>
+                  <span className="period">/ month</span>
+                </div>
+              </div>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li>✓ <strong>Everything in lite</strong></li>
+                  <li>✓ Stock Movement Log</li>
+                  <li>✓ Full Product performance page</li>
+                  <li>✓ QR Code Product Scanning</li>
+                  <li>✓ Get detailed Monthly business reports</li>
+                </ul>
+                <button className="pricing-btn primary" onClick={() => selectPlan("growth")}>
+                  Start free 14 day trial
+                </button>
+              </div>
+            </div>
+
+            <div className="pricing-card">
+              <div className="pricing-card-header">
+                <h3>Biashara Pro</h3>
+                <p>For shops that need full product performance insight and a team.</p>
+                <div className="pricing-amount">
+                  <span className="currency">KES</span>
+                  <span className="price">5,999</span>
+                  <span className="period">/ month</span>
+                </div>
+              </div>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li>✓ Everything in Growth</li>
+                  <li>✓ Upto 5 shop branches</li>
+                  <li>✓ Owner & Staff Accounts</li>
+                </ul>
+                <button className="pricing-btn secondary" onClick={() => selectPlan("pro")}>
+                  Start Pro
+                </button>
+              </div>
+            </div>
+
+            <div className="pricing-card">
+              <div className="pricing-card-header">
+                <h3>Pro Multi-Branch</h3>
+                <p>For businesses running multiple locations with a team.</p>
+                <div className="pricing-amount">
+                  <span className="currency">KES</span>
+                  <span className="price">8,999</span>
+                  <span className="period">/ month</span>
+                </div>
+              </div>
+              <div className="pricing-card-body">
+                <ul className="pricing-features">
+                  <li>✓ Everything in Pro</li>
+                  <li>✓ Up to 8 Shop Branches</li>
+                </ul>
+                <button className="pricing-btn secondary" onClick={() => selectPlan("multi_branch")}>
+                  Upgrade
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
+          <div className="pricing-discounts">
+            <div className="pricing-discounts-header">
+              <span className="pricing-tag">Save more</span>
+              <h3>Prepay and keep more of your money</h3>
+            </div>
+
+            <div className="pricing-discounts-grid">
+              <div className="pricing-card discount-card">
+                <div className="discount-badge">Save 7%</div>
+                <div className="pricing-card-header">
+                  <h3>6-Month Plan</h3>
+                  <p>Pay for six months upfront and get 7% off any paid plan.</p>
+                </div>
+                <div className="pricing-card-body">
+                  <ul className="pricing-features">
+                    <li>✓ 7% discount on any paid tier</li>
+                    <li>✓ One payment for six months</li>
+                    <li>✓ All plan features included</li>
+                    <li>✓ Priority support</li>
+                  </ul>
+                  <button className="pricing-btn primary" onClick={() => selectPlan("six_months")}>
+                    Get 6 months
+                  </button>
+                </div>
+              </div>
+
+              <div className="pricing-card discount-card featured-discount">
+                <div className="discount-badge">Best value</div>
+                <div className="pricing-card-header">
+                  <h3>Annual Plan</h3>
+                  <p>Pay for a full year and get 17% off — that's 2 months free.</p>
+                </div>
+                <div className="pricing-card-body">
+                  <ul className="pricing-features">
+                    <li>✓ 17% discount on any paid tier</li>
+                    <li>✓ 2 months free</li>
+                    <li>✓ All plan features included</li>
+                    <li>✓ Priority support</li>
+                    <li>✓ Lock in today's price for a year</li>
+                  </ul>
+                  <button className="pricing-btn primary" onClick={() => selectPlan("annual")}>
+                    Get annual
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* ── HOW IT WORKS ── */}
@@ -1298,90 +1287,90 @@ function Landing() {
         </button>
       </section>
 
-      {/* ── BLACK + BURGUNDY BAND: Why us ── */}
+      {/* ── DARK BAND: Why us ── */}
       <div className="dark-band">
-      <section id="values" className="values">
-        <div className="values-head">
-          <span className="features-tag">Why BiasharaPulse</span>
-          <h2>Shops don't lose money on big mistakes. They lose it in the gaps.</h2>
-          <p className="values-subtitle">
-            Handwritten sales, surprise stock-outs, profit you can't see. These are
-            the bottlenecks that hold Kenyan SMEs back. BiasharaPulse closes each
-            one, in a single tool built here.
-          </p>
-        </div>
-
-        <div className="gap-grid">
-          {BOTTLENECKS.map((b, i) => (
-            <article className="gap-card" key={b.title}>
-              <div className="gap-top">
-                <div className="gap-icon"><Icon paths={b.icon} /></div>
-                <span className="gap-num">{String(i + 1).padStart(2, "0")}</span>
-              </div>
-              <h3>{b.title}</h3>
-              <div className="gap-block gap-problem">
-                <span className="gap-label">The bottleneck</span>
-                <p>{b.problem}</p>
-              </div>
-              <div className="gap-block gap-fix">
-                <span className="gap-label">With BiasharaPulse</span>
-                <p>{b.fix}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <div className="compare">
-          <div className="compare-head">
-            <h3>How we compare</h3>
-            <p>
-              Notebooks are simple but manual. General-purpose POS and ERP tools
-              are powerful but rarely built for how Kenyan shops sell and get paid.
+        <section id="values" className="values">
+          <div className="values-head">
+            <span className="features-tag">Why BiasharaPulse</span>
+            <h2>Shops don't lose money on big mistakes. They lose it in the gaps.</h2>
+            <p className="values-subtitle">
+              Handwritten sales, surprise stock-outs, profit you can't see. These are
+              the bottlenecks that hold Kenyan SMEs back. BiasharaPulse closes each
+              one, in a single tool built here.
             </p>
           </div>
 
-          <div className="compare-scroll">
-            <table className="compare-table">
-              <thead>
-                <tr>
-                  <th scope="col"><span className="sr-only">Feature</span></th>
-                  {COMPARE_COLS.map((col, i) => (
-                    <th scope="col" key={col} className={i === 0 ? "cmp-us" : ""}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARE_ROWS.map((row) => (
-                  <tr key={row.label}>
-                    <th scope="row">{row.label}</th>
-                    {row.values.map((v, i) => (
-                      <td key={i} className={i === 0 ? "cmp-us" : ""}><CompareCell v={v} /></td>
+          <div className="gap-grid">
+            {BOTTLENECKS.map((b, i) => (
+              <article className="gap-card" key={b.title}>
+                <div className="gap-top">
+                  <div className="gap-icon"><Icon paths={b.icon} /></div>
+                  <span className="gap-num">{String(i + 1).padStart(2, "0")}</span>
+                </div>
+                <h3>{b.title}</h3>
+                <div className="gap-block gap-problem">
+                  <span className="gap-label">The bottleneck</span>
+                  <p>{b.problem}</p>
+                </div>
+                <div className="gap-block gap-fix">
+                  <span className="gap-label">With BiasharaPulse</span>
+                  <p>{b.fix}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="compare">
+            <div className="compare-head">
+              <h3>How we compare</h3>
+              <p>
+                Notebooks are simple but manual. General-purpose POS and ERP tools
+                are powerful but rarely built for how Kenyan shops sell and get paid.
+              </p>
+            </div>
+
+            <div className="compare-scroll">
+              <table className="compare-table">
+                <thead>
+                  <tr>
+                    <th scope="col"><span className="sr-only">Feature</span></th>
+                    {COMPARE_COLS.map((col, i) => (
+                      <th scope="col" key={col} className={i === 0 ? "cmp-us" : ""}>{col}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {COMPARE_ROWS.map((row) => (
+                    <tr key={row.label}>
+                      <th scope="row">{row.label}</th>
+                      {row.values.map((v, i) => (
+                        <td key={i} className={i === 0 ? "cmp-us" : ""}><CompareCell v={v} /></td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="compare-note">
+              Compared with typical notebooks and spreadsheets, and with general-purpose
+              POS and ERP tools. Features vary by product.
+            </p>
           </div>
-          <p className="compare-note">
-            Compared with typical notebooks and spreadsheets, and with general-purpose
-            POS and ERP tools. Features vary by product.
-          </p>
-        </div>
 
-        <div className="values-cta-panel">
-          <div>
-            <h3>Close the gaps in your shop this week</h3>
-            <ul className="values-promises">
-              {VALUE_PROMISES.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
+          <div className="values-cta-panel">
+            <div>
+              <h3>Close the gaps in your shop this week</h3>
+              <ul className="values-promises">
+                {VALUE_PROMISES.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </div>
+            <button className="values-cta" onClick={handleStartFree}>
+              {currentUser ? "Go to Dashboard" : "Start Free Now"}
+            </button>
           </div>
-          <button className="values-cta" onClick={handleStartFree}>
-            {currentUser ? "Go to Dashboard" : "Start Free Now"}
-          </button>
-        </div>
-      </section>
+        </section>
       </div>
 
       {/* ── REVIEWS ── */}
@@ -1394,7 +1383,7 @@ function Landing() {
 
         <div className="reviews-grid">
           {REVIEWS.map((r) => (
-            <figure className={`review-card ${r.featured ? "featured" : ""}`} key={r.name}>
+            <figure className="review-card" key={r.name}>
               <div>
                 <span className="review-tag">{r.tag}</span>
                 <blockquote className="review-quote">{r.quote}</blockquote>
@@ -1508,16 +1497,10 @@ function Landing() {
         </div>
       </footer>
 
-      {/* Auth prompt — shown when a signed-out user taps a pricing / Start Free button */}
+      {/* Auth prompt */}
       {authPromptOpen && !currentUser && (
-        <div
-          className="landing-auth-overlay"
-          onClick={() => setAuthPromptOpen(false)}
-        >
-          <div
-            className="landing-auth-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="landing-auth-overlay" onClick={() => setAuthPromptOpen(false)}>
+          <div className="landing-auth-modal" onClick={(e) => e.stopPropagation()}>
             <div className="landing-auth-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -1537,18 +1520,10 @@ function Landing() {
             </p>
 
             <div className="landing-auth-actions">
-              <Link
-                to="/signup"
-                className="landing-auth-btn solid"
-                onClick={() => setAuthPromptOpen(false)}
-              >
+              <Link to="/signup" className="landing-auth-btn solid" onClick={() => setAuthPromptOpen(false)}>
                 Create New account
               </Link>
-              <Link
-                to="/login"
-                className="landing-auth-btn ghost"
-                onClick={() => setAuthPromptOpen(false)}
-              >
+              <Link to="/login" className="landing-auth-btn ghost" onClick={() => setAuthPromptOpen(false)}>
                 Sign in
               </Link>
             </div>
@@ -1564,16 +1539,10 @@ function Landing() {
         </div>
       )}
 
-      {/* Plan notice — shown to signed-in users (active paid plan, or a failed switch) */}
+      {/* Plan notice */}
       {planNotice && (
-        <div
-          className="landing-auth-overlay"
-          onClick={() => setPlanNotice(null)}
-        >
-          <div
-            className="landing-auth-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="landing-auth-overlay" onClick={() => setPlanNotice(null)}>
+          <div className="landing-auth-modal" onClick={(e) => e.stopPropagation()}>
             <div className="landing-auth-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="12" cy="12" r="10" />
@@ -1586,11 +1555,7 @@ function Landing() {
             <p>{planNotice.body}</p>
 
             <div className="landing-auth-actions">
-              <Link
-                to="/dashboard"
-                className="landing-auth-btn solid"
-                onClick={() => setPlanNotice(null)}
-              >
+              <Link to="/dashboard" className="landing-auth-btn solid" onClick={() => setPlanNotice(null)}>
                 Go to dashboard
               </Link>
             </div>
